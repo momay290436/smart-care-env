@@ -1,0 +1,2 @@
+ALTER TABLE public.waste_logs DROP CONSTRAINT waste_logs_waste_type_check;
+ALTER TABLE public.waste_logs ADD CONSTRAINT waste_logs_waste_type_check CHECK (waste_type = ANY (ARRAY['general'::text, 'infectious'::text, 'hazardous'::text, 'recycle'::text]));
