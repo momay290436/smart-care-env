@@ -609,27 +609,42 @@ export type Database = {
       fire_extinguisher_locations: {
         Row: {
           building: string | null
+          color: string | null
           created_at: string
           detail: string | null
+          extinguisher_type: string | null
           floor: string | null
+          fuel_type: string | null
           id: string
           name: string
+          qr_code_data: string | null
+          size: string | null
         }
         Insert: {
           building?: string | null
+          color?: string | null
           created_at?: string
           detail?: string | null
+          extinguisher_type?: string | null
           floor?: string | null
+          fuel_type?: string | null
           id?: string
           name: string
+          qr_code_data?: string | null
+          size?: string | null
         }
         Update: {
           building?: string | null
+          color?: string | null
           created_at?: string
           detail?: string | null
+          extinguisher_type?: string | null
           floor?: string | null
+          fuel_type?: string | null
           id?: string
           name?: string
+          qr_code_data?: string | null
+          size?: string | null
         }
         Relationships: []
       }
