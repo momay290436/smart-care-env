@@ -79,6 +79,182 @@ export type Database = {
           },
         ]
       }
+      chemical_transactions: {
+        Row: {
+          chemical_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          performed_by: string
+          quantity: number
+          transaction_type: string
+        }
+        Insert: {
+          chemical_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          performed_by: string
+          quantity: number
+          transaction_type: string
+        }
+        Update: {
+          chemical_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          performed_by?: string
+          quantity?: number
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chemical_transactions_chemical_id_fkey"
+            columns: ["chemical_id"]
+            isOneToOne: false
+            referencedRelation: "chemicals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chemicals: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string
+          current_stock: number
+          department_id: string | null
+          expiry_date: string | null
+          first_aid_info: string
+          ghs_pictograms: string[]
+          id: string
+          min_stock: number
+          msds_url: string | null
+          name_en: string
+          name_th: string
+          qr_code_data: string | null
+          storage_building: string
+          storage_floor: string
+          storage_room: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by: string
+          current_stock?: number
+          department_id?: string | null
+          expiry_date?: string | null
+          first_aid_info?: string
+          ghs_pictograms?: string[]
+          id?: string
+          min_stock?: number
+          msds_url?: string | null
+          name_en?: string
+          name_th: string
+          qr_code_data?: string | null
+          storage_building?: string
+          storage_floor?: string
+          storage_room?: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string
+          current_stock?: number
+          department_id?: string | null
+          expiry_date?: string | null
+          first_aid_info?: string
+          ghs_pictograms?: string[]
+          id?: string
+          min_stock?: number
+          msds_url?: string | null
+          name_en?: string
+          name_th?: string
+          qr_code_data?: string | null
+          storage_building?: string
+          storage_floor?: string
+          storage_room?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chemicals_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      department_qr_points: {
+        Row: {
+          created_at: string
+          department_id: string
+          id: string
+          point_name: string
+          qr_code_data: string | null
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          id?: string
+          point_name: string
+          qr_code_data?: string | null
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          id?: string
+          point_name?: string
+          qr_code_data?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_qr_points_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      department_staff_count: {
+        Row: {
+          created_at: string
+          department_id: string
+          id: string
+          total_staff: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          id?: string
+          total_staff?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          id?: string
+          total_staff?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_staff_count_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: true
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           created_at: string
@@ -96,6 +272,94 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      env_round_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          item_name: string
+          notes: string | null
+          photo_url: string | null
+          result: string
+          round_id: string
+          severity: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          item_name: string
+          notes?: string | null
+          photo_url?: string | null
+          result?: string
+          round_id: string
+          severity?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          item_name?: string
+          notes?: string | null
+          photo_url?: string | null
+          result?: string
+          round_id?: string
+          severity?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "env_round_items_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "env_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      env_rounds: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          department_id: string | null
+          id: string
+          inspector_id: string
+          inspector_name: string
+          notes: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          inspector_id: string
+          inspector_name?: string
+          notes?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          inspector_id?: string
+          inspector_name?: string
+          notes?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "env_rounds_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       equipment: {
         Row: {
@@ -166,6 +430,132 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      evacuation_beds: {
+        Row: {
+          bed_number: string
+          created_at: string
+          has_patient: boolean
+          id: string
+          is_safe: boolean
+          patient_name: string | null
+          priority: number
+          safe_at: string | null
+          updated_at: string
+          ward: string
+        }
+        Insert: {
+          bed_number: string
+          created_at?: string
+          has_patient?: boolean
+          id?: string
+          is_safe?: boolean
+          patient_name?: string | null
+          priority?: number
+          safe_at?: string | null
+          updated_at?: string
+          ward?: string
+        }
+        Update: {
+          bed_number?: string
+          created_at?: string
+          has_patient?: boolean
+          id?: string
+          is_safe?: boolean
+          patient_name?: string | null
+          priority?: number
+          safe_at?: string | null
+          updated_at?: string
+          ward?: string
+        }
+        Relationships: []
+      }
+      evacuation_events: {
+        Row: {
+          building: string
+          created_at: string
+          floor: string | null
+          id: string
+          notes: string | null
+          patients_safe: number
+          patients_total: number
+          reported_by: string
+          resolved_at: string | null
+          staff_safe: number
+          staff_total: number
+          status: string
+          visitors_safe: number
+        }
+        Insert: {
+          building: string
+          created_at?: string
+          floor?: string | null
+          id?: string
+          notes?: string | null
+          patients_safe?: number
+          patients_total?: number
+          reported_by: string
+          resolved_at?: string | null
+          staff_safe?: number
+          staff_total?: number
+          status?: string
+          visitors_safe?: number
+        }
+        Update: {
+          building?: string
+          created_at?: string
+          floor?: string | null
+          id?: string
+          notes?: string | null
+          patients_safe?: number
+          patients_total?: number
+          reported_by?: string
+          resolved_at?: string | null
+          staff_safe?: number
+          staff_total?: number
+          status?: string
+          visitors_safe?: number
+        }
+        Relationships: []
+      }
+      fire_equipment_positions: {
+        Row: {
+          building: string | null
+          created_at: string
+          equipment_type: string
+          floor: string | null
+          id: string
+          label: string
+          status: string
+          sub_type: string | null
+          x: number
+          y: number
+        }
+        Insert: {
+          building?: string | null
+          created_at?: string
+          equipment_type?: string
+          floor?: string | null
+          id?: string
+          label: string
+          status?: string
+          sub_type?: string | null
+          x?: number
+          y?: number
+        }
+        Update: {
+          building?: string | null
+          created_at?: string
+          equipment_type?: string
+          floor?: string | null
+          id?: string
+          label?: string
+          status?: string
+          sub_type?: string | null
+          x?: number
+          y?: number
         }
         Relationships: []
       }
@@ -290,6 +680,27 @@ export type Database = {
           },
         ]
       }
+      page_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          page_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          page_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          page_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           auth_id: string
@@ -385,6 +796,56 @@ export type Database = {
           },
         ]
       }
+      schedule_events: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string
+          department_id: string | null
+          end_date: string | null
+          event_type: string
+          id: string
+          notes: string | null
+          start_date: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by: string
+          department_id?: string | null
+          end_date?: string | null
+          event_type?: string
+          id?: string
+          notes?: string | null
+          start_date: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string
+          department_id?: string | null
+          end_date?: string | null
+          event_type?: string
+          id?: string
+          notes?: string | null
+          start_date?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_events_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       technicians: {
         Row: {
           category_id: string | null
@@ -472,6 +933,233 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      water_meter_records: {
+        Row: {
+          created_at: string
+          daily_total: number | null
+          id: string
+          meter_reading: number
+          notes: string | null
+          record_date: string
+          record_time: string
+          recorded_by: string
+          recorder_name: string
+          shift: string
+          usage_amount: number
+        }
+        Insert: {
+          created_at?: string
+          daily_total?: number | null
+          id?: string
+          meter_reading?: number
+          notes?: string | null
+          record_date?: string
+          record_time?: string
+          recorded_by: string
+          recorder_name?: string
+          shift?: string
+          usage_amount?: number
+        }
+        Update: {
+          created_at?: string
+          daily_total?: number | null
+          id?: string
+          meter_reading?: number
+          notes?: string | null
+          record_date?: string
+          record_time?: string
+          recorded_by?: string
+          recorder_name?: string
+          shift?: string
+          usage_amount?: number
+        }
+        Relationships: []
+      }
+      water_quality_logs: {
+        Row: {
+          check_date: string
+          check_point: string
+          chlorine_value: number | null
+          created_at: string
+          id: string
+          notes: string | null
+          ph_value: number | null
+          recorded_by: string
+          status: string
+          turbidity_value: number | null
+        }
+        Insert: {
+          check_date?: string
+          check_point?: string
+          chlorine_value?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          ph_value?: number | null
+          recorded_by: string
+          status?: string
+          turbidity_value?: number | null
+        }
+        Update: {
+          check_date?: string
+          check_point?: string
+          chlorine_value?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          ph_value?: number | null
+          recorded_by?: string
+          status?: string
+          turbidity_value?: number | null
+        }
+        Relationships: []
+      }
+      wayfinding_buildings: {
+        Row: {
+          aliases: string[]
+          building_key: string
+          category: string
+          created_at: string
+          description: string
+          id: string
+          name: string
+          node_key: string
+          short_name: string
+          x: number
+          y: number
+        }
+        Insert: {
+          aliases?: string[]
+          building_key: string
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          name: string
+          node_key: string
+          short_name?: string
+          x?: number
+          y?: number
+        }
+        Update: {
+          aliases?: string[]
+          building_key?: string
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          name?: string
+          node_key?: string
+          short_name?: string
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wayfinding_buildings_node_key_fkey"
+            columns: ["node_key"]
+            isOneToOne: false
+            referencedRelation: "wayfinding_nodes"
+            referencedColumns: ["node_key"]
+          },
+        ]
+      }
+      wayfinding_edges: {
+        Row: {
+          created_at: string
+          from_node_key: string
+          id: string
+          to_node_key: string
+          weight: number | null
+        }
+        Insert: {
+          created_at?: string
+          from_node_key: string
+          id?: string
+          to_node_key: string
+          weight?: number | null
+        }
+        Update: {
+          created_at?: string
+          from_node_key?: string
+          id?: string
+          to_node_key?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wayfinding_edges_from_node_key_fkey"
+            columns: ["from_node_key"]
+            isOneToOne: false
+            referencedRelation: "wayfinding_nodes"
+            referencedColumns: ["node_key"]
+          },
+          {
+            foreignKeyName: "wayfinding_edges_to_node_key_fkey"
+            columns: ["to_node_key"]
+            isOneToOne: false
+            referencedRelation: "wayfinding_nodes"
+            referencedColumns: ["node_key"]
+          },
+        ]
+      }
+      wayfinding_nodes: {
+        Row: {
+          created_at: string
+          id: string
+          is_assembly_point: boolean
+          label: string
+          node_key: string
+          x: number
+          y: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_assembly_point?: boolean
+          label?: string
+          node_key: string
+          x?: number
+          y?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_assembly_point?: boolean
+          label?: string
+          node_key?: string
+          x?: number
+          y?: number
+        }
+        Relationships: []
+      }
+      wayfinding_routes: {
+        Row: {
+          created_at: string
+          description: string
+          from_building_key: string
+          id: string
+          node_path: string[]
+          to_building_key: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          from_building_key: string
+          id?: string
+          node_path?: string[]
+          to_building_key: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          from_building_key?: string
+          id?: string
+          node_path?: string[]
+          to_building_key?: string
+        }
+        Relationships: []
       }
     }
     Views: {
