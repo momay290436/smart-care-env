@@ -14,16 +14,481 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      audit_5s: {
+        Row: {
+          auditor_id: string
+          created_at: string
+          department_id: string
+          id: string
+          notes: string | null
+          photo_after: string | null
+          photo_before: string | null
+          score_json: Json
+          total_score: number
+        }
+        Insert: {
+          auditor_id: string
+          created_at?: string
+          department_id: string
+          id?: string
+          notes?: string | null
+          photo_after?: string | null
+          photo_before?: string | null
+          score_json?: Json
+          total_score?: number
+        }
+        Update: {
+          auditor_id?: string
+          created_at?: string
+          department_id?: string
+          id?: string
+          notes?: string | null
+          photo_after?: string | null
+          photo_before?: string | null
+          score_json?: Json
+          total_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_5s_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      departments: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      equipment: {
+        Row: {
+          category_id: string | null
+          code: string
+          created_at: string
+          department_id: string | null
+          id: string
+          name: string
+          qr_code_url: string | null
+          qr_image_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          code: string
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          name: string
+          qr_code_url?: string | null
+          qr_image_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          code?: string
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          name?: string
+          qr_code_url?: string | null
+          qr_image_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      fire_extinguisher_checks: {
+        Row: {
+          checked_at: string
+          checked_by: string
+          condition_ok: boolean
+          department_id: string | null
+          id: string
+          inspection_details: Json | null
+          inspector_name: string | null
+          location: string
+          notes: string | null
+          pressure_ok: boolean
+        }
+        Insert: {
+          checked_at?: string
+          checked_by: string
+          condition_ok?: boolean
+          department_id?: string | null
+          id?: string
+          inspection_details?: Json | null
+          inspector_name?: string | null
+          location: string
+          notes?: string | null
+          pressure_ok?: boolean
+        }
+        Update: {
+          checked_at?: string
+          checked_by?: string
+          condition_ok?: boolean
+          department_id?: string | null
+          id?: string
+          inspection_details?: Json | null
+          inspector_name?: string | null
+          location?: string
+          notes?: string | null
+          pressure_ok?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fire_extinguisher_checks_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fire_extinguisher_locations: {
+        Row: {
+          building: string | null
+          created_at: string
+          detail: string | null
+          floor: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          building?: string | null
+          created_at?: string
+          detail?: string | null
+          floor?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          building?: string | null
+          created_at?: string
+          detail?: string | null
+          floor?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      maintenance_tickets: {
+        Row: {
+          created_at: string
+          created_by: string
+          department_id: string
+          description: string | null
+          id: string
+          photo_url: string | null
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          department_id: string
+          description?: string | null
+          id?: string
+          photo_url?: string | null
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          department_id?: string
+          description?: string | null
+          id?: string
+          photo_url?: string | null
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_tickets_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          auth_id: string
+          created_at: string
+          department_id: string | null
+          full_name: string
+          id: string
+        }
+        Insert: {
+          auth_id: string
+          created_at?: string
+          department_id?: string | null
+          full_name?: string
+          id?: string
+        }
+        Update: {
+          auth_id?: string
+          created_at?: string
+          department_id?: string | null
+          full_name?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repair_tickets: {
+        Row: {
+          accepted_at: string | null
+          assigned_technician_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          description: string
+          equipment_id: string
+          id: string
+          notes: string | null
+          photo_url: string | null
+          priority: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          assigned_technician_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          description: string
+          equipment_id: string
+          id?: string
+          notes?: string | null
+          photo_url?: string | null
+          priority?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          assigned_technician_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string
+          equipment_id?: string
+          id?: string
+          notes?: string | null
+          photo_url?: string | null
+          priority?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_tickets_assigned_technician_id_fkey"
+            columns: ["assigned_technician_id"]
+            isOneToOne: false
+            referencedRelation: "technicians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_tickets_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technicians: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          id: string
+          line_user_id: string | null
+          name: string
+          user_id: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          line_user_id?: string | null
+          name: string
+          user_id: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          line_user_id?: string | null
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technicians_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      waste_logs: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          id: string
+          recorded_by: string
+          waste_type: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          recorded_by: string
+          waste_type: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          recorded_by?: string
+          waste_type?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waste_logs_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_department_id: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user" | "technician" | "manager"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +615,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user", "technician", "manager"],
+    },
   },
 } as const
