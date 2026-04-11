@@ -27,6 +27,10 @@ const ALL_PAGES = [
   { key: "/map-hub", label: "แผนที่", icon: "🗺️" },
   { key: "/map", label: "แผนผัง", icon: "📍" },
   { key: "/wayfinding", label: "นำทาง", icon: "🧭" },
+  { key: "/wayfinding-admin", label: "จัดการนำทาง", icon: "🗺️" },
+  { key: "/map-aligner", label: "จัดแผนที่", icon: "📐" },
+  { key: "/water", label: "ระบบจัดการน้ำประปา", icon: "💧" },
+  { key: "/water-meter", label: "บันทึกมิเตอร์น้ำ", icon: "🔢" },
   { key: "/admin", label: "จัดการระบบ", icon: "🔑" },
 ];
 
