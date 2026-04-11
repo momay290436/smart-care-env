@@ -443,6 +443,19 @@ export default function Audit5S() {
                   </div>
                 </div>
               )}
+              <Button variant="outline" className="w-full rounded-xl gap-1.5" onClick={() => {
+                const scoreJson = selectedAudit.score_json as Record<string, number>;
+                exportToExcel([{
+                  "แผนก": selectedAudit.departments?.name || "-",
+                  "วันที่": new Date(selectedAudit.created_at).toLocaleDateString("th-TH"),
+                  "ผู้ตรวจ": scoreJson?.auditor_name || "-",
+                  "คะแนนรวม": selectedAudit.total_score,
+                  "เกรด": getGrade(Number(selectedAudit.total_score)).label,
+                  ...Object.fromEntries(categories.map(c => [c.label, `${scoreJson?.[c.key] ?? 0}%`])),
+                  "หมายเหตุ": selectedAudit.notes || "-",
+                }], `5s-audit-${new Date(selectedAudit.created_at).toISOString().split("T")[0]}`, "ผลตรวจ5ส");
+                toast.success("ส่งออก Excel สำเร็จ");
+              }}>📥 Export Excel</Button>
               <Button variant="outline" className="w-full rounded-xl" onClick={() => handleDownloadData(selectedAudit)}>ดาวน์โหลดข้อมูลผลตรวจ (.txt)</Button>
             </div>
           )}

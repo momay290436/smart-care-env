@@ -112,7 +112,7 @@ export default function WaterManagement() {
   const waterLevel = 78; // Mock data
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-4 md:space-y-6 pb-6">
       <PageHeader title="ระบบจัดการน้ำประปา" subtitle="Water & FMS Management (HAI Standard)">
         <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 gap-1.5 bg-white/20 border-white/30 text-white hover:bg-white/30" onClick={() => {
           exportToExcel(qualityLogs.map((l: any) => ({
@@ -127,28 +127,41 @@ export default function WaterManagement() {
         </Button>
       </PageHeader>
 
+      {/* Water Meter Button - Prominent on mobile */}
+      <Card className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-elevated border-0 cursor-pointer hover:shadow-lg transition-all active:scale-[0.98]" onClick={() => navigate("/water-meter")}>
+        <CardContent className="p-4 md:p-5 flex items-center gap-4">
+          <div className="w-14 h-14 md:w-12 md:h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+            <FileSpreadsheet className="h-7 w-7 md:h-6 md:w-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-lg md:text-lg font-bold text-white">บันทึกมิเตอร์น้ำออก</p>
+            <p className="text-sm text-white/70 truncate">Water Meter Records - บันทึกและดูข้อมูลย้อนหลัง</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Top KPI Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
         <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-blue-500">
-          <CardContent className="p-4 text-center">
-            <Droplets className="h-6 w-6 text-blue-500 mx-auto mb-1" />
-            <p className="text-2xl font-extrabold text-blue-600">{waterLevel}%</p>
-            <p className="text-xs text-muted-foreground">ระดับน้ำสำรอง</p>
+          <CardContent className="p-3 md:p-4 text-center">
+            <Droplets className="h-5 w-5 md:h-6 md:w-6 text-blue-500 mx-auto mb-1" />
+            <p className="text-xl md:text-2xl font-extrabold text-blue-600">{waterLevel}%</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">ระดับน้ำสำรอง</p>
           </CardContent>
         </Card>
         <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-teal-500">
-          <CardContent className="p-4 text-center">
-            <Gauge className="h-6 w-6 text-teal-500 mx-auto mb-1" />
-            <p className="text-2xl font-extrabold text-teal-600">{avgChlorine ?? "-"}</p>
-            <p className="text-xs text-muted-foreground">คลอรีน (mg/l)</p>
-            <p className="text-[10px] text-muted-foreground">เป้าหมาย 0.2-0.5</p>
+          <CardContent className="p-3 md:p-4 text-center">
+            <Gauge className="h-5 w-5 md:h-6 md:w-6 text-teal-500 mx-auto mb-1" />
+            <p className="text-xl md:text-2xl font-extrabold text-teal-600">{avgChlorine ?? "-"}</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">คลอรีน (mg/l)</p>
+            <p className="text-[9px] md:text-[10px] text-muted-foreground">เป้าหมาย 0.2-0.5</p>
           </CardContent>
         </Card>
         <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-emerald-500">
-          <CardContent className="p-4 text-center">
-            <AlertTriangle className="h-6 w-6 text-emerald-500 mx-auto mb-1" />
-            <p className="text-2xl font-extrabold text-emerald-600">{normalPoints.normal}/{normalPoints.total}</p>
-            <p className="text-xs text-muted-foreground">จุดน้ำไหลปกติ</p>
+          <CardContent className="p-3 md:p-4 text-center">
+            <AlertTriangle className="h-5 w-5 md:h-6 md:w-6 text-emerald-500 mx-auto mb-1" />
+            <p className="text-xl md:text-2xl font-extrabold text-emerald-600">{normalPoints.normal}/{normalPoints.total}</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">จุดน้ำไหลปกติ</p>
           </CardContent>
         </Card>
       </div>
@@ -168,7 +181,7 @@ export default function WaterManagement() {
                   <Plus className="h-4 w-4" /> เพิ่มข้อมูล
                 </Button>
               </div>
-              <div className="overflow-x-auto">
+              <div className="table-responsive">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200">
@@ -222,18 +235,6 @@ export default function WaterManagement() {
             </CardContent>
           </Card>
 
-          {/* Water Meter Button */}
-          <Card className="bg-white rounded-2xl shadow-elevated border-0 cursor-pointer hover:shadow-lg transition-all" onClick={() => navigate("/water-meter")}>
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center">
-                <FileSpreadsheet className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-lg font-bold text-slate-800">บันทึกมิเตอร์น้ำออก</p>
-                <p className="text-sm text-muted-foreground">Water Meter Records - บันทึกและดูข้อมูลย้อนหลัง</p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right Column - 35% */}
@@ -300,7 +301,7 @@ export default function WaterManagement() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs font-semibold">pH (6.5-8.5)</Label>
                 <Input type="number" step="0.1" placeholder="7.0" value={formData.ph_value} onChange={(e) => setFormData({ ...formData, ph_value: e.target.value })} className="h-11 rounded-2xl" />

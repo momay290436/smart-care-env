@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { exportToExcel } from "@/lib/exportExcel";
 import PageHeader from "@/components/PageHeader";
 import EnvRoundCalendar from "@/components/EnvRoundCalendar";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { Download, Camera, ChevronLeft, ChevronRight, Send } from "lucide-react";
 
@@ -61,6 +62,7 @@ export default function EnvRound() {
   const { user, profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [activeRound, setActiveRound] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedDept, setSelectedDept] = useState("");
   const [items, setItems] = useState<RoundItemInput[]>([]);
   const [currentCategory, setCurrentCategory] = useState(0);
@@ -315,7 +317,7 @@ export default function EnvRound() {
                     {round.status === "completed" ? "เสร็จสิ้น" : "กำลังตรวจ"}
                   </Badge>
                   {isAdmin && (
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive rounded-2xl" onClick={(e) => { e.stopPropagation(); if (confirm("ยืนยันลบ?")) deleteRound.mutate(round.id); }}>✕</Button>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive rounded-2xl" onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(round.id); }}>✕</Button>
                   )}
                 </div>
               </CardContent>
@@ -376,6 +378,15 @@ export default function EnvRound() {
             )}
           </DialogContent>
         </Dialog>
+
+        <ConfirmDialog
+          open={!!deleteConfirmId}
+          onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+          title="ยืนยันลบข้อมูล"
+          description="ต้องการลบประวัติการตรวจนี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+          confirmLabel="ลบ"
+          onConfirm={() => { if (deleteConfirmId) { deleteRound.mutate(deleteConfirmId); setDeleteConfirmId(null); } }}
+        />
       </div>
     );
   }
