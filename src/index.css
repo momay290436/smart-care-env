@@ -94,31 +94,31 @@
   }
 
   h1 {
-    @apply text-3xl font-bold text-foreground;
+    @apply text-2xl md:text-3xl font-bold text-foreground;
   }
 
   h2 {
-    @apply text-2xl font-bold text-foreground;
+    @apply text-xl md:text-2xl font-bold text-foreground;
   }
 
   h3 {
-    @apply text-xl font-bold text-foreground;
+    @apply text-lg md:text-xl font-bold text-foreground;
   }
 
   h4 {
-    @apply text-lg font-semibold text-foreground;
+    @apply text-base md:text-lg font-semibold text-foreground;
   }
 
   h5 {
-    @apply text-base font-semibold text-foreground;
+    @apply text-sm md:text-base font-semibold text-foreground;
   }
 
   h6 {
-    @apply text-sm font-semibold text-muted-foreground;
+    @apply text-xs md:text-sm font-semibold text-muted-foreground;
   }
 
   p {
-    @apply text-base text-foreground;
+    @apply text-sm md:text-base text-foreground;
   }
 
   strong {
@@ -126,7 +126,7 @@
   }
 
   label {
-    @apply text-base font-semibold text-foreground;
+    @apply text-sm md:text-base font-semibold text-foreground;
   }
 
   span {
@@ -159,5 +159,14 @@
   .card-ocean {
     background: hsl(195 40% 97%);
     border: 1px solid hsl(195 30% 90%);
+  }
+
+  /* Mobile-responsive table wrapper */
+  .table-responsive {
+    @apply overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0;
+  }
+
+  .table-responsive table {
+    @apply min-w-[500px] md:min-w-0;
   }
 }
