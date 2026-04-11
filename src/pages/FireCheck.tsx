@@ -419,9 +419,20 @@ export default function FireCheck() {
                     <p className="text-sm">{selectedCheck.notes}</p>
                   </div>
                 )}
-              </div>
-            );
-          })()}
+                <Button variant="outline" className="w-full rounded-2xl h-11 gap-1.5" onClick={() => {
+                  const details: InspectionDetails | null = selectedCheck.inspection_details;
+                  exportToExcel([{
+                    "ตำแหน่ง": selectedCheck.location_name || selectedCheck.location,
+                    "วันที่ตรวจ": new Date(selectedCheck.checked_at).toLocaleDateString("th-TH"),
+                    "เวลา": new Date(selectedCheck.checked_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }),
+                    "ผู้ตรวจ": selectedCheck.inspector_name || "-",
+                    ...Object.fromEntries(inspectionItems.map(item => [item.label, details ? (details[item.key] ? "ปกติ" : "ผิดปกติ") : "-"])),
+                    "หมายเหตุ": selectedCheck.notes || "-",
+                  }], `fire-check-${new Date(selectedCheck.checked_at).toISOString().split("T")[0]}`, "ผลตรวจถังดับเพลิง");
+                  toast.success("ส่งออก Excel สำเร็จ");
+                }}>
+                  <Download className="h-4 w-4" /> Export Excel
+                </Button>
         </DialogContent>
       </Dialog>
     </div>
