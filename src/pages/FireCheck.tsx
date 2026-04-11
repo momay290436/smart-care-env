@@ -433,6 +433,9 @@ export default function FireCheck() {
                 }}>
                   <Download className="h-4 w-4" /> Export Excel
                 </Button>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
