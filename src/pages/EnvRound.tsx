@@ -378,6 +378,15 @@ export default function EnvRound() {
             )}
           </DialogContent>
         </Dialog>
+
+        <ConfirmDialog
+          open={!!deleteConfirmId}
+          onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+          title="ยืนยันลบข้อมูล"
+          description="ต้องการลบประวัติการตรวจนี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+          confirmLabel="ลบ"
+          onConfirm={() => { if (deleteConfirmId) { deleteRound.mutate(deleteConfirmId); setDeleteConfirmId(null); } }}
+        />
       </div>
     );
   }
