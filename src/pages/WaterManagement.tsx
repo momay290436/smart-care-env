@@ -112,7 +112,7 @@ export default function WaterManagement() {
   const waterLevel = 78; // Mock data
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-4 md:space-y-6 pb-6">
       <PageHeader title="ระบบจัดการน้ำประปา" subtitle="Water & FMS Management (HAI Standard)">
         <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 gap-1.5 bg-white/20 border-white/30 text-white hover:bg-white/30" onClick={() => {
           exportToExcel(qualityLogs.map((l: any) => ({
@@ -181,7 +181,7 @@ export default function WaterManagement() {
                   <Plus className="h-4 w-4" /> เพิ่มข้อมูล
                 </Button>
               </div>
-              <div className="overflow-x-auto">
+              <div className="table-responsive">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200">
