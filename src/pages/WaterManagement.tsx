@@ -16,8 +16,7 @@ import { th } from "date-fns/locale";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 import PageHeader from "@/components/PageHeader";
-import { useNavigate } from "react-router-dom";
-import { Droplets, Gauge, AlertTriangle, Plus, FileSpreadsheet, ClipboardList, Wrench, Download } from "lucide-react";
+import { Droplets, Gauge, AlertTriangle, Plus, ClipboardList, Wrench, Download } from "lucide-react";
 
 const CHECK_POINTS = ["อาคาร OPD", "อาคาร IPD ชาย", "อาคาร IPD หญิง", "อาคารอำนวยการ", "ห้องผ่าตัด", "ห้องปฏิบัติการ", "โรงครัว"];
 
@@ -31,8 +30,10 @@ const PM_ALERTS = [
 export default function WaterManagement() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showMeterDialog, setShowMeterDialog] = useState(false);
+  const [meterReading, setMeterReading] = useState("");
+  const [meterNotes, setMeterNotes] = useState("");
   const [formData, setFormData] = useState({ check_point: "", ph_value: "", chlorine_value: "", turbidity_value: "", notes: "" });
 
   const { data: qualityLogs = [] } = useQuery({
@@ -44,14 +45,13 @@ export default function WaterManagement() {
   });
 
   const { data: meterRecords = [] } = useQuery({
-    queryKey: ["water-meter-recent"],
+    queryKey: ["water-meter-all"],
     queryFn: async () => {
-      const { data } = await supabase.from("water_meter_records").select("*").order("record_date", { ascending: false }).limit(14);
+      const { data } = await supabase.from("water_meter_records").select("*").order("record_date", { ascending: false }).order("record_time", { ascending: false }).limit(200);
       return data || [];
     },
   });
 
-  // Stats
   const avgChlorine = useMemo(() => {
     const recent = qualityLogs.filter((l: any) => l.chlorine_value != null).slice(0, 20);
     if (recent.length === 0) return null;
@@ -84,6 +84,16 @@ export default function WaterManagement() {
     }));
   }, [meterRecords]);
 
+  // Grouped meter records for inline table
+  const groupedMeter = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    meterRecords.forEach((r: any) => {
+      if (!map[r.record_date]) map[r.record_date] = [];
+      map[r.record_date].push(r);
+    });
+    return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [meterRecords]);
+
   const addQualityLog = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
@@ -92,11 +102,8 @@ export default function WaterManagement() {
       const turb = formData.turbidity_value ? Number(formData.turbidity_value) : null;
       const pass = (!cl || (cl >= 0.2 && cl <= 0.5)) && (!ph || (ph >= 6.5 && ph <= 8.5)) && (!turb || turb <= 5);
       const { error } = await supabase.from("water_quality_logs").insert({
-        check_point: formData.check_point,
-        ph_value: ph, chlorine_value: cl, turbidity_value: turb,
-        status: pass ? "pass" : "fail",
-        notes: formData.notes || null,
-        recorded_by: user.id,
+        check_point: formData.check_point, ph_value: ph, chlorine_value: cl, turbidity_value: turb,
+        status: pass ? "pass" : "fail", notes: formData.notes || null, recorded_by: user.id,
       });
       if (error) throw error;
     },
@@ -109,7 +116,48 @@ export default function WaterManagement() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const waterLevel = 78; // Mock data
+  const addMeterRecord = useMutation({
+    mutationFn: async () => {
+      if (!user || !meterReading) throw new Error("กรุณากรอกเลขมิเตอร์");
+      const reading = Number(meterReading);
+      const now = new Date();
+      const hour = now.getHours();
+      const shift = hour < 12 ? "morning" : "afternoon";
+      const todayStr = format(now, "yyyy-MM-dd");
+      const timeStr = format(now, "HH:mm:ss");
+      const { data: prev } = await supabase.from("water_meter_records").select("meter_reading").order("record_date", { ascending: false }).order("record_time", { ascending: false }).limit(1);
+      const prevReading = prev && prev.length > 0 ? Number(prev[0].meter_reading) : reading;
+      const usageAmount = Math.max(0, reading - prevReading);
+      let dailyTotal: number | null = null;
+      if (shift === "afternoon") {
+        const { data: todayRecs } = await supabase.from("water_meter_records").select("usage_amount").eq("record_date", todayStr).eq("shift", "morning");
+        if (todayRecs && todayRecs.length > 0) dailyTotal = Number(todayRecs[0].usage_amount) + usageAmount;
+      }
+      const { error } = await supabase.from("water_meter_records").insert({
+        record_date: todayStr, record_time: timeStr, shift, meter_reading: reading,
+        usage_amount: usageAmount, daily_total: dailyTotal, recorded_by: user.id,
+        recorder_name: profile?.full_name || "", notes: meterNotes || null,
+      });
+      if (error) throw error;
+      if (shift === "afternoon" && dailyTotal !== null) {
+        await supabase.from("water_meter_records").update({ daily_total: dailyTotal }).eq("record_date", todayStr).eq("shift", "morning");
+      }
+    },
+    onSuccess: () => {
+      toast.success("บันทึกมิเตอร์น้ำสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["water-meter-all"] });
+      queryClient.invalidateQueries({ queryKey: ["water-meter-records"] });
+      queryClient.invalidateQueries({ queryKey: ["water-meter-recent"] });
+      setShowMeterDialog(false);
+      setMeterReading("");
+      setMeterNotes("");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const waterLevel = 78;
+  const now = new Date();
+  const currentShift = now.getHours() < 12 ? "รอบเช้า (ก่อน 12:00)" : "รอบบ่าย (หลัง 12:00)";
 
   return (
     <div className="space-y-4 md:space-y-6 pb-6">
@@ -127,15 +175,15 @@ export default function WaterManagement() {
         </Button>
       </PageHeader>
 
-      {/* Water Meter Button - Prominent on mobile */}
-      <Card className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-elevated border-0 cursor-pointer hover:shadow-lg transition-all active:scale-[0.98]" onClick={() => navigate("/water-meter")}>
+      {/* Water Meter Button - TOP on mobile */}
+      <Card className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-elevated border-0 cursor-pointer hover:shadow-lg transition-all active:scale-[0.98]" onClick={() => setShowMeterDialog(true)}>
         <CardContent className="p-4 md:p-5 flex items-center gap-4">
           <div className="w-14 h-14 md:w-12 md:h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-            <FileSpreadsheet className="h-7 w-7 md:h-6 md:w-6 text-white" />
+            <Plus className="h-7 w-7 md:h-6 md:w-6 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-lg md:text-lg font-bold text-white">บันทึกมิเตอร์น้ำออก</p>
-            <p className="text-sm text-white/70 truncate">Water Meter Records - บันทึกและดูข้อมูลย้อนหลัง</p>
+            <p className="text-base md:text-lg font-bold text-white">บันทึกมิเตอร์น้ำออก</p>
+            <p className="text-xs md:text-sm text-white/70 truncate">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
           </div>
         </CardContent>
       </Card>
@@ -168,13 +216,13 @@ export default function WaterManagement() {
 
       {/* 2-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Left Column - 65% */}
+        {/* Left Column */}
         <div className="lg:col-span-3 space-y-4">
           {/* Digital Logbook */}
           <Card className="bg-white rounded-2xl shadow-elevated border-0">
-            <CardContent className="p-5">
+            <CardContent className="p-4 md:p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <h3 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
                   <ClipboardList className="h-5 w-5 text-blue-500" /> ผลตรวจคุณภาพน้ำ
                 </h3>
                 <Button size="sm" className="rounded-2xl gap-1.5" onClick={() => setShowAddDialog(true)}>
@@ -219,15 +267,15 @@ export default function WaterManagement() {
 
           {/* Water Usage Chart */}
           <Card className="bg-white rounded-2xl shadow-elevated border-0">
-            <CardContent className="p-5">
-              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <CardContent className="p-4 md:p-5">
+              <h3 className="text-base md:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <Droplets className="h-5 w-5 text-blue-500" /> ปริมาณการใช้น้ำ 7 วันย้อนหลัง
               </h3>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={usageChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v: any) => [`${v} ลบ.ม.`, "ปริมาณน้ำ"]} />
                   <Line type="monotone" dataKey="usage" stroke="#0891b2" strokeWidth={2.5} dot={{ fill: "#0891b2", r: 4 }} />
                 </LineChart>
@@ -235,14 +283,86 @@ export default function WaterManagement() {
             </CardContent>
           </Card>
 
+          {/* Meter Records Table - Inline */}
+          <Card className="bg-white rounded-2xl shadow-elevated border-0">
+            <CardContent className="p-4 md:p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Gauge className="h-5 w-5 text-blue-500" /> ประวัติบันทึกมิเตอร์น้ำ
+                </h3>
+                <Button size="sm" variant="outline" className="rounded-2xl text-xs gap-1.5" onClick={() => {
+                  const sorted = [...meterRecords].sort((a: any, b: any) => {
+                    const dc = a.record_date.localeCompare(b.record_date);
+                    if (dc !== 0) return dc;
+                    return (a.record_time || "").localeCompare(b.record_time || "");
+                  });
+                  exportToExcel(sorted.map((r: any) => ({
+                    "วันที่": format(new Date(r.record_date), "d/M/yyyy"),
+                    "เวลา": r.record_time?.substring(0, 5) || "-",
+                    "มิเตอร์น้ำออก": r.meter_reading,
+                    "จำนวนน้ำที่ใช้ไป": r.usage_amount,
+                    "ผลรวม": r.daily_total ?? "-",
+                    "รายชื่อ": r.recorder_name || "-",
+                    "หมายเหตุ": r.notes || "-",
+                  })), "water-meter-records", "มิเตอร์น้ำ");
+                  toast.success("ส่งออก Excel สำเร็จ");
+                }}>
+                  <Download className="h-3.5 w-3.5" /> Excel
+                </Button>
+              </div>
+              <div className="overflow-x-auto -mx-2">
+                <table className="w-full text-sm min-w-[600px]">
+                  <thead>
+                    <tr className="border-b-2 border-blue-200 bg-blue-50/50">
+                      <th className="text-left py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-20">วันที่</th>
+                      <th className="text-center py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-16">เวลา</th>
+                      <th className="text-right py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-24">มิเตอร์น้ำออก</th>
+                      <th className="text-right py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-20">ใช้ไป</th>
+                      <th className="text-right py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-16">ผลรวม</th>
+                      <th className="text-center py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-20">ผู้บันทึก</th>
+                      <th className="text-left py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-16">หมายเหตุ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupedMeter.map(([date, dateRecords], gi) => {
+                      const sorted = dateRecords.sort((a: any, b: any) => (a.record_time || "").localeCompare(b.record_time || ""));
+                      const dailyTotal = sorted.reduce((s: number, r: any) => s + Number(r.usage_amount || 0), 0);
+                      return sorted.map((r: any, i: number) => (
+                        <tr key={r.id} className={`${gi % 2 === 0 ? "bg-white" : "bg-slate-50/60"} ${i === 0 && gi > 0 ? "border-t-2 border-blue-100" : ""}`}>
+                          {i === 0 ? (
+                            <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-200 whitespace-nowrap" rowSpan={sorted.length}>
+                              {format(new Date(date), "d/M/yy")}
+                            </td>
+                          ) : null}
+                          <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{r.record_time?.substring(0, 5)}</td>
+                          <td className="py-2.5 px-2 text-right text-xs font-mono font-semibold">{Number(r.meter_reading).toLocaleString()}</td>
+                          <td className="py-2.5 px-2 text-right text-xs font-mono">{Number(r.usage_amount).toLocaleString()}</td>
+                          {i === 0 ? (
+                            <td className="py-2.5 px-2 text-right text-xs font-mono font-bold text-blue-600 border-r border-slate-200" rowSpan={sorted.length}>
+                              {dailyTotal > 0 ? dailyTotal.toLocaleString() : "-"}
+                            </td>
+                          ) : null}
+                          <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{r.recorder_name || "-"}</td>
+                          <td className="py-2.5 px-2 text-xs text-muted-foreground truncate max-w-[80px]">{r.notes || "-"}</td>
+                        </tr>
+                      ));
+                    })}
+                    {meterRecords.length === 0 && (
+                      <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูล</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Right Column - 35% */}
+        {/* Right Column */}
         <div className="lg:col-span-2 space-y-4">
           {/* PM Alerts */}
           <Card className="bg-white rounded-2xl shadow-elevated border-0">
-            <CardContent className="p-5">
-              <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <CardContent className="p-4 md:p-5">
+              <h3 className="text-base md:text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
                 <Wrench className="h-5 w-5 text-amber-500" /> แจ้งเตือนบำรุงรักษา
               </h3>
               <div className="space-y-2">
@@ -263,14 +383,14 @@ export default function WaterManagement() {
 
           {/* Emergency Buttons */}
           <Card className="bg-white rounded-2xl shadow-elevated border-0">
-            <CardContent className="p-5 space-y-3">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <CardContent className="p-4 md:p-5 space-y-3">
+              <h3 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-red-500" /> เหตุฉุกเฉิน
               </h3>
-              <Button variant="destructive" className="w-full h-12 rounded-2xl text-base font-bold gap-2" onClick={() => toast.info("ระบบแจ้งเหตุท่อแตก/น้ำไม่ไหล - กำลังพัฒนา")}>
+              <Button variant="destructive" className="w-full h-11 md:h-12 rounded-2xl text-sm md:text-base font-bold gap-2" onClick={() => toast.info("ระบบแจ้งเหตุท่อแตก/น้ำไม่ไหล - กำลังพัฒนา")}>
                 🚰 แจ้งเหตุท่อแตก / น้ำไม่ไหล
               </Button>
-              <Button variant="outline" className="w-full h-12 rounded-2xl text-base font-semibold gap-2 border-blue-300 text-blue-600 hover:bg-blue-50" onClick={() => toast.info("ผังวาล์วประปา - กำลังพัฒนา")}>
+              <Button variant="outline" className="w-full h-11 md:h-12 rounded-2xl text-sm md:text-base font-semibold gap-2 border-blue-300 text-blue-600 hover:bg-blue-50" onClick={() => toast.info("ผังวาล์วประปา - กำลังพัฒนา")}>
                 📐 เปิดผังวาล์วประปา (As-built)
               </Button>
             </CardContent>
@@ -278,7 +398,38 @@ export default function WaterManagement() {
         </div>
       </div>
 
-      {/* Add Chlorine Popup Form */}
+      {/* Meter Record Dialog - Opens directly */}
+      <Dialog open={showMeterDialog} onOpenChange={setShowMeterDialog}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg flex items-center gap-2">
+              <Gauge className="h-5 w-5 text-blue-500" /> บันทึกมิเตอร์น้ำออก
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-blue-50 p-3 space-y-1 text-sm">
+              <p><span className="font-semibold">วันที่:</span> {now.toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}</p>
+              <p><span className="font-semibold">เวลา:</span> {now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.</p>
+              <p><span className="font-semibold">รอบ:</span> {currentShift}</p>
+              <p><span className="font-semibold">ผู้บันทึก:</span> {profile?.full_name || "ผู้ใช้งาน"}</p>
+            </div>
+            <div>
+              <Label className="font-semibold">เลขมิเตอร์น้ำออก *</Label>
+              <Input type="number" value={meterReading} onChange={(e) => setMeterReading(e.target.value)} placeholder="เช่น 167463" className="h-12 rounded-2xl text-lg font-mono" />
+            </div>
+            <div>
+              <Label className="font-semibold">หมายเหตุ</Label>
+              <Textarea value={meterNotes} onChange={(e) => setMeterNotes(e.target.value)} placeholder="ข้อสังเกตเพิ่มเติม (ถ้ามี)..." rows={2} className="rounded-2xl" />
+            </div>
+            <p className="text-xs text-muted-foreground">💡 ระบบจะคำนวณ "จำนวนน้ำที่ใช้ไป" อัตโนมัติจากเลขมิเตอร์ครั้งก่อนหน้า</p>
+            <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => addMeterRecord.mutate()} disabled={addMeterRecord.isPending || !meterReading}>
+              {addMeterRecord.isPending ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Quality Log Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="rounded-3xl max-w-md">
           <DialogHeader>
@@ -288,8 +439,8 @@ export default function WaterManagement() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-2xl bg-blue-50 p-3 space-y-1">
-              <p className="text-sm"><span className="font-semibold">วันที่:</span> {new Date().toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}</p>
-              <p className="text-sm"><span className="font-semibold">เวลา:</span> {new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.</p>
+              <p className="text-sm"><span className="font-semibold">วันที่:</span> {now.toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}</p>
+              <p className="text-sm"><span className="font-semibold">เวลา:</span> {now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.</p>
               <p className="text-sm"><span className="font-semibold">ผู้บันทึก:</span> {profile?.full_name || "ผู้ใช้งาน"}</p>
             </div>
             <div>

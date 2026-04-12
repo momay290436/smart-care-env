@@ -616,6 +616,7 @@ export type Database = {
           floor: string | null
           fuel_type: string | null
           id: string
+          manufacture_year: string | null
           name: string
           qr_code_data: string | null
           size: string | null
@@ -629,6 +630,7 @@ export type Database = {
           floor?: string | null
           fuel_type?: string | null
           id?: string
+          manufacture_year?: string | null
           name: string
           qr_code_data?: string | null
           size?: string | null
@@ -642,6 +644,7 @@ export type Database = {
           floor?: string | null
           fuel_type?: string | null
           id?: string
+          manufacture_year?: string | null
           name?: string
           qr_code_data?: string | null
           size?: string | null

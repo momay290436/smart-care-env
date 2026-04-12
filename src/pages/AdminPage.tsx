@@ -333,6 +333,7 @@ function FireLocationsTab() {
   const [size, setSize] = useState("");
   const [extType, setExtType] = useState("");
   const [fuelType, setFuelType] = useState("");
+  const [manufactureYear, setManufactureYear] = useState("");
 
   const colorOptions = ["สีเขียว", "สีแดง"];
   const sizeOptions = ["5 ปอนด์", "10 ปอนด์", "15 ปอนด์", "20 ปอนด์"];
@@ -365,6 +366,7 @@ function FireLocationsTab() {
         name, building: building || null, floor: floor || null,
         color: color || null, size: size || null,
         extinguisher_type: extType || null, fuel_type: fuelType || null,
+        manufacture_year: manufactureYear || null,
         qr_code_data: null,
       }).select().single();
       if (error) throw error;
@@ -373,7 +375,7 @@ function FireLocationsTab() {
     },
     onSuccess: () => {
       toast.success("เพิ่มตำแหน่งสำเร็จ (QR Code สร้างอัตโนมัติ)");
-      setName(""); setBuilding(""); setFloor(""); setColor(""); setSize(""); setExtType(""); setFuelType("");
+      setName(""); setBuilding(""); setFloor(""); setColor(""); setSize(""); setExtType(""); setFuelType(""); setManufactureYear("");
       queryClient.invalidateQueries({ queryKey: ["fire-locations"] });
     },
     onError: (e: any) => toast.error(e.message),
@@ -416,6 +418,10 @@ function FireLocationsTab() {
             <p className="text-sm text-amber-900">{fuelType}</p>
           </div>
         )}
+        <div>
+          <Label className="text-sm font-semibold">ปีที่ผลิต</Label>
+          <Input value={manufactureYear} onChange={(e) => setManufactureYear(e.target.value)} placeholder="เช่น 2565" className="rounded-2xl" />
+        </div>
         <Button className="w-full h-12 rounded-2xl gap-1.5" onClick={() => addLoc.mutate()} disabled={!name || addLoc.isPending}>
           <Plus className="h-4 w-4" /> เพิ่มตำแหน่ง + สร้าง QR Code
         </Button>
