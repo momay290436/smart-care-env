@@ -333,6 +333,7 @@ function FireLocationsTab() {
   const [size, setSize] = useState("");
   const [extType, setExtType] = useState("");
   const [fuelType, setFuelType] = useState("");
+  const [manufactureYear, setManufactureYear] = useState("");
 
   const colorOptions = ["สีเขียว", "สีแดง"];
   const sizeOptions = ["5 ปอนด์", "10 ปอนด์", "15 ปอนด์", "20 ปอนด์"];
