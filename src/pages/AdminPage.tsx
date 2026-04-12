@@ -418,6 +418,10 @@ function FireLocationsTab() {
             <p className="text-sm text-amber-900">{fuelType}</p>
           </div>
         )}
+        <div>
+          <Label className="text-sm font-semibold">ปีที่ผลิต</Label>
+          <Input value={manufactureYear} onChange={(e) => setManufactureYear(e.target.value)} placeholder="เช่น 2565" className="rounded-2xl" />
+        </div>
         <Button className="w-full h-12 rounded-2xl gap-1.5" onClick={() => addLoc.mutate()} disabled={!name || addLoc.isPending}>
           <Plus className="h-4 w-4" /> เพิ่มตำแหน่ง + สร้าง QR Code
         </Button>
