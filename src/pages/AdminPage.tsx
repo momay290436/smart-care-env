@@ -366,6 +366,7 @@ function FireLocationsTab() {
         name, building: building || null, floor: floor || null,
         color: color || null, size: size || null,
         extinguisher_type: extType || null, fuel_type: fuelType || null,
+        manufacture_year: manufactureYear || null,
         qr_code_data: null,
       }).select().single();
       if (error) throw error;
@@ -374,7 +375,7 @@ function FireLocationsTab() {
     },
     onSuccess: () => {
       toast.success("เพิ่มตำแหน่งสำเร็จ (QR Code สร้างอัตโนมัติ)");
-      setName(""); setBuilding(""); setFloor(""); setColor(""); setSize(""); setExtType(""); setFuelType("");
+      setName(""); setBuilding(""); setFloor(""); setColor(""); setSize(""); setExtType(""); setFuelType(""); setManufactureYear("");
       queryClient.invalidateQueries({ queryKey: ["fire-locations"] });
     },
     onError: (e: any) => toast.error(e.message),
