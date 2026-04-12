@@ -1,0 +1,1 @@
+ALTER TABLE public.fire_extinguisher_locations ADD COLUMN IF NOT EXISTS manufacture_year text;
