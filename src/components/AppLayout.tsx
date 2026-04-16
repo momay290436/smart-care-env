@@ -74,6 +74,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-3 md:px-4 pb-20 pt-4 md:pt-6 md:pb-8">
+        <div className="flex justify-end mb-1">
+          <span className="text-[10px] text-muted-foreground/60 font-medium tracking-wide">Create by Momay Maneewan</span>
+        </div>
         <PageTransition>{children}</PageTransition>
       </main>
 
