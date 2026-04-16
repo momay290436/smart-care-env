@@ -917,6 +917,78 @@ export type Database = {
         }
         Relationships: []
       }
+      waste_collection_logs: {
+        Row: {
+          check_in_time: string
+          collection_point: string
+          created_at: string
+          driver_name: string
+          id: string
+          notes: string | null
+          recorded_by: string
+          status: string
+        }
+        Insert: {
+          check_in_time?: string
+          collection_point: string
+          created_at?: string
+          driver_name: string
+          id?: string
+          notes?: string | null
+          recorded_by: string
+          status?: string
+        }
+        Update: {
+          check_in_time?: string
+          collection_point?: string
+          created_at?: string
+          driver_name?: string
+          id?: string
+          notes?: string | null
+          recorded_by?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      waste_disposal_records: {
+        Row: {
+          certificate_url: string | null
+          created_at: string
+          disposal_company: string | null
+          disposal_date: string
+          id: string
+          notes: string | null
+          photo_url: string | null
+          recorded_by: string
+          waste_type: string
+          weight: number
+        }
+        Insert: {
+          certificate_url?: string | null
+          created_at?: string
+          disposal_company?: string | null
+          disposal_date?: string
+          id?: string
+          notes?: string | null
+          photo_url?: string | null
+          recorded_by: string
+          waste_type: string
+          weight?: number
+        }
+        Update: {
+          certificate_url?: string | null
+          created_at?: string
+          disposal_company?: string | null
+          disposal_date?: string
+          id?: string
+          notes?: string | null
+          photo_url?: string | null
+          recorded_by?: string
+          waste_type?: string
+          weight?: number
+        }
+        Relationships: []
+      }
       waste_logs: {
         Row: {
           created_at: string
@@ -948,6 +1020,206 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      waste_ppe_checks: {
+        Row: {
+          boots: boolean
+          check_date: string
+          checked_by: string
+          created_at: string
+          gloves: boolean
+          gown: boolean
+          id: string
+          mask: boolean
+          notes: string | null
+          worker_name: string
+        }
+        Insert: {
+          boots?: boolean
+          check_date?: string
+          checked_by: string
+          created_at?: string
+          gloves?: boolean
+          gown?: boolean
+          id?: string
+          mask?: boolean
+          notes?: string | null
+          worker_name: string
+        }
+        Update: {
+          boots?: boolean
+          check_date?: string
+          checked_by?: string
+          created_at?: string
+          gloves?: boolean
+          gown?: boolean
+          id?: string
+          mask?: boolean
+          notes?: string | null
+          worker_name?: string
+        }
+        Relationships: []
+      }
+      waste_room_temps: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          recorded_at: string
+          recorded_by: string
+          recorder_name: string
+          room_name: string
+          status: string
+          temperature: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          recorded_at?: string
+          recorded_by: string
+          recorder_name?: string
+          room_name?: string
+          status?: string
+          temperature: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          recorder_name?: string
+          room_name?: string
+          status?: string
+          temperature?: number
+        }
+        Relationships: []
+      }
+      water_assets: {
+        Row: {
+          created_at: string
+          id: string
+          install_date: string | null
+          lifespan_years: number | null
+          name: string
+          notes: string | null
+          serial_no: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          install_date?: string | null
+          lifespan_years?: number | null
+          name: string
+          notes?: string | null
+          serial_no?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          install_date?: string | null
+          lifespan_years?: number | null
+          name?: string
+          notes?: string | null
+          serial_no?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      water_emergency_tests: {
+        Row: {
+          created_at: string
+          fuel_level: string | null
+          id: string
+          notes: string | null
+          pressure_bar: number | null
+          pump_status: string
+          status: string
+          test_date: string
+          tester_id: string
+          tester_name: string
+        }
+        Insert: {
+          created_at?: string
+          fuel_level?: string | null
+          id?: string
+          notes?: string | null
+          pressure_bar?: number | null
+          pump_status?: string
+          status?: string
+          test_date?: string
+          tester_id: string
+          tester_name?: string
+        }
+        Update: {
+          created_at?: string
+          fuel_level?: string | null
+          id?: string
+          notes?: string | null
+          pressure_bar?: number | null
+          pump_status?: string
+          status?: string
+          test_date?: string
+          tester_id?: string
+          tester_name?: string
+        }
+        Relationships: []
+      }
+      water_maintenance_schedule: {
+        Row: {
+          asset_id: string | null
+          assigned_to: string | null
+          created_at: string
+          frequency: string
+          id: string
+          last_done: string | null
+          next_due: string
+          notes: string | null
+          status: string
+          task_name: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          frequency?: string
+          id?: string
+          last_done?: string | null
+          next_due: string
+          notes?: string | null
+          status?: string
+          task_name: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          frequency?: string
+          id?: string
+          last_done?: string | null
+          next_due?: string
+          notes?: string | null
+          status?: string
+          task_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "water_maintenance_schedule_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "water_assets"
             referencedColumns: ["id"]
           },
         ]
@@ -991,6 +1263,54 @@ export type Database = {
           recorder_name?: string
           shift?: string
           usage_amount?: number
+        }
+        Relationships: []
+      }
+      water_pathogen_logs: {
+        Row: {
+          check_date: string
+          check_time: string
+          chlorine_value: number | null
+          created_at: string
+          e_coli: string
+          id: string
+          inspector_id: string
+          inspector_name: string
+          notes: string | null
+          photo_url: string | null
+          sample_point: string
+          status: string
+          total_coliform: string
+        }
+        Insert: {
+          check_date?: string
+          check_time?: string
+          chlorine_value?: number | null
+          created_at?: string
+          e_coli?: string
+          id?: string
+          inspector_id: string
+          inspector_name?: string
+          notes?: string | null
+          photo_url?: string | null
+          sample_point: string
+          status?: string
+          total_coliform?: string
+        }
+        Update: {
+          check_date?: string
+          check_time?: string
+          chlorine_value?: number | null
+          created_at?: string
+          e_coli?: string
+          id?: string
+          inspector_id?: string
+          inspector_name?: string
+          notes?: string | null
+          photo_url?: string | null
+          sample_point?: string
+          status?: string
+          total_coliform?: string
         }
         Relationships: []
       }
