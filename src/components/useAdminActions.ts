@@ -15,7 +15,7 @@ export function useAdminDelete(table: string, queryKey: string | string[]) {
     onSuccess: () => {
       toast.success("ลบสำเร็จ");
       const keys = Array.isArray(queryKey) ? queryKey : [queryKey];
-      keys.forEach(k => queryClient.invalidateQueries({ queryKey: [k] }));
+      keys.forEach((k: string) => queryClient.invalidateQueries({ queryKey: [k] }));
     },
     onError: (e: any) => toast.error(e.message),
   });

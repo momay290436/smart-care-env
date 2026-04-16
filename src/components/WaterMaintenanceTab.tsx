@@ -84,7 +84,7 @@ export default function WaterMaintenanceTab() {
 
   const deleteItem = useMutation({
     mutationFn: async ({ table, id }: { table: string; id: string }) => {
-      const { error } = await supabase.from(table).delete().eq("id", id);
+      const { error } = await supabase.from(table as any).delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
