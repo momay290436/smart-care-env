@@ -15,7 +15,9 @@ import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
 import PagePermissionsTab from "@/components/PagePermissionsTab";
 import DeptQrPointsSection from "@/components/DeptQrPointsSection";
-import { Pencil, Trash2, Plus, Shield, KeyRound } from "lucide-react";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import FireQrPrintDialog from "@/components/FireQrPrintDialog";
+import { Pencil, Trash2, Plus, Shield, KeyRound, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 // --- Departments Tab ---
@@ -25,6 +27,7 @@ function DepartmentsTab() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: departments } = useQuery({
     queryKey: ["departments"],
@@ -77,7 +80,7 @@ function DepartmentsTab() {
                     </div>
                   </DialogContent>
                 </Dialog>
-                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl gap-1.5" onClick={() => { if (confirm("ยืนยันลบ?")) deleteDept.mutate(d.id); }}>
+                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl gap-1.5" onClick={() => setDeleteId(d.id)}>
                   <Trash2 className="h-3.5 w-3.5" /> ลบ
                 </Button>
               </div>
@@ -86,6 +89,14 @@ function DepartmentsTab() {
           </CardContent>
         </Card>
       ))}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title="ลบแผนก"
+        description="ยืนยันการลบแผนกนี้? ข้อมูลที่เชื่อมโยงอาจได้รับผลกระทบ"
+        confirmLabel="ลบ"
+        onConfirm={() => { if (deleteId) { deleteDept.mutate(deleteId); setDeleteId(null); } }}
+      />
     </div>
   );
 }
@@ -388,10 +399,17 @@ function FireLocationsTab() {
   });
 
   const [showQr, setShowQr] = useState<string | null>(null);
+  const [deleteLocId, setDeleteLocId] = useState<string | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
   const previewUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" className="rounded-2xl gap-1.5 h-10 border-primary/30 text-primary" onClick={() => setPrintOpen(true)}>
+          <Printer className="h-4 w-4" /> พิมพ์สติกเกอร์ QR
+        </Button>
+      </div>
       <div className="space-y-3">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ชื่อตำแหน่ง" className="h-12 rounded-2xl text-base" />
         <div className="grid grid-cols-2 gap-3">
@@ -441,7 +459,7 @@ function FireLocationsTab() {
               </div>
               <div className="flex gap-1.5">
                 <Button variant="outline" size="sm" className="rounded-2xl text-xs" onClick={() => setShowQr(showQr === l.id ? null : l.id)}>QR</Button>
-                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => { if (confirm("ยืนยันลบ?")) deleteLoc.mutate(l.id); }}>
+                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => setDeleteLocId(l.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -463,6 +481,15 @@ function FireLocationsTab() {
           </CardContent>
         </Card>
       ))}
+      <ConfirmDialog
+        open={!!deleteLocId}
+        onOpenChange={(o) => !o && setDeleteLocId(null)}
+        title="ลบตำแหน่งถังดับเพลิง"
+        description="ยืนยันการลบตำแหน่งนี้?"
+        confirmLabel="ลบ"
+        onConfirm={() => { if (deleteLocId) { deleteLoc.mutate(deleteLocId); setDeleteLocId(null); } }}
+      />
+      <FireQrPrintDialog open={printOpen} onOpenChange={setPrintOpen} locations={locations || []} />
     </div>
   );
 }
@@ -502,6 +529,8 @@ function MaintenanceTab() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const [deleteTicketId, setDeleteTicketId] = useState<string | null>(null);
+
   return (
     <div className="space-y-3">
       {tickets?.map((t: any) => (
@@ -521,7 +550,7 @@ function MaintenanceTab() {
                     <SelectItem value="completed">เสร็จ</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => { if (confirm("ยืนยันลบ?")) deleteTicket.mutate(t.id); }}>
+                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => setDeleteTicketId(t.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -529,6 +558,14 @@ function MaintenanceTab() {
           </CardContent>
         </Card>
       ))}
+      <ConfirmDialog
+        open={!!deleteTicketId}
+        onOpenChange={(o) => !o && setDeleteTicketId(null)}
+        title="ลบใบแจ้งซ่อม"
+        description="ยืนยันการลบใบแจ้งซ่อมนี้?"
+        confirmLabel="ลบ"
+        onConfirm={() => { if (deleteTicketId) { deleteTicket.mutate(deleteTicketId); setDeleteTicketId(null); } }}
+      />
     </div>
   );
 }
