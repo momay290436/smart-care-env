@@ -27,6 +27,7 @@ function DepartmentsTab() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: departments } = useQuery({
     queryKey: ["departments"],
@@ -79,7 +80,29 @@ function DepartmentsTab() {
                     </div>
                   </DialogContent>
                 </Dialog>
-                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl gap-1.5" onClick={() => { if (confirm("ยืนยันลบ?")) deleteDept.mutate(d.id); }}>
+                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl gap-1.5" onClick={() => setDeleteId(d.id)}>
+                  <Trash2 className="h-3.5 w-3.5" /> ลบ
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title="ลบแผนก"
+        description="ยืนยันการลบแผนกนี้? ข้อมูลที่เชื่อมโยงอาจได้รับผลกระทบ"
+        confirmLabel="ลบ"
+        onConfirm={() => { if (deleteId) { deleteDept.mutate(deleteId); setDeleteId(null); } }}
+      />
+    </div>
+  );
+}
+
+// Old code removed — replaced above
+function _DepartmentsTab_old() {
+  return null;
                   <Trash2 className="h-3.5 w-3.5" /> ลบ
                 </Button>
               </div>
