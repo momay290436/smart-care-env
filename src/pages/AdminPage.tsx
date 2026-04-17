@@ -399,10 +399,17 @@ function FireLocationsTab() {
   });
 
   const [showQr, setShowQr] = useState<string | null>(null);
+  const [deleteLocId, setDeleteLocId] = useState<string | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
   const previewUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" className="rounded-2xl gap-1.5 h-10 border-primary/30 text-primary" onClick={() => setPrintOpen(true)}>
+          <Printer className="h-4 w-4" /> พิมพ์สติกเกอร์ QR
+        </Button>
+      </div>
       <div className="space-y-3">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ชื่อตำแหน่ง" className="h-12 rounded-2xl text-base" />
         <div className="grid grid-cols-2 gap-3">
