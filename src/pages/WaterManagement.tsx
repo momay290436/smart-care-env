@@ -218,6 +218,36 @@ export default function WaterManagement() {
         </Card>
       </div>
 
+      {/* Tabs: คุณภาพน้ำ / ระบบ / ตรวจเชื้อ / บำรุงรักษา */}
+      <Tabs defaultValue="quality" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
+          <TabsTrigger value="quality" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+            <Droplets className="h-4 w-4 mr-1" /> คุณภาพน้ำ
+          </TabsTrigger>
+          <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
+            <Settings className="h-4 w-4 mr-1" /> บริหารระบบ
+          </TabsTrigger>
+          <TabsTrigger value="pathogen" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <Shield className="h-4 w-4 mr-1" /> ตรวจเชื้อ
+          </TabsTrigger>
+          <TabsTrigger value="maintenance" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-amber-500 data-[state=active]:text-white">
+            <Wrench className="h-4 w-4 mr-1" /> บำรุงรักษา
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="system" className="mt-4">
+          <WaterSystemTab />
+        </TabsContent>
+
+        <TabsContent value="pathogen" className="mt-4">
+          <WaterPathogenTab />
+        </TabsContent>
+
+        <TabsContent value="maintenance" className="mt-4">
+          <WaterMaintenanceTab />
+        </TabsContent>
+
+        <TabsContent value="quality" className="mt-4">
       {/* 2-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Left Column */}
@@ -401,6 +431,8 @@ export default function WaterManagement() {
           </Card>
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Meter Record Dialog - Opens directly */}
       <Dialog open={showMeterDialog} onOpenChange={setShowMeterDialog}>
