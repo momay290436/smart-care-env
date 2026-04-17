@@ -431,6 +431,8 @@ export default function WaterManagement() {
           </Card>
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Meter Record Dialog - Opens directly */}
       <Dialog open={showMeterDialog} onOpenChange={setShowMeterDialog}>
