@@ -15,7 +15,9 @@ import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
 import PagePermissionsTab from "@/components/PagePermissionsTab";
 import DeptQrPointsSection from "@/components/DeptQrPointsSection";
-import { Pencil, Trash2, Plus, Shield, KeyRound } from "lucide-react";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import FireQrPrintDialog from "@/components/FireQrPrintDialog";
+import { Pencil, Trash2, Plus, Shield, KeyRound, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 // --- Departments Tab ---
