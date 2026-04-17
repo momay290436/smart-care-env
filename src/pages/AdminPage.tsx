@@ -85,6 +85,7 @@ function DepartmentsTab() {
                 </Button>
               </div>
             </div>
+            <DeptQrPointsSection departmentId={d.id} departmentName={d.name} />
           </CardContent>
         </Card>
       ))}
@@ -96,21 +97,6 @@ function DepartmentsTab() {
         confirmLabel="ลบ"
         onConfirm={() => { if (deleteId) { deleteDept.mutate(deleteId); setDeleteId(null); } }}
       />
-    </div>
-  );
-}
-
-// Old code removed — replaced above
-function _DepartmentsTab_old() {
-  return null;
-                  <Trash2 className="h-3.5 w-3.5" /> ลบ
-                </Button>
-              </div>
-            </div>
-            <DeptQrPointsSection departmentId={d.id} departmentName={d.name} />
-          </CardContent>
-        </Card>
-      ))}
     </div>
   );
 }
