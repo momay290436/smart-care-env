@@ -10,12 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, getDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from "date-fns";
 import { th } from "date-fns/locale";
 import PageHeader from "@/components/PageHeader";
-import { ClipboardCheck, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ClipboardCheck, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2, History, Sparkles } from "lucide-react";
 
 const EVENT_COLORS = [
   { value: "#0891b2", label: "ฟ้าน้ำทะเล" },
@@ -25,6 +26,12 @@ const EVENT_COLORS = [
   { value: "#8b5cf6", label: "ม่วง" },
   { value: "#ec4899", label: "ชมพู" },
 ];
+
+function getGrade(score: number) {
+  if (score >= 80) return { label: "ดีมาก", color: "bg-emerald-100 text-emerald-700 border-emerald-200" };
+  if (score >= 50) return { label: "พอใช้", color: "bg-amber-100 text-amber-700 border-amber-200" };
+  return { label: "ต้องปรับปรุง", color: "bg-red-100 text-red-700 border-red-200" };
+}
 
 export default function FiveSHub() {
   const navigate = useNavigate();
@@ -39,6 +46,8 @@ export default function FiveSHub() {
   const [eventColor, setEventColor] = useState("#0891b2");
   const [eventNotes, setEventNotes] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
+  const [selectedAudit, setSelectedAudit] = useState<any>(null);
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -61,17 +70,24 @@ export default function FiveSHub() {
     },
   });
 
+  const { data: recentAudits = [] } = useQuery({
+    queryKey: ["recent-5s-audits"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("audit_5s")
+        .select("*, departments(name)")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      return data || [];
+    },
+  });
+
   const addEvent = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("schedule_events").insert({
-        title: eventTitle,
-        event_type: "5s",
-        department_id: eventDeptId || null,
-        start_date: eventDate,
-        end_date: eventEndDate || null,
-        color: eventColor,
-        notes: eventNotes || null,
-        created_by: user!.id,
+        title: eventTitle, event_type: "5s", department_id: eventDeptId || null,
+        start_date: eventDate, end_date: eventEndDate || null,
+        color: eventColor, notes: eventNotes || null, created_by: user!.id,
       });
       if (error) throw error;
     },
@@ -104,115 +120,188 @@ export default function FiveSHub() {
 
   return (
     <div className="space-y-5 pb-6">
-      <PageHeader title="ระบบ 5ส." subtitle="ตรวจ 5ส · ปฏิทินกำหนดการ" gradient="from-teal-50/80 to-cyan-50/80" />
+      <PageHeader title="ระบบ 5ส." subtitle="ตรวจ 5ส · ปฏิทินกำหนดการ · ประวัติการตรวจ" gradient="from-teal-50/80 to-cyan-50/80" />
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-1">
-        <Card className="cursor-pointer border-t-4 border-t-teal-400 bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all active:scale-[0.97]" onClick={() => navigate("/5s")}>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-teal-400 flex items-center justify-center">
-              <ClipboardCheck className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <p className="text-lg font-bold text-foreground">ตรวจ 5ส</p>
-              <p className="text-sm text-muted-foreground">ประเมินและบันทึกผลการตรวจ</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground ml-auto" />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Calendar */}
-      <Card className="bg-white rounded-2xl shadow-sm border-0">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-bold flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5 text-primary" /> ปฏิทินกำหนดการ 5ส
-            </CardTitle>
-            {isAdmin && (
-              <Button size="sm" className="rounded-2xl gap-1 h-9" onClick={() => setShowAddEvent(true)}>
-                <Plus className="h-4 w-4" /> เพิ่มกิจกรรม
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="p-4 space-y-4">
-          {/* Month Nav */}
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <h3 className="text-base font-bold text-foreground">
-              {format(currentMonth, "MMMM yyyy", { locale: th })}
-            </h3>
-            <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Day Headers */}
-          <div className="grid grid-cols-7 gap-1 text-center">
-            {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((d) => (
-              <div key={d} className="text-xs font-semibold text-muted-foreground py-2">{d}</div>
-            ))}
-          </div>
-
-          {/* Day Grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: startDayOfWeek }).map((_, i) => <div key={`empty-${i}`} />)}
-            {days.map((day) => {
-              const dayEvents = events.filter((e: any) => isSameDay(new Date(e.start_date), day));
-              const isToday = isSameDay(day, new Date());
-              const isSelected = selectedDate && isSameDay(day, selectedDate);
-              return (
-                <button
-                  key={day.toISOString()}
-                  className={`relative aspect-square flex flex-col items-center justify-center rounded-xl text-sm transition-all
-                    ${isToday ? "bg-primary/10 font-bold text-primary" : "hover:bg-muted/50"}
-                    ${isSelected ? "ring-2 ring-primary" : ""}
-                  `}
-                  onClick={() => setSelectedDate(day)}
-                >
-                  <span>{format(day, "d")}</span>
-                  {dayEvents.length > 0 && (
-                    <div className="flex gap-0.5 mt-0.5">
-                      {dayEvents.slice(0, 3).map((e: any, i: number) => (
-                        <span key={i} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: e.color || "#0891b2" }} />
-                      ))}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Selected Date Events */}
-          {selectedDate && (
-            <div className="space-y-2 pt-2 border-t border-border/50">
-              <p className="text-sm font-semibold text-foreground">
-                {format(selectedDate, "d MMMM yyyy", { locale: th })}
-              </p>
-              {selectedDateEvents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">ไม่มีกิจกรรม</p>
-              ) : (
-                selectedDateEvents.map((e: any) => (
-                  <div key={e.id} className="flex items-center gap-3 rounded-xl p-3 bg-muted/30">
-                    <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: e.color || "#0891b2" }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{e.title}</p>
-                      <p className="text-xs text-muted-foreground">{e.departments?.name || "ทุกแผนก"}</p>
-                      {e.notes && <p className="text-xs text-muted-foreground mt-0.5">{e.notes}</p>}
-                    </div>
-                    {isAdmin && (
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => { if (confirm("ลบกิจกรรม?")) deleteEvent.mutate(e.id); }}>✕</Button>
-                    )}
-                  </div>
-                ))
+      {/* 60/40 Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Calendar - 60% */}
+        <Card className="lg:col-span-3 bg-white rounded-3xl shadow-md border-0 backdrop-blur-sm">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5 text-primary" /> ปฏิทินกำหนดการ 5ส
+              </CardTitle>
+              {isAdmin && (
+                <Button size="sm" className="rounded-2xl gap-1 h-9" onClick={() => setShowAddEvent(true)}>
+                  <Plus className="h-4 w-4" /> เพิ่มกิจกรรม
+                </Button>
               )}
             </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <h3 className="text-base font-bold text-foreground">{format(currentMonth, "MMMM yyyy", { locale: th })}</h3>
+              <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((d) => (
+                <div key={d} className="text-xs font-semibold text-muted-foreground py-1">{d}</div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: startDayOfWeek }).map((_, i) => <div key={`empty-${i}`} />)}
+              {days.map((day) => {
+                const dayEvents = events.filter((e: any) => isSameDay(new Date(e.start_date), day));
+                const isToday = isSameDay(day, new Date());
+                const isSelected = selectedDate && isSameDay(day, selectedDate);
+                return (
+                  <button
+                    key={day.toISOString()}
+                    className={`relative aspect-square flex flex-col items-center justify-center rounded-xl text-sm transition-all
+                      ${isToday ? "bg-primary/10 font-bold text-primary" : "hover:bg-muted/50"}
+                      ${isSelected ? "ring-2 ring-primary" : ""}`}
+                    onClick={() => setSelectedDate(day)}
+                  >
+                    <span>{format(day, "d")}</span>
+                    {dayEvents.length > 0 && (
+                      <div className="flex gap-0.5 mt-0.5">
+                        {dayEvents.slice(0, 3).map((e: any, i: number) => (
+                          <span key={i} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: e.color || "#0891b2" }} />
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedDate && (
+              <div className="space-y-2 pt-2 border-t border-border/50">
+                <p className="text-sm font-semibold text-foreground">{format(selectedDate, "d MMMM yyyy", { locale: th })}</p>
+                {selectedDateEvents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">ไม่มีกิจกรรม</p>
+                ) : (
+                  selectedDateEvents.map((e: any) => (
+                    <div key={e.id} className="flex items-center gap-3 rounded-xl p-3 bg-muted/30">
+                      <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: e.color || "#0891b2" }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{e.title}</p>
+                        <p className="text-xs text-muted-foreground">{e.departments?.name || "ทุกแผนก"}</p>
+                        {e.notes && <p className="text-xs text-muted-foreground mt-0.5">{e.notes}</p>}
+                      </div>
+                      {isAdmin && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteEventId(e.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Right side - 40%: Action button + History */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Action card with glassmorphism */}
+          <Card
+            className="cursor-pointer rounded-3xl border-0 shadow-lg bg-gradient-to-br from-teal-400/90 to-cyan-500/90 backdrop-blur-md hover:shadow-2xl transition-all active:scale-[0.97] overflow-hidden relative"
+            onClick={() => navigate("/5s")}
+          >
+            <div className="absolute inset-0 bg-white/10" />
+            <CardContent className="p-6 relative flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur flex items-center justify-center shadow-inner">
+                <ClipboardCheck className="h-7 w-7 text-white" />
+              </div>
+              <div className="flex-1 text-white">
+                <p className="text-lg font-bold flex items-center gap-1">ตรวจ 5ส <Sparkles className="h-4 w-4" /></p>
+                <p className="text-sm text-white/90">เริ่มประเมินใหม่</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-white" />
+            </CardContent>
+          </Card>
+
+          {/* History */}
+          <Card className="rounded-3xl border-0 shadow-md bg-white/80 backdrop-blur">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <History className="h-4 w-4 text-primary" /> ประวัติการตรวจล่าสุด
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 space-y-2 max-h-[480px] overflow-y-auto">
+              {recentAudits.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">ยังไม่มีประวัติการตรวจ</p>
+              ) : (
+                recentAudits.map((a: any) => {
+                  const grade = getGrade(Number(a.total_score));
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => setSelectedAudit(a)}
+                      className="w-full text-left rounded-2xl p-3 bg-gradient-to-br from-white to-slate-50/50 border border-slate-200/60 shadow-sm hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold truncate">{a.departments?.name || "-"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(a.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-base font-bold text-primary">{a.total_score}%</span>
+                          <Badge className={`text-[10px] rounded-lg px-1.5 py-0 ${grade.color}`} variant="outline">{grade.label}</Badge>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Detail dialog */}
+      <Dialog open={!!selectedAudit} onOpenChange={(o) => !o && setSelectedAudit(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto rounded-3xl">
+          <DialogHeader><DialogTitle>รายละเอียดการตรวจ 5ส</DialogTitle></DialogHeader>
+          {selectedAudit && (
+            <div className="space-y-3">
+              <div className="rounded-2xl bg-gradient-to-r from-teal-50 to-cyan-50 p-4 space-y-1">
+                <p className="text-sm"><strong>แผนก:</strong> {selectedAudit.departments?.name || "-"}</p>
+                <p className="text-sm"><strong>วันที่:</strong> {new Date(selectedAudit.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}</p>
+                {(selectedAudit.score_json as any)?.auditor_name && (
+                  <p className="text-sm"><strong>ผู้ตรวจ:</strong> {(selectedAudit.score_json as any).auditor_name}</p>
+                )}
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-2xl font-bold text-primary">{selectedAudit.total_score}%</span>
+                  <Badge className={getGrade(Number(selectedAudit.total_score)).color}>{getGrade(Number(selectedAudit.total_score)).label}</Badge>
+                </div>
+              </div>
+              {["seiri", "seiton", "seiso", "seiketsu", "shitsuke"].map((k) => {
+                const sj = selectedAudit.score_json as Record<string, number>;
+                const labels: Record<string, string> = { seiri: "สะสาง", seiton: "สะดวก", seiso: "สะอาด", seiketsu: "สุขลักษณะ", shitsuke: "สร้างนิสัย" };
+                return (
+                  <div key={k} className="flex items-center justify-between text-sm py-1 border-b border-border/30">
+                    <span>{labels[k]}</span>
+                    <span className="font-semibold text-primary">{sj?.[k] ?? 0}%</span>
+                  </div>
+                );
+              })}
+              {selectedAudit.notes && <div><p className="text-sm font-semibold mb-1">หมายเหตุ</p><p className="text-sm text-muted-foreground">{selectedAudit.notes}</p></div>}
+              <Button className="w-full rounded-2xl" onClick={() => navigate("/5s")}>ดูทั้งหมดในหน้าตรวจ 5ส</Button>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Event Dialog */}
       <Dialog open={showAddEvent} onOpenChange={setShowAddEvent}>
@@ -223,7 +312,7 @@ export default function FiveSHub() {
             <div><Label>แผนก</Label>
               <Select value={eventDeptId} onValueChange={setEventDeptId}>
                 <SelectTrigger className="h-12 rounded-2xl"><SelectValue placeholder="ทุกแผนก" /></SelectTrigger>
-                <SelectContent><SelectItem value="">ทุกแผนก</SelectItem>{departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                <SelectContent><SelectItem value="">ทุกแผนก</SelectItem>{departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -232,7 +321,7 @@ export default function FiveSHub() {
             </div>
             <div><Label>สี</Label>
               <div className="flex gap-2 mt-1">
-                {EVENT_COLORS.map(c => (
+                {EVENT_COLORS.map((c) => (
                   <button key={c.value} className={`h-8 w-8 rounded-full border-2 transition-all ${eventColor === c.value ? "border-foreground scale-110" : "border-transparent"}`} style={{ backgroundColor: c.value }} onClick={() => setEventColor(c.value)} />
                 ))}
               </div>
@@ -244,6 +333,15 @@ export default function FiveSHub() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteEventId}
+        onOpenChange={(o) => !o && setDeleteEventId(null)}
+        title="ลบกิจกรรม"
+        description="คุณแน่ใจหรือไม่ว่าต้องการลบกิจกรรมนี้? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+        confirmLabel="ลบ"
+        onConfirm={() => { if (deleteEventId) { deleteEvent.mutate(deleteEventId); setDeleteEventId(null); } }}
+      />
     </div>
   );
 }
