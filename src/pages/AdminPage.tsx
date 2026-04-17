@@ -459,7 +459,7 @@ function FireLocationsTab() {
               </div>
               <div className="flex gap-1.5">
                 <Button variant="outline" size="sm" className="rounded-2xl text-xs" onClick={() => setShowQr(showQr === l.id ? null : l.id)}>QR</Button>
-                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => { if (confirm("ยืนยันลบ?")) deleteLoc.mutate(l.id); }}>
+                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => setDeleteLocId(l.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -481,6 +481,15 @@ function FireLocationsTab() {
           </CardContent>
         </Card>
       ))}
+      <ConfirmDialog
+        open={!!deleteLocId}
+        onOpenChange={(o) => !o && setDeleteLocId(null)}
+        title="ลบตำแหน่งถังดับเพลิง"
+        description="ยืนยันการลบตำแหน่งนี้?"
+        confirmLabel="ลบ"
+        onConfirm={() => { if (deleteLocId) { deleteLoc.mutate(deleteLocId); setDeleteLocId(null); } }}
+      />
+      <FireQrPrintDialog open={printOpen} onOpenChange={setPrintOpen} locations={locations || []} />
     </div>
   );
 }
