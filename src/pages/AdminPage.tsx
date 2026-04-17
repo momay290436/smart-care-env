@@ -529,6 +529,8 @@ function MaintenanceTab() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const [deleteTicketId, setDeleteTicketId] = useState<string | null>(null);
+
   return (
     <div className="space-y-3">
       {tickets?.map((t: any) => (
@@ -548,7 +550,7 @@ function MaintenanceTab() {
                     <SelectItem value="completed">เสร็จ</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => { if (confirm("ยืนยันลบ?")) deleteTicket.mutate(t.id); }}>
+                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => setDeleteTicketId(t.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -556,6 +558,14 @@ function MaintenanceTab() {
           </CardContent>
         </Card>
       ))}
+      <ConfirmDialog
+        open={!!deleteTicketId}
+        onOpenChange={(o) => !o && setDeleteTicketId(null)}
+        title="ลบใบแจ้งซ่อม"
+        description="ยืนยันการลบใบแจ้งซ่อมนี้?"
+        confirmLabel="ลบ"
+        onConfirm={() => { if (deleteTicketId) { deleteTicket.mutate(deleteTicketId); setDeleteTicketId(null); } }}
+      />
     </div>
   );
 }
