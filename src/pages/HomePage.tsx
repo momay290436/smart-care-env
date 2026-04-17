@@ -91,10 +91,10 @@ export default function HomePage() {
                 style={{ animationDelay: `${index * 50}ms`, animationFillMode: "both" }}
                 onClick={() => navigate(item.path)}
               >
-                <div className="p-4 sm:p-5 flex flex-col gap-3 sm:gap-4 h-full">
+                <div className="p-5 flex flex-col gap-4 h-full min-h-[180px] sm:min-h-[200px]">
                   <div className="flex items-center justify-between">
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${item.iconBg} flex items-center justify-center shadow-md`}>
-                      <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                    <div className={`w-14 h-14 sm:w-12 sm:h-12 rounded-2xl ${item.iconBg} flex items-center justify-center shadow-md`}>
+                      <Icon className="h-7 w-7 sm:h-6 sm:w-6 text-white" />
                     </div>
                     {badgeCount !== null && badgeCount > 0 && (
                       <Badge className="bg-primary/10 text-primary border-0 rounded-full text-xs font-bold px-2.5">
@@ -103,15 +103,15 @@ export default function HomePage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-base sm:text-lg font-bold text-foreground leading-tight">{item.label}</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-relaxed line-clamp-2">{item.desc}</p>
+                    <p className="text-lg font-bold text-foreground leading-tight">{item.label}</p>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed line-clamp-3">{item.desc}</p>
                   </div>
-                  <div className="flex items-center justify-between pt-2 sm:pt-3 border-t border-border/40">
+                  <div className="flex items-center justify-between pt-2 border-t border-border/40">
                     <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full ${item.statusDot} animate-pulse`} />
-                      <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">{item.statusText}</span>
+                      <span className={`h-2.5 w-2.5 rounded-full ${item.statusDot} animate-pulse`} />
+                      <span className="text-xs text-muted-foreground font-medium">{item.statusText}</span>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </div>
               </Card>
