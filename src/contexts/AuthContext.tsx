@@ -11,6 +11,7 @@ interface Profile {
   auth_id: string;
   full_name: string;
   department_id: string | null;
+  simplified_mode?: boolean;
 }
 
 interface AuthContextType {
@@ -21,6 +22,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isTechnician: boolean;
   isManager: boolean;
+  isSimplified: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string, departmentId: string) => Promise<void>;
@@ -120,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: role === "admin",
       isTechnician: role === "technician",
       isManager: role === "manager",
+      isSimplified: !!profile?.simplified_mode && role !== "admin",
       loading, signIn, signUp, signOut,
     }}>
       {children}
