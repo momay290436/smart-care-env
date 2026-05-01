@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 const ALWAYS_ALLOWED = ["/", "/login"];
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, user, loading, isAdmin } = useAuth();
+  const { session, user, loading, isAdmin, isSimplified } = useAuth();
   const location = useLocation();
 
   const { data: permissions, isLoading: permLoading } = useQuery({
@@ -52,11 +52,18 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   }
 
   // If user has no permissions set at all, allow everything (backwards compatible)
-  if (!permissions || permissions.length === 0) return <>{children}</>;
+  if (!permissions || permissions.length === 0) {
+    // Simplified-mode users without any permissions only see home
+    if (isSimplified && location.pathname !== "/") return <Navigate to="/" replace />;
+    return <>{children}</>;
+  }
 
   // Check if current path is in allowed pages
   const currentPath = location.pathname;
   if (permissions.includes(currentPath)) return <>{children}</>;
+
+  // Simplified users get silently redirected to their shortcut hub
+  if (isSimplified) return <Navigate to="/" replace />;
 
   // Not allowed
   return (
