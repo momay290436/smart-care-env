@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Settings, BarChart3, Wrench, Trash2, Shield, Map, FlaskConical, Search, ChevronRight, Clipboard, Droplets } from "lucide-react";
+import StaffShortcutHome from "@/components/StaffShortcutHome";
 
 const menuCards = [
   { path: "/dashboard", label: "แดชบอร์ด", desc: "ภาพรวมสถิติการใช้งาน กราฟรายวัน/เดือน และรายงานสรุป", icon: BarChart3, borderColor: "border-t-emerald-500", iconBg: "bg-emerald-500", statusDot: "bg-emerald-400", statusText: "ภาพรวมทั้งหมด", badgeKey: null },
@@ -19,8 +20,10 @@ const menuCards = [
 ];
 
 export default function HomePage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isSimplified } = useAuth();
   const navigate = useNavigate();
+
+  if (isSimplified) return <StaffShortcutHome />;
 
   const { data: badges } = useQuery({
     queryKey: ["home-badges"],
