@@ -69,7 +69,7 @@ export default function FireInfoPublic() {
   const InfoRow = ({ icon: Icon, label, value, color = "text-cyan-600" }: any) => (
     <div className="flex items-start gap-3 py-2.5 border-b border-gray-100 last:border-0">
       <div className={`w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0`}>
-        <Icon className={`h-4.5 w-4.5 ${color}`} strokeWidth={2.2} />
+        <Icon className={`h-5 w-5 ${color}`} strokeWidth={2.2} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs text-gray-500 font-medium">{label}</p>
