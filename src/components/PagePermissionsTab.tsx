@@ -8,6 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Shield, Settings2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ALL_PAGES = [
   { key: "/dashboard", label: "Dashboard", icon: "📊" },
@@ -38,6 +41,8 @@ export default function PagePermissionsTab() {
   const queryClient = useQueryClient();
   const [editUser, setEditUser] = useState<any>(null);
   const [selectedPages, setSelectedPages] = useState<string[]>([]);
+  const [editRole, setEditRole] = useState<string>("user");
+  const [editSimplified, setEditSimplified] = useState<boolean>(false);
 
   const { data: users } = useQuery({
     queryKey: ["perm-users"],
@@ -56,6 +61,8 @@ export default function PagePermissionsTab() {
   const openEdit = (u: any) => {
     setEditUser(u);
     setSelectedPages(u.permissions || []);
+    setEditRole(u.role || "user");
+    setEditSimplified(!!u.simplified_mode);
   };
 
   const togglePage = (key: string) => {
@@ -68,6 +75,17 @@ export default function PagePermissionsTab() {
   const savePermissions = useMutation({
     mutationFn: async () => {
       if (!editUser) return;
+      // Update role
+      const { error: rErr } = await supabase
+        .from("user_roles")
+        .upsert({ user_id: editUser.auth_id, role: editRole as any }, { onConflict: "user_id" });
+      if (rErr) throw rErr;
+      // Update simplified flag on profile
+      const { error: pErr } = await supabase
+        .from("profiles")
+        .update({ simplified_mode: editSimplified })
+        .eq("auth_id", editUser.auth_id);
+      if (pErr) throw pErr;
       // Delete existing
       await supabase.from("page_permissions").delete().eq("user_id", editUser.auth_id);
       // Insert new
@@ -79,7 +97,7 @@ export default function PagePermissionsTab() {
       }
     },
     onSuccess: () => {
-      toast.success("บันทึกสิทธิ์สำเร็จ");
+      toast.success("บันทึกสิทธิ์ผู้ใช้สำเร็จ");
       setEditUser(null);
       queryClient.invalidateQueries({ queryKey: ["perm-users"] });
     },
@@ -94,24 +112,27 @@ export default function PagePermissionsTab() {
     <div className="space-y-4">
       <div className="rounded-2xl bg-blue-50 border border-blue-200 p-4">
         <p className="text-sm text-blue-800">
-          <strong>หมายเหตุ:</strong> ผู้ดูแลระบบ (Admin) สามารถเข้าถึงทุกหน้าเสมอ หากไม่ได้กำหนดสิทธิ์ให้ผู้ใช้ ผู้ใช้จะสามารถเข้าถึงทุกหน้าได้ (ค่าเริ่มต้น)
+          <strong>คำแนะนำ:</strong> Admin = เข้าถึงทุกหน้า · Manager = ดูข้อมูล/Dashboard · Staff (โหมดบันทึก) = เห็นเฉพาะปุ่มลัดสำหรับบันทึกข้อมูลที่ได้รับสิทธิ์เท่านั้น (ไม่มีเมนู)
         </p>
       </div>
 
-      {users?.filter((u: any) => u.role !== "admin").map((u: any) => (
+      {users?.map((u: any) => (
         <Card key={u.id} className="shadow-card rounded-2xl">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-base truncate">{u.full_name || "ไม่ระบุชื่อ"}</p>
                 <p className="text-sm text-muted-foreground">{u.departments?.name || "-"} · {roleLabels[u.role] || u.role}</p>
-                {u.permissions.length > 0 ? (
-                  <div className="flex flex-wrap gap-1 mt-2">
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {u.simplified_mode && (
+                    <Badge className="text-[10px] rounded-2xl bg-amber-100 text-amber-700 border-0">โหมดบันทึก</Badge>
+                  )}
+                  {u.permissions.length > 0 ? (
                     <Badge variant="secondary" className="text-xs rounded-2xl">{u.permissions.length} หน้า</Badge>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground mt-1">เข้าถึงทุกหน้า (ค่าเริ่มต้น)</p>
-                )}
+                  ) : (
+                    <Badge variant="outline" className="text-xs rounded-2xl">เข้าถึงทุกหน้า</Badge>
+                  )}
+                </div>
               </div>
               <Button variant="outline" size="sm" className="rounded-2xl gap-1.5" onClick={() => openEdit(u)}>
                 <Settings2 className="h-4 w-4" /> กำหนดสิทธิ์
@@ -129,6 +150,28 @@ export default function PagePermissionsTab() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="rounded-2xl border border-border p-3 space-y-3 bg-muted/30">
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">บทบาท (Role)</Label>
+                <Select value={editRole} onValueChange={setEditRole}>
+                  <SelectTrigger className="mt-1 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin — เข้าถึงทุกหน้า + ตั้งค่าระบบ</SelectItem>
+                    <SelectItem value="manager">Manager — ดู Dashboard / สรุปข้อมูล</SelectItem>
+                    <SelectItem value="user">Staff / User — บันทึกข้อมูล</SelectItem>
+                    <SelectItem value="technician">ช่างเทคนิค</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-white p-3">
+                <div>
+                  <p className="text-sm font-semibold">โหมดบันทึก (Staff Simplified Mode)</p>
+                  <p className="text-[11px] text-muted-foreground">ซ่อนเมนูทั้งหมด เห็นเฉพาะปุ่มลัดบันทึกข้อมูลที่กำหนด</p>
+                </div>
+                <Switch checked={editSimplified} onCheckedChange={setEditSimplified} />
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="rounded-2xl text-xs" onClick={selectAll}>เลือกทั้งหมด</Button>
               <Button variant="outline" size="sm" className="rounded-2xl text-xs" onClick={clearAll}>ล้างทั้งหมด</Button>
