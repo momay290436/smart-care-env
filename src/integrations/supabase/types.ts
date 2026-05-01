@@ -726,6 +726,7 @@ export type Database = {
           department_id: string | null
           full_name: string
           id: string
+          simplified_mode: boolean
         }
         Insert: {
           auth_id: string
@@ -733,6 +734,7 @@ export type Database = {
           department_id?: string | null
           full_name?: string
           id?: string
+          simplified_mode?: boolean
         }
         Update: {
           auth_id?: string
@@ -740,6 +742,7 @@ export type Database = {
           department_id?: string | null
           full_name?: string
           id?: string
+          simplified_mode?: boolean
         }
         Relationships: [
           {
