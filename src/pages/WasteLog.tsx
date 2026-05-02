@@ -340,21 +340,28 @@ export default function WasteLog() {
           {filteredLogs.map((log: any) => {
             const wt = wasteTypes[log.waste_type] || wasteTypes.general;
             return (
-              <Card key={log.id} className="shadow-card border border-border/50 rounded-2xl animate-fade-in cursor-pointer hover:shadow-elevated transition-all" onClick={() => setSelectedLog(log)}>
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
+              <Card key={log.id} className="group relative overflow-hidden rounded-2xl border-0 shadow-card hover:shadow-elevated transition-all duration-300 cursor-pointer hover:-translate-y-0.5 animate-fade-in bg-white/80 backdrop-blur-sm" onClick={() => setSelectedLog(log)}>
+                <div className="absolute inset-0 opacity-[0.03] rounded-2xl" style={{ background: `linear-gradient(135deg, ${wt.chartColor}, transparent)` }} />
+                <CardContent className="relative flex items-center justify-between p-5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm" style={{ background: `${wt.chartColor}20` }}>
+                      <div className="w-4 h-4 rounded-full" style={{ background: wt.chartColor }} />
+                    </div>
                     <div>
-                      <Badge className={`${wt.color} border rounded-xl`} variant="secondary">{wt.label}</Badge>
-                      <p className="text-xs text-muted-foreground mt-1.5">
+                      <Badge className={`${wt.color} border rounded-xl text-xs`} variant="secondary">{wt.label}</Badge>
+                      <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
                         {new Date(log.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
                         {" · "}{log.departments?.name || "-"}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <p className="text-lg font-bold text-foreground">{log.weight} <span className="text-xs font-normal text-muted-foreground">กก.</span></p>
+                    <div className="text-right">
+                      <p className="text-xl font-extrabold text-foreground">{log.weight}</p>
+                      <p className="text-[10px] font-medium text-muted-foreground tracking-wider uppercase">กก.</p>
+                    </div>
                     {isAdmin && (
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive rounded-xl" onClick={(e) => { e.stopPropagation(); if (confirm("ยืนยันลบ?")) deleteLog.mutate(log.id); }}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/60 hover:text-destructive rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); if (confirm("ยืนยันลบ?")) deleteLog.mutate(log.id); }}>
                         ✕
                       </Button>
                     )}
@@ -364,7 +371,7 @@ export default function WasteLog() {
             );
           })}
           {filteredLogs.length === 0 && (
-            <Card className="shadow-card border border-border/50 rounded-2xl">
+            <Card className="shadow-card border-0 rounded-2xl bg-white/80 backdrop-blur-sm">
               <CardContent className="flex flex-col items-center gap-2 py-10">
                 <p className="text-base text-muted-foreground">ไม่มีบันทึกขยะในช่วงที่เลือก</p>
               </CardContent>
@@ -373,11 +380,11 @@ export default function WasteLog() {
         </TabsContent>
 
         <TabsContent value="cost" className="space-y-4 mt-4">
-          <Card className="shadow-card border border-border/50 rounded-2xl card-ocean">
-            <CardContent className="p-5 text-center">
-              <p className="text-base text-muted-foreground mb-1">ค่าใช้จ่ายกำจัดขยะ (ประมาณ)</p>
-              <p className="text-3xl font-bold text-primary">{totalCost.toLocaleString()} <span className="text-base font-normal text-muted-foreground">บาท</span></p>
-              <p className="text-xs text-muted-foreground mt-1">จากขยะ {chartData.totalWeight} กก.</p>
+          <Card className="shadow-elevated border-0 rounded-2xl bg-gradient-to-br from-primary/10 via-accent/5 to-transparent backdrop-blur-sm">
+            <CardContent className="p-6 text-center">
+              <p className="text-sm font-medium text-muted-foreground mb-2">ค่าใช้จ่ายกำจัดขยะ (ประมาณ)</p>
+              <p className="text-4xl font-extrabold text-primary">{totalCost.toLocaleString()} <span className="text-lg font-normal text-muted-foreground">บาท</span></p>
+              <p className="text-xs text-muted-foreground mt-2">จากขยะ {chartData.totalWeight} กก.</p>
             </CardContent>
           </Card>
 
