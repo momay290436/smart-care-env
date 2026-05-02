@@ -239,91 +239,93 @@ export default function EnvRound() {
           </Button>
         </PageHeader>
 
-        <Card className="border border-slate-200 shadow-lg bg-white animate-fade-in rounded-2xl">
-          <CardContent className="p-5 space-y-4">
-            <h2 className="font-bold text-lg text-foreground">เริ่มเดินตรวจใหม่</h2>
-            <QrScannerSection onResult={handleQrResult} />
-            <div>
-              <Label className="text-sm">เลือกแผนก / พื้นที่</Label>
-              <Select value={selectedDept} onValueChange={setSelectedDept}>
-                <SelectTrigger className="h-13 text-base rounded-2xl"><SelectValue placeholder="เลือกแผนก..." /></SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button className="w-full h-14 text-base gap-2 rounded-2xl shadow-card" onClick={() => startRoundMutation.mutate()} disabled={!selectedDept || startRoundMutation.isPending}>
-              {startRoundMutation.isPending ? "กำลังเริ่ม..." : "เริ่มเดินตรวจ"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Schedule Calendar */}
-        <EnvRoundCalendar />
-
-        {/* Filters */}
-        <Card className="border border-slate-200 shadow-lg rounded-2xl bg-white">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-sm font-medium text-foreground">กรอง:</span>
-              <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-                <SelectTrigger className="h-10 text-sm w-32 rounded-2xl"><SelectValue /></SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  <SelectItem value="all">ทั้งหมด</SelectItem>
-                  <SelectItem value="day">วันนี้</SelectItem>
-                  <SelectItem value="week">สัปดาห์นี้</SelectItem>
-                  <SelectItem value="month">เดือนนี้</SelectItem>
-                  <SelectItem value="custom">เลือกวันที่</SelectItem>
-                </SelectContent>
-              </Select>
-              <Badge variant="secondary" className="h-10 px-4 flex items-center text-sm rounded-2xl">{filteredRounds.length} รายการ</Badge>
-            </div>
-            {filterPeriod === "custom" && (
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { val: customFrom, set: setCustomFrom, placeholder: "วันเริ่มต้น" },
-                  { val: customTo, set: setCustomTo, placeholder: "วันสิ้นสุด" },
-                ].map((cfg, i) => (
-                  <Popover key={i}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className={cn("text-sm h-10 w-40 justify-start rounded-2xl", !cfg.val && "text-slate-500")}>
-                        {cfg.val ? format(cfg.val, "d MMM yy", { locale: th }) : cfg.placeholder}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={cfg.val} onSelect={cfg.set} disabled={(d) => d > new Date() || (i === 1 && customFrom ? d < customFrom : false)} initialFocus className="p-3 pointer-events-auto" />
-                    </PopoverContent>
-                  </Popover>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* History */}
-        <div className="space-y-3">
-          {filteredRounds.map((round: any, idx: number) => (
-            <Card key={round.id} className="border border-slate-200 shadow-lg cursor-pointer hover:shadow-2xl transition-all animate-slide-up rounded-2xl bg-white" style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'both' }} onClick={() => viewRoundDetails(round)}>
-              <CardContent className="p-4 flex items-center justify-between">
+        {/* 60/40 Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          <div className="lg:col-span-3">
+            <EnvRoundCalendar />
+          </div>
+          <div className="lg:col-span-2 space-y-4">
+            <Card className="border border-slate-200 shadow-lg bg-white animate-fade-in rounded-2xl">
+              <CardContent className="p-5 space-y-4">
+                <h2 className="font-bold text-lg text-foreground">เริ่มเดินตรวจใหม่</h2>
+                <QrScannerSection onResult={handleQrResult} />
                 <div>
-                  <p className="text-base font-semibold text-foreground">{round.departments?.name || "ไม่ระบุแผนก"}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(round.created_at), "d MMM yyyy HH:mm", { locale: th })}
-                    {" · "}{round.inspector_name}
-                  </p>
+                  <Label className="text-sm">เลือกแผนก / พื้นที่</Label>
+                  <Select value={selectedDept} onValueChange={setSelectedDept}>
+                    <SelectTrigger className="h-13 text-base rounded-2xl"><SelectValue placeholder="เลือกแผนก..." /></SelectTrigger>
+                    <SelectContent className="rounded-2xl">
+                      {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={round.status === "completed" ? "default" : "secondary"} className="rounded-2xl text-sm">
-                    {round.status === "completed" ? "เสร็จสิ้น" : "กำลังตรวจ"}
-                  </Badge>
-                  {isAdmin && (
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive rounded-2xl" onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(round.id); }}>✕</Button>
-                  )}
-                </div>
+                <Button className="w-full h-14 text-base gap-2 rounded-2xl shadow-card" onClick={() => startRoundMutation.mutate()} disabled={!selectedDept || startRoundMutation.isPending}>
+                  {startRoundMutation.isPending ? "กำลังเริ่ม..." : "เริ่มเดินตรวจ"}
+                </Button>
               </CardContent>
             </Card>
-          ))}
-          {filteredRounds.length === 0 && <p className="text-center text-muted-foreground py-8 text-base">ไม่มีประวัติการตรวจในช่วงที่เลือก</p>}
+            <Card className="border border-slate-200 shadow-lg rounded-2xl bg-white">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className="text-sm font-medium text-foreground">กรอง:</span>
+                  <Select value={filterPeriod} onValueChange={setFilterPeriod}>
+                    <SelectTrigger className="h-10 text-sm w-32 rounded-2xl"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-2xl">
+                      <SelectItem value="all">ทั้งหมด</SelectItem>
+                      <SelectItem value="day">วันนี้</SelectItem>
+                      <SelectItem value="week">สัปดาห์นี้</SelectItem>
+                      <SelectItem value="month">เดือนนี้</SelectItem>
+                      <SelectItem value="custom">เลือกวันที่</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Badge variant="secondary" className="h-10 px-4 flex items-center text-sm rounded-2xl">{filteredRounds.length} รายการ</Badge>
+                </div>
+                {filterPeriod === "custom" && (
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { val: customFrom, set: setCustomFrom, placeholder: "วันเริ่มต้น" },
+                      { val: customTo, set: setCustomTo, placeholder: "วันสิ้นสุด" },
+                    ].map((cfg, i) => (
+                      <Popover key={i}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("text-sm h-10 w-40 justify-start rounded-2xl", !cfg.val && "text-slate-500")}>
+                            {cfg.val ? format(cfg.val, "d MMM yy", { locale: th }) : cfg.placeholder}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={cfg.val} onSelect={cfg.set} disabled={(d) => d > new Date() || (i === 1 && customFrom ? d < customFrom : false)} initialFocus className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <h3 className="font-bold text-base text-foreground">ประวัติการตรวจ</h3>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+              {filteredRounds.map((round: any, idx: number) => (
+                <Card key={round.id} className="border-0 shadow-card cursor-pointer hover:shadow-elevated transition-all animate-slide-up rounded-2xl bg-white/80 backdrop-blur-sm hover:-translate-y-0.5" style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'both' }} onClick={() => viewRoundDetails(round)}>
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-base font-semibold text-foreground">{round.departments?.name || "ไม่ระบุแผนก"}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(round.created_at), "d MMM yyyy HH:mm", { locale: th })}
+                        {" · "}{round.inspector_name}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={round.status === "completed" ? "default" : "secondary"} className="rounded-2xl text-sm">
+                        {round.status === "completed" ? "เสร็จสิ้น" : "กำลังตรวจ"}
+                      </Badge>
+                      {isAdmin && (
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive rounded-2xl" onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(round.id); }}>✕</Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {filteredRounds.length === 0 && <p className="text-center text-muted-foreground py-8 text-base">ไม่มีประวัติการตรวจ</p>}
+            </div>
+          </div>
         </div>
 
         {/* Round detail dialog */}

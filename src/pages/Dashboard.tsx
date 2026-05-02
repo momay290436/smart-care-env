@@ -209,7 +209,7 @@ export default function Dashboard() {
       </PageHeader>
 
       {/* Row 1: Primary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard index={0} label="งานซ่อมทั้งหมด" value={repairStats?.total ?? 0} sub={`รอดำเนินการ ${repairStats?.pending ?? 0}`} icon={Wrench} accent="sky" onClick={() => setDrilldown("repair")} trend={repairStats && repairStats.pending > 5 ? "down" : "up"} trendLabel={`อัตราสำเร็จ ${completionRate}%`} />
         <KpiCard index={1} label="คะแนน 5ส เฉลี่ย" value={avgScore ? `${avgScore}%` : "-"} sub="คะแนนรวมทุกแผนก" icon={CheckCircle} accent="teal" onClick={() => setDrilldown("5s")} trend={avgScore && avgScore >= 70 ? "up" : "down"} trendLabel={avgScore && avgScore >= 70 ? "ผ่านเกณฑ์" : "ต่ำกว่าเกณฑ์"} />
         <KpiCard index={2} label="ถังดับเพลิง" value={fireChecks ? `${fireChecks.rate}%` : "-"} sub={`ปกติ ${fireChecks?.ok ?? 0}/${fireChecks?.total ?? 0}`} icon={Flame} accent="red" onClick={() => navigate("/fire-check")} trend={fireChecks && fireChecks.rate >= 80 ? "up" : "down"} trendLabel={fireChecks && fireChecks.rate >= 80 ? "สภาพดี" : "ต้องตรวจสอบ"} />
@@ -217,7 +217,7 @@ export default function Dashboard() {
       </div>
 
       {/* Row 2: Secondary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard index={4} label="ENV Round" value={envRoundStats?.totalRounds ?? 0} sub={`เสร็จสิ้น ${envRoundStats?.completed ?? 0}`} icon={Search} accent="cyan" onClick={() => navigate("/env-round")} trend="neutral" trendLabel={`พบปัญหา ${envRoundStats?.abnormal ?? 0} จุด`} />
         <KpiCard index={5} label="สารเคมีคลัง" value={hazmatStats?.total ?? 0} sub={`สต็อกต่ำ ${hazmatStats?.lowStock ?? 0}`} icon={FlaskConical} accent="amber" onClick={() => navigate("/hazmat")} trend={hazmatStats && hazmatStats.lowStock > 0 ? "down" : "up"} trendLabel={hazmatStats && hazmatStats.lowStock > 0 ? "มีรายการสต็อกต่ำ" : "สต็อกเพียงพอ"} />
         <KpiCard index={6} label="Risk สูง (ENV)" value={envRoundStats?.highRisk ?? 0} sub="จุดเสี่ยงสูง" icon={AlertTriangle} accent="red" onClick={() => navigate("/env-round")} trend={envRoundStats && envRoundStats.highRisk > 0 ? "down" : "up"} trendLabel={envRoundStats && envRoundStats.highRisk > 0 ? "ต้องแก้ไขด่วน" : "ไม่มีจุดเสี่ยง"} />
