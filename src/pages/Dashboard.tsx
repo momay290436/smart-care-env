@@ -523,6 +523,41 @@ export default function Dashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ENV Drilldown */}
+      <Dialog open={drilldown === "env"} onOpenChange={(open) => !open && setDrilldown(null)}>
+        <DialogContent className="max-w-2xl rounded-2xl bg-white max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-slate-800">รายละเอียด ENV Round</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-cyan-50 rounded-2xl p-4 text-center border border-cyan-100">
+                <p className="text-2xl font-bold text-cyan-600">{envRoundStats?.totalRounds ?? 0}</p>
+                <p className="text-xs text-cyan-600 mt-1">รอบตรวจทั้งหมด</p>
+              </div>
+              <div className="bg-amber-50 rounded-2xl p-4 text-center border border-amber-100">
+                <p className="text-2xl font-bold text-amber-600">{envRoundStats?.abnormal ?? 0}</p>
+                <p className="text-xs text-amber-600 mt-1">พบปัญหา</p>
+              </div>
+              <div className="bg-red-50 rounded-2xl p-4 text-center border border-red-100">
+                <p className="text-2xl font-bold text-red-600">{envRoundStats?.highRisk ?? 0}</p>
+                <p className="text-xs text-red-600 mt-1">ความเสี่ยงสูง</p>
+              </div>
+            </div>
+            {envRoundStats && envRoundStats.highRisk > 0 && (
+              <div className="bg-red-50 rounded-2xl p-4 border border-red-200">
+                <p className="text-sm font-bold text-red-700 flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> มีจุดเสี่ยงสูงที่ต้องแก้ไข</p>
+                <p className="text-xs text-red-600 mt-1">กดปุ่มด้านล่างเพื่อดูรายละเอียดและจัดการปัญหา</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <Button className="rounded-2xl bg-[#0097a7] text-foreground hover:bg-[#00838f]" onClick={() => { setDrilldown(null); navigate("/env-round"); }}>ไปหน้า ENV Round</Button>
+              <Button variant="outline" className="rounded-2xl" onClick={() => { setDrilldown(null); navigate("/issues"); }}>ดูหน้าจัดการปัญหา</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
