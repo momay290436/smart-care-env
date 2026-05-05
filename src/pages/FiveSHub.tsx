@@ -312,7 +312,7 @@ export default function FiveSHub() {
             <div><Label>แผนก</Label>
               <Select value={eventDeptId} onValueChange={setEventDeptId}>
                 <SelectTrigger className="h-12 rounded-2xl"><SelectValue placeholder="ทุกแผนก" /></SelectTrigger>
-                <SelectContent><SelectItem value="">ทุกแผนก</SelectItem>{departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                <SelectContent><SelectItem value="__all__">ทุกแผนก</SelectItem>{departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
