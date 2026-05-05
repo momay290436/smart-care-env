@@ -34,6 +34,7 @@ import MapAligner from "./pages/MapAligner";
 import FiveSHub from "./pages/FiveSHub";
 import WaterManagement from "./pages/WaterManagement";
 import WaterMeter from "./pages/WaterMeter";
+import IssueManagement from "./pages/IssueManagement";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/map-aligner" element={<ProtectedRoute><AppLayout><MapAligner /></AppLayout></ProtectedRoute>} />
             <Route path="/water" element={<ProtectedRoute><AppLayout><WaterManagement /></AppLayout></ProtectedRoute>} />
             <Route path="/water-meter" element={<ProtectedRoute><AppLayout><WaterMeter /></AppLayout></ProtectedRoute>} />
+            <Route path="/issues" element={<ProtectedRoute><AppLayout><IssueManagement /></AppLayout></ProtectedRoute>} />
             <Route path="/fire-info/:id" element={<FireInfoPublic />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

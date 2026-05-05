@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Settings, BarChart3, Wrench, Trash2, Shield, Map, FlaskConical, Search, ChevronRight, Clipboard, Droplets } from "lucide-react";
+import { Settings, BarChart3, Wrench, Trash2, Shield, Map, FlaskConical, Search, ChevronRight, Clipboard, Droplets, AlertTriangle } from "lucide-react";
 import StaffShortcutHome from "@/components/StaffShortcutHome";
 
 const menuCards = [
@@ -17,6 +17,7 @@ const menuCards = [
   { path: "/hazmat", label: "คลัง HAZMAT", desc: "จัดการวัตถุอันตราย สารเคมี และ SDS", icon: FlaskConical, borderColor: "border-t-amber-500", iconBg: "bg-amber-500", statusDot: "bg-amber-400", statusText: "คลังสารเคมี", badgeKey: "chemicals" },
   { path: "/env-round", label: "ENV Round", desc: "เดินตรวจสิ่งแวดล้อมและความปลอดภัยประจำจุด", icon: Search, borderColor: "border-t-cyan-500", iconBg: "bg-cyan-500", statusDot: "bg-cyan-400", statusText: "เดินตรวจ", badgeKey: "envRounds" },
   { path: "/water", label: "ระบบจัดการน้ำประปา", desc: "ตรวจคุณภาพน้ำ มิเตอร์น้ำ และระบบ FMS ตามมาตรฐาน สรพ.", icon: Droplets, borderColor: "border-t-blue-500", iconBg: "bg-blue-500", statusDot: "bg-blue-400", statusText: "Water & FMS", badgeKey: null },
+  { path: "/issues", label: "จัดการปัญหา", desc: "รวบรวมปัญหาจากทุกระบบ เรียงตามความเสี่ยง และอัพเดตสถานะ", icon: AlertTriangle, borderColor: "border-t-red-500", iconBg: "bg-red-500", statusDot: "bg-red-400", statusText: "Issue Management", badgeKey: null },
 ];
 
 export default function HomePage() {

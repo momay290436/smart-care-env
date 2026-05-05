@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +34,11 @@ const PM_ALERTS = [
 export default function WaterManagement() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showMeterDialog, setShowMeterDialog] = useState(false);
   const [meterReading, setMeterReading] = useState("");
@@ -180,14 +185,14 @@ export default function WaterManagement() {
       </PageHeader>
 
       {/* Water Meter Button - TOP on mobile */}
-      <Card className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-elevated border-0 cursor-pointer hover:shadow-lg transition-all active:scale-[0.98]" onClick={() => setShowMeterDialog(true)}>
-        <CardContent className="p-4 md:p-5 flex items-center gap-4">
-          <div className="w-14 h-14 md:w-12 md:h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-            <Plus className="h-7 w-7 md:h-6 md:w-6 text-white" />
+      <Card className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 rounded-2xl shadow-xl border-0 cursor-pointer hover:shadow-2xl transition-all active:scale-[0.97] ring-2 ring-blue-300/50 animate-pulse-subtle" onClick={() => setShowMeterDialog(true)}>
+        <CardContent className="p-5 md:p-6 flex items-center gap-4">
+          <div className="w-16 h-16 md:w-14 md:h-14 rounded-2xl bg-white/25 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner">
+            <Plus className="h-8 w-8 md:h-7 md:w-7 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-base md:text-lg font-bold text-white">บันทึกมิเตอร์น้ำออก</p>
-            <p className="text-xs md:text-sm text-white/70 truncate">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
+            <p className="text-lg md:text-xl font-extrabold text-white">📝 บันทึกมิเตอร์น้ำออก</p>
+            <p className="text-sm md:text-base text-white/80 truncate">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
           </div>
         </CardContent>
       </Card>
@@ -436,7 +441,7 @@ export default function WaterManagement() {
 
       {/* Meter Record Dialog - Opens directly */}
       <Dialog open={showMeterDialog} onOpenChange={setShowMeterDialog}>
-        <DialogContent className="rounded-3xl max-w-md">
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg flex items-center gap-2">
               <Gauge className="h-5 w-5 text-blue-500" /> บันทึกมิเตอร์น้ำออก
@@ -467,7 +472,7 @@ export default function WaterManagement() {
 
       {/* Add Quality Log Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="rounded-3xl max-w-md">
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg flex items-center gap-2">
               <Droplets className="h-5 w-5 text-blue-500" /> บันทึกผลตรวจคุณภาพน้ำ

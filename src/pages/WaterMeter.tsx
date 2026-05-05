@@ -157,6 +157,7 @@ export default function WaterMeter() {
 
     sortedGrouped.forEach(([date, dateRecords]) => {
       const sorted = [...dateRecords].sort((a: any, b: any) => a.record_time.localeCompare(b.record_time));
+      const dailyTotal = sorted.reduce((s: number, r: any) => s + Number(r.usage_amount || 0), 0);
       const startRow = rowIdx;
       sorted.forEach((r: any) => {
         rows.push([
@@ -164,7 +165,7 @@ export default function WaterMeter() {
           r.record_time?.substring(0, 5) || "-",
           Number(r.meter_reading),
           Number(r.usage_amount),
-          r.daily_total != null ? Number(r.daily_total) : "",
+          dailyTotal > 0 ? dailyTotal : "",
           r.recorder_name || "-",
           r.notes || "-",
         ]);
@@ -199,13 +200,14 @@ export default function WaterMeter() {
 
       sortedGrouped.forEach(([date, dateRecords]) => {
         const sorted = [...dateRecords].sort((a: any, b: any) => a.record_time.localeCompare(b.record_time));
+        const dailyTotal = sorted.reduce((s: number, r: any) => s + Number(r.usage_amount || 0), 0);
         sorted.forEach((r: any, i: number) => {
           html += `<tr>`;
           if (i === 0) html += `<td class="date-cell" rowspan="${sorted.length}">${format(new Date(date), "d/M/yyyy")}</td>`;
           html += `<td>${r.record_time?.substring(0, 5) || "-"}</td>`;
           html += `<td>${Number(r.meter_reading).toLocaleString()}</td>`;
           html += `<td>${Number(r.usage_amount).toLocaleString()}</td>`;
-          if (i === 0) html += `<td class="date-cell" rowspan="${sorted.length}">${r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>`;
+          if (i === 0) html += `<td class="date-cell" rowspan="${sorted.length}">${dailyTotal > 0 ? dailyTotal.toLocaleString() : "-"}</td>`;
           html += `<td>${r.recorder_name || "-"}</td>`;
           html += `<td>${r.notes || "-"}</td>`;
           html += `</tr>`;
@@ -317,8 +319,8 @@ export default function WaterMeter() {
       </Card>
 
       {/* Add Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="rounded-3xl max-w-md">
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog} modal={true}>
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg">บันทึกมิเตอร์น้ำออก</DialogTitle>
           </DialogHeader>
@@ -327,14 +329,14 @@ export default function WaterMeter() {
               <div className="space-y-3">
                 <div>
                   <Label className="font-semibold text-sm">วันที่บันทึก</Label>
-                  <Popover>
+                  <Popover modal={true}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start text-left", !customRecordDate && "text-muted-foreground")}>
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {customRecordDate ? format(customRecordDate, "d MMMM yyyy", { locale: th }) : "เลือกวันที่ (ว่าง = วันนี้)"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0 z-[9999]" align="start">
                       <Calendar mode="single" selected={customRecordDate} onSelect={setCustomRecordDate} initialFocus className="p-3 pointer-events-auto" />
                     </PopoverContent>
                   </Popover>
@@ -357,14 +359,14 @@ export default function WaterMeter() {
                 </div>
                 <div>
                   <Label className="font-semibold text-sm">ผู้บันทึก</Label>
-                  <Popover>
+                  <Popover modal={true}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start text-left", !customRecorderName && "text-muted-foreground")}>
                         <Search className="mr-2 h-4 w-4" />
                         {customRecorderName || "เลือกผู้บันทึก (ว่าง = ตัวเอง)"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0" align="start">
+                    <PopoverContent className="w-[300px] p-0 z-[9999]" align="start">
                       <Command>
                         <CommandInput placeholder="ค้นหาชื่อ..." value={recorderSearch} onValueChange={setRecorderSearch} />
                         <CommandList>

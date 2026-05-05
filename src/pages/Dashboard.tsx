@@ -45,7 +45,7 @@ function KpiCard({ label, value, sub, icon: Icon, trend, trendLabel, onClick, in
       style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}
       onClick={onClick}
     >
-      <CardContent className="p-5">
+      <CardContent className="p-5 min-h-[130px] flex flex-col justify-center">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-sm font-semibold text-slate-500">{label}</p>
@@ -218,10 +218,10 @@ export default function Dashboard() {
 
       {/* Row 2: Secondary KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard index={4} label="ENV Round" value={envRoundStats?.totalRounds ?? 0} sub={`เสร็จสิ้น ${envRoundStats?.completed ?? 0}`} icon={Search} accent="cyan" onClick={() => navigate("/env-round")} trend="neutral" trendLabel={`พบปัญหา ${envRoundStats?.abnormal ?? 0} จุด`} />
+        <KpiCard index={4} label="ENV Round" value={envRoundStats?.totalRounds ?? 0} sub={`เสร็จสิ้น ${envRoundStats?.completed ?? 0}`} icon={Search} accent="cyan" onClick={() => setDrilldown("env")} trend={envRoundStats && envRoundStats.abnormal > 0 ? "down" : "up"} trendLabel={`พบปัญหา ${envRoundStats?.abnormal ?? 0} จุด`} />
         <KpiCard index={5} label="สารเคมีคลัง" value={hazmatStats?.total ?? 0} sub={`สต็อกต่ำ ${hazmatStats?.lowStock ?? 0}`} icon={FlaskConical} accent="amber" onClick={() => navigate("/hazmat")} trend={hazmatStats && hazmatStats.lowStock > 0 ? "down" : "up"} trendLabel={hazmatStats && hazmatStats.lowStock > 0 ? "มีรายการสต็อกต่ำ" : "สต็อกเพียงพอ"} />
-        <KpiCard index={6} label="Risk สูง (ENV)" value={envRoundStats?.highRisk ?? 0} sub="จุดเสี่ยงสูง" icon={AlertTriangle} accent="red" onClick={() => navigate("/env-round")} trend={envRoundStats && envRoundStats.highRisk > 0 ? "down" : "up"} trendLabel={envRoundStats && envRoundStats.highRisk > 0 ? "ต้องแก้ไขด่วน" : "ไม่มีจุดเสี่ยง"} />
-        <KpiCard index={7} label="สารเคมีหมดอายุ" value={hazmatStats?.expired ?? 0} sub="รายการ" icon={Clock} accent="purple" onClick={() => navigate("/hazmat")} trend={hazmatStats && hazmatStats.expired > 0 ? "down" : "up"} trendLabel={hazmatStats && hazmatStats.expired > 0 ? "ต้องจัดการ" : "ปลอดภัย"} />
+        <KpiCard index={6} label="Risk สูง (ENV)" value={envRoundStats?.highRisk ?? 0} sub="จุดเสี่ยงสูง" icon={AlertTriangle} accent="red" onClick={() => navigate("/issues")} trend={envRoundStats && envRoundStats.highRisk > 0 ? "down" : "up"} trendLabel={envRoundStats && envRoundStats.highRisk > 0 ? "ต้องแก้ไขด่วน" : "ไม่มีจุดเสี่ยง"} />
+        <KpiCard index={7} label="จัดการปัญหา" value="ดูทั้งหมด" sub="รวมปัญหาทุกระบบ" icon={Clock} accent="purple" onClick={() => navigate("/issues")} />
       </div>
 
       {/* Charts Row */}
@@ -520,6 +520,41 @@ export default function Dashboard() {
               </div>
             )}
             <Button className="w-full rounded-2xl bg-[#0097a7] text-foreground hover:bg-[#00838f]" onClick={() => { setDrilldown(null); navigate("/waste"); }}>ไปหน้าจัดการขยะ</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ENV Drilldown */}
+      <Dialog open={drilldown === "env"} onOpenChange={(open) => !open && setDrilldown(null)}>
+        <DialogContent className="max-w-2xl rounded-2xl bg-white max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-slate-800">รายละเอียด ENV Round</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-cyan-50 rounded-2xl p-4 text-center border border-cyan-100">
+                <p className="text-2xl font-bold text-cyan-600">{envRoundStats?.totalRounds ?? 0}</p>
+                <p className="text-xs text-cyan-600 mt-1">รอบตรวจทั้งหมด</p>
+              </div>
+              <div className="bg-amber-50 rounded-2xl p-4 text-center border border-amber-100">
+                <p className="text-2xl font-bold text-amber-600">{envRoundStats?.abnormal ?? 0}</p>
+                <p className="text-xs text-amber-600 mt-1">พบปัญหา</p>
+              </div>
+              <div className="bg-red-50 rounded-2xl p-4 text-center border border-red-100">
+                <p className="text-2xl font-bold text-red-600">{envRoundStats?.highRisk ?? 0}</p>
+                <p className="text-xs text-red-600 mt-1">ความเสี่ยงสูง</p>
+              </div>
+            </div>
+            {envRoundStats && envRoundStats.highRisk > 0 && (
+              <div className="bg-red-50 rounded-2xl p-4 border border-red-200">
+                <p className="text-sm font-bold text-red-700 flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> มีจุดเสี่ยงสูงที่ต้องแก้ไข</p>
+                <p className="text-xs text-red-600 mt-1">กดปุ่มด้านล่างเพื่อดูรายละเอียดและจัดการปัญหา</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <Button className="rounded-2xl bg-[#0097a7] text-foreground hover:bg-[#00838f]" onClick={() => { setDrilldown(null); navigate("/env-round"); }}>ไปหน้า ENV Round</Button>
+              <Button variant="outline" className="rounded-2xl" onClick={() => { setDrilldown(null); navigate("/issues"); }}>ดูหน้าจัดการปัญหา</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
