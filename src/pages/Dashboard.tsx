@@ -45,7 +45,7 @@ function KpiCard({ label, value, sub, icon: Icon, trend, trendLabel, onClick, in
       style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}
       onClick={onClick}
     >
-      <CardContent className="p-5">
+      <CardContent className="p-5 min-h-[130px] flex flex-col justify-center">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-sm font-semibold text-slate-500">{label}</p>
@@ -218,10 +218,10 @@ export default function Dashboard() {
 
       {/* Row 2: Secondary KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard index={4} label="ENV Round" value={envRoundStats?.totalRounds ?? 0} sub={`เสร็จสิ้น ${envRoundStats?.completed ?? 0}`} icon={Search} accent="cyan" onClick={() => navigate("/env-round")} trend="neutral" trendLabel={`พบปัญหา ${envRoundStats?.abnormal ?? 0} จุด`} />
+        <KpiCard index={4} label="ENV Round" value={envRoundStats?.totalRounds ?? 0} sub={`เสร็จสิ้น ${envRoundStats?.completed ?? 0}`} icon={Search} accent="cyan" onClick={() => setDrilldown("env")} trend={envRoundStats && envRoundStats.abnormal > 0 ? "down" : "up"} trendLabel={`พบปัญหา ${envRoundStats?.abnormal ?? 0} จุด`} />
         <KpiCard index={5} label="สารเคมีคลัง" value={hazmatStats?.total ?? 0} sub={`สต็อกต่ำ ${hazmatStats?.lowStock ?? 0}`} icon={FlaskConical} accent="amber" onClick={() => navigate("/hazmat")} trend={hazmatStats && hazmatStats.lowStock > 0 ? "down" : "up"} trendLabel={hazmatStats && hazmatStats.lowStock > 0 ? "มีรายการสต็อกต่ำ" : "สต็อกเพียงพอ"} />
-        <KpiCard index={6} label="Risk สูง (ENV)" value={envRoundStats?.highRisk ?? 0} sub="จุดเสี่ยงสูง" icon={AlertTriangle} accent="red" onClick={() => navigate("/env-round")} trend={envRoundStats && envRoundStats.highRisk > 0 ? "down" : "up"} trendLabel={envRoundStats && envRoundStats.highRisk > 0 ? "ต้องแก้ไขด่วน" : "ไม่มีจุดเสี่ยง"} />
-        <KpiCard index={7} label="สารเคมีหมดอายุ" value={hazmatStats?.expired ?? 0} sub="รายการ" icon={Clock} accent="purple" onClick={() => navigate("/hazmat")} trend={hazmatStats && hazmatStats.expired > 0 ? "down" : "up"} trendLabel={hazmatStats && hazmatStats.expired > 0 ? "ต้องจัดการ" : "ปลอดภัย"} />
+        <KpiCard index={6} label="Risk สูง (ENV)" value={envRoundStats?.highRisk ?? 0} sub="จุดเสี่ยงสูง" icon={AlertTriangle} accent="red" onClick={() => navigate("/issues")} trend={envRoundStats && envRoundStats.highRisk > 0 ? "down" : "up"} trendLabel={envRoundStats && envRoundStats.highRisk > 0 ? "ต้องแก้ไขด่วน" : "ไม่มีจุดเสี่ยง"} />
+        <KpiCard index={7} label="จัดการปัญหา" value="ดูทั้งหมด" sub="รวมปัญหาทุกระบบ" icon={Clock} accent="purple" onClick={() => navigate("/issues")} />
       </div>
 
       {/* Charts Row */}
