@@ -436,7 +436,7 @@ export default function WaterManagement() {
 
       {/* Meter Record Dialog - Opens directly */}
       <Dialog open={showMeterDialog} onOpenChange={setShowMeterDialog}>
-        <DialogContent className="rounded-3xl max-w-md">
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg flex items-center gap-2">
               <Gauge className="h-5 w-5 text-blue-500" /> บันทึกมิเตอร์น้ำออก
@@ -467,7 +467,7 @@ export default function WaterManagement() {
 
       {/* Add Quality Log Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="rounded-3xl max-w-md">
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg flex items-center gap-2">
               <Droplets className="h-5 w-5 text-blue-500" /> บันทึกผลตรวจคุณภาพน้ำ
