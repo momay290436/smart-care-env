@@ -157,6 +157,7 @@ export default function WaterMeter() {
 
     sortedGrouped.forEach(([date, dateRecords]) => {
       const sorted = [...dateRecords].sort((a: any, b: any) => a.record_time.localeCompare(b.record_time));
+      const dailyTotal = sorted.reduce((s: number, r: any) => s + Number(r.usage_amount || 0), 0);
       const startRow = rowIdx;
       sorted.forEach((r: any) => {
         rows.push([
@@ -164,7 +165,7 @@ export default function WaterMeter() {
           r.record_time?.substring(0, 5) || "-",
           Number(r.meter_reading),
           Number(r.usage_amount),
-          r.daily_total != null ? Number(r.daily_total) : "",
+          dailyTotal > 0 ? dailyTotal : "",
           r.recorder_name || "-",
           r.notes || "-",
         ]);
@@ -199,13 +200,14 @@ export default function WaterMeter() {
 
       sortedGrouped.forEach(([date, dateRecords]) => {
         const sorted = [...dateRecords].sort((a: any, b: any) => a.record_time.localeCompare(b.record_time));
+        const dailyTotal = sorted.reduce((s: number, r: any) => s + Number(r.usage_amount || 0), 0);
         sorted.forEach((r: any, i: number) => {
           html += `<tr>`;
           if (i === 0) html += `<td class="date-cell" rowspan="${sorted.length}">${format(new Date(date), "d/M/yyyy")}</td>`;
           html += `<td>${r.record_time?.substring(0, 5) || "-"}</td>`;
           html += `<td>${Number(r.meter_reading).toLocaleString()}</td>`;
           html += `<td>${Number(r.usage_amount).toLocaleString()}</td>`;
-          if (i === 0) html += `<td class="date-cell" rowspan="${sorted.length}">${r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>`;
+          if (i === 0) html += `<td class="date-cell" rowspan="${sorted.length}">${dailyTotal > 0 ? dailyTotal.toLocaleString() : "-"}</td>`;
           html += `<td>${r.recorder_name || "-"}</td>`;
           html += `<td>${r.notes || "-"}</td>`;
           html += `</tr>`;
