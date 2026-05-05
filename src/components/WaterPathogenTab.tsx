@@ -236,7 +236,7 @@ export default function WaterPathogenTab() {
 
       {/* Add Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="rounded-3xl max-w-md">
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="text-lg">บันทึกตรวจเชื้อจุดเสี่ยง</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="rounded-2xl bg-blue-50 p-3 space-y-1 text-sm">
