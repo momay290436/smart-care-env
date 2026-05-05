@@ -317,8 +317,8 @@ export default function WaterMeter() {
       </Card>
 
       {/* Add Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="rounded-3xl max-w-md">
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog} modal={true}>
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg">บันทึกมิเตอร์น้ำออก</DialogTitle>
           </DialogHeader>
