@@ -327,14 +327,14 @@ export default function WaterMeter() {
               <div className="space-y-3">
                 <div>
                   <Label className="font-semibold text-sm">วันที่บันทึก</Label>
-                  <Popover>
+                  <Popover modal={true}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start text-left", !customRecordDate && "text-muted-foreground")}>
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {customRecordDate ? format(customRecordDate, "d MMMM yyyy", { locale: th }) : "เลือกวันที่ (ว่าง = วันนี้)"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0 z-[9999]" align="start">
                       <Calendar mode="single" selected={customRecordDate} onSelect={setCustomRecordDate} initialFocus className="p-3 pointer-events-auto" />
                     </PopoverContent>
                   </Popover>
