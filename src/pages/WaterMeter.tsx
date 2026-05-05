@@ -357,14 +357,14 @@ export default function WaterMeter() {
                 </div>
                 <div>
                   <Label className="font-semibold text-sm">ผู้บันทึก</Label>
-                  <Popover>
+                  <Popover modal={true}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start text-left", !customRecorderName && "text-muted-foreground")}>
                         <Search className="mr-2 h-4 w-4" />
                         {customRecorderName || "เลือกผู้บันทึก (ว่าง = ตัวเอง)"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0" align="start">
+                    <PopoverContent className="w-[300px] p-0 z-[9999]" align="start">
                       <Command>
                         <CommandInput placeholder="ค้นหาชื่อ..." value={recorderSearch} onValueChange={setRecorderSearch} />
                         <CommandList>
