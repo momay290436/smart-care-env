@@ -326,18 +326,19 @@ export default function WaterMeter() {
           </DialogHeader>
           <div className="space-y-4">
             {isAdmin ? (
-              <div className="space-y-3">
+              <div className="space-y-3 rounded-2xl bg-blue-50/50 p-4 border border-blue-100">
+                <p className="text-xs font-bold text-blue-700 mb-2">🔧 โหมดผู้ดูแล — สามารถเลือกวันที่/เวลา/ผู้บันทึกเองได้</p>
                 <div>
                   <Label className="font-semibold text-sm">วันที่บันทึก</Label>
                   <Popover modal={true}>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start text-left", !customRecordDate && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                      <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start text-left font-normal", !customRecordDate && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
                         {customRecordDate ? format(customRecordDate, "d MMMM yyyy", { locale: th }) : "เลือกวันที่ (ว่าง = วันนี้)"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[9999]" align="start">
-                      <Calendar mode="single" selected={customRecordDate} onSelect={setCustomRecordDate} initialFocus className="p-3 pointer-events-auto" />
+                    <PopoverContent className="w-auto p-0 z-[9999] pointer-events-auto" align="start" side="bottom" sideOffset={4}>
+                      <Calendar mode="single" selected={customRecordDate} onSelect={(d) => { setCustomRecordDate(d); }} initialFocus className="p-3 pointer-events-auto" />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -348,9 +349,10 @@ export default function WaterMeter() {
                   </div>
                   <div>
                     <Label className="font-semibold text-sm">รอบ</Label>
-                    <Select value={customShift} onValueChange={setCustomShift}>
+                    <Select value={customShift || "__auto__"} onValueChange={(v) => setCustomShift(v === "__auto__" ? "" : v)}>
                       <SelectTrigger className="h-12 rounded-2xl"><SelectValue placeholder="อัตโนมัติ" /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="__auto__">อัตโนมัติ</SelectItem>
                         <SelectItem value="morning">รอบเช้า</SelectItem>
                         <SelectItem value="afternoon">รอบบ่าย</SelectItem>
                       </SelectContent>
@@ -361,20 +363,20 @@ export default function WaterMeter() {
                   <Label className="font-semibold text-sm">ผู้บันทึก</Label>
                   <Popover modal={true}>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start text-left", !customRecorderName && "text-muted-foreground")}>
-                        <Search className="mr-2 h-4 w-4" />
+                      <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start text-left font-normal", !customRecorderName && "text-muted-foreground")}>
+                        <Search className="mr-2 h-4 w-4 flex-shrink-0" />
                         {customRecorderName || "เลือกผู้บันทึก (ว่าง = ตัวเอง)"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0 z-[9999]" align="start">
+                    <PopoverContent className="w-[300px] p-0 z-[9999] pointer-events-auto" align="start" side="bottom" sideOffset={4}>
                       <Command>
                         <CommandInput placeholder="ค้นหาชื่อ..." value={recorderSearch} onValueChange={setRecorderSearch} />
-                        <CommandList>
+                        <CommandList className="max-h-[200px]">
                           <CommandEmpty>ไม่พบผู้ใช้</CommandEmpty>
                           <CommandGroup>
                             {filteredProfiles.map((p: any) => (
-                              <CommandItem key={p.auth_id} onSelect={() => { setCustomRecorderName(p.full_name); setCustomRecorderId(p.auth_id); }}>
-                                {p.full_name}
+                              <CommandItem key={p.auth_id} value={p.full_name || p.auth_id} onSelect={() => { setCustomRecorderName(p.full_name); setCustomRecorderId(p.auth_id); }}>
+                                {p.full_name || "ไม่ระบุชื่อ"}
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -383,8 +385,15 @@ export default function WaterMeter() {
                     </PopoverContent>
                   </Popover>
                 </div>
+                {customRecordDate && (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-2 text-xs text-amber-700">
+                    ⚠️ กำลังบันทึกย้อนหลัง: {format(customRecordDate, "d MMMM yyyy", { locale: th })}
+                    {customTime && ` เวลา ${customTime}`}
+                    {customRecorderName && ` โดย ${customRecorderName}`}
+                  </div>
+                )}
                 {!customRecordDate && (
-                  <div className="rounded-2xl bg-blue-50 p-3 space-y-1 text-xs text-muted-foreground">
+                  <div className="rounded-xl bg-blue-50 p-2 text-xs text-blue-600">
                     💡 ไม่เลือกวันที่/เวลา = บันทึกปัจจุบัน, ไม่เลือกผู้บันทึก = ตัวเอง
                   </div>
                 )}

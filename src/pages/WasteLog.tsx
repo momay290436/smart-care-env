@@ -19,6 +19,9 @@ import { cn } from "@/lib/utils";
 import { exportToExcel } from "@/lib/exportExcel";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid, BarChart, Bar, Area, AreaChart } from "recharts";
 import PageHeader from "@/components/PageHeader";
+import InfectiousWasteTab from "@/components/InfectiousWasteTab";
+import { Plus, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 const wasteTypes: Record<string, { label: string; color: string; chartColor: string }> = {
   general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "hsl(210 15% 55%)" },
@@ -164,12 +167,49 @@ export default function WasteLog() {
     return Math.round(cost * 100) / 100;
   }, [filteredLogs, costPerKg]);
 
-  
+  const handleAdvancedExport = () => {
+    const wb = XLSX.utils.book_new();
+    const deptNames = departments.map((d: any) => d.name).sort();
+    const now2 = new Date();
+    const yr = now2.getFullYear();
+    const mo = now2.getMonth();
+    const dim = new Date(yr, mo + 1, 0).getDate();
+    ["general", "infectious"].forEach((type) => {
+      const sn = type === "general" ? "ขยะทั่วไป" : "ขยะเปียก";
+      const h1: any[] = ["ลำดับ", "แผนก"];
+      const h2: any[] = ["", ""];
+      for (let d = 1; d <= dim; d++) { h1.push(`${d}`, ""); h2.push("เช้า", "บ่าย"); }
+      h1.push("รวม"); h2.push("");
+      const dr: any[][] = [];
+      deptNames.forEach((dn: string, idx: number) => {
+        const row: any[] = [idx + 1, dn];
+        let total = 0;
+        for (let d = 1; d <= dim; d++) {
+          const ds = `${yr}-${String(mo + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          const am = logs.filter((l: any) => { const ld = new Date(l.created_at); return l.waste_type === type && l.departments?.name === dn && format(ld, "yyyy-MM-dd") === ds && ld.getHours() < 12; }).reduce((s: number, l: any) => s + Number(l.weight), 0);
+          const pm = logs.filter((l: any) => { const ld = new Date(l.created_at); return l.waste_type === type && l.departments?.name === dn && format(ld, "yyyy-MM-dd") === ds && ld.getHours() >= 12; }).reduce((s: number, l: any) => s + Number(l.weight), 0);
+          row.push(am || "", pm || ""); total += am + pm;
+        }
+        row.push(total || ""); dr.push(row);
+      });
+      const ws = XLSX.utils.aoa_to_sheet([h1, h2, ...dr]);
+      const mg: XLSX.Range[] = [{ s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }];
+      for (let d = 0; d < dim; d++) mg.push({ s: { r: 0, c: 2 + d * 2 }, e: { r: 0, c: 3 + d * 2 } });
+      mg.push({ s: { r: 0, c: 2 + dim * 2 }, e: { r: 1, c: 2 + dim * 2 } });
+      ws["!merges"] = mg;
+      XLSX.utils.book_append_sheet(wb, ws, sn);
+    });
+    XLSX.writeFile(wb, `waste-report-${format(now2, "yyyy-MM")}.xlsx`);
+    toast.success("ส่งออกรายงานขยะประจำเดือนสำเร็จ");
+  };
 
   return (
     <div className="space-y-5">
-      <PageHeader title="จัดการข้อมูลขยะ" subtitle="บันทึก วิเคราะห์ และคำนวณต้นทุน" gradient="from-primary/10 to-accent/40">
-        <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 border-white/30 text-white hover:bg-white/10" onClick={() => {
+      <PageHeader title="จัดการข้อมูลขยะ" subtitle="บันทึก วิเคราะห์ และคำนวณต้นทุน" gradient="from-emerald-600/90 to-teal-500/90">
+        <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 border-white/30 text-white hover:bg-white/10 gap-1" onClick={handleAdvancedExport}>
+          <Download className="h-3.5 w-3.5" /> รายงานเดือน
+        </Button>
+        <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 border-white/30 text-white hover:bg-white/10 gap-1" onClick={() => {
           exportToExcel(filteredLogs.map((l: any) => ({
             "วันที่": new Date(l.created_at).toLocaleDateString("th-TH"),
             "ประเภทขยะ": wasteTypes[l.waste_type]?.label || l.waste_type,
@@ -177,56 +217,23 @@ export default function WasteLog() {
             "แผนก": l.departments?.name || "-",
           })), "waste-logs", "บันทึกขยะ");
           toast.success("ส่งออก Excel สำเร็จ");
-        }}>Excel</Button>
-        <Button size="sm" className="rounded-2xl h-9 bg-white/20 hover:bg-white/30 text-white border-0" onClick={() => setShowForm(!showForm)}>
-          {showForm ? "ซ่อน" : "+ บันทึกใหม่"}
-        </Button>
+        }}>📊 Excel</Button>
       </PageHeader>
 
-      {showForm && (
-        <Card className="shadow-lg animate-slide-up border border-slate-200 rounded-2xl bg-white">
-          <CardContent className="space-y-4 pt-5">
-            <div className="space-y-2">
-              <Label className="font-semibold">แผนก</Label>
-              <Select value={selectedDept} onValueChange={setSelectedDept}>
-                <SelectTrigger className="h-12 rounded-2xl"><SelectValue placeholder="เลือกแผนก" /></SelectTrigger>
-                <SelectContent>
-                  {departments.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-semibold">ประเภทขยะ</Label>
-              <Select value={wasteType} onValueChange={setWasteType}>
-                <SelectTrigger className="h-12 rounded-2xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(wasteTypes).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-block w-3 h-3 rounded-full`} style={{ background: v.chartColor }} />
-                        <span>{v.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-semibold">น้ำหนัก (กก.)</Label>
-              <Input type="number" step="0.1" min="0" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0.0" className="text-lg h-12 rounded-2xl" />
-            </div>
-            <Button className="w-full h-12 text-base rounded-2xl font-bold" onClick={() => createLog.mutate()} disabled={createLog.isPending || !weight}>
-              {createLog.isPending ? "กำลังบันทึก..." : "บันทึก"}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Prominent record button */}
+      <Button
+        className="w-full h-14 rounded-2xl text-base font-bold gap-2 shadow-elevated bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+        onClick={() => setShowForm(true)}
+      >
+        <Plus className="h-5 w-5" /> บันทึกน้ำหนักขยะ
+      </Button>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-12 rounded-2xl bg-muted/60">
+        <TabsList className="grid w-full grid-cols-4 h-12 rounded-2xl bg-muted/60">
           <TabsTrigger value="dashboard" className="rounded-xl text-base font-semibold">แดชบอร์ด</TabsTrigger>
           <TabsTrigger value="records" className="rounded-xl text-base font-semibold">รายการ</TabsTrigger>
           <TabsTrigger value="cost" className="rounded-xl text-base font-semibold">ต้นทุน</TabsTrigger>
+          <TabsTrigger value="infectious" className="rounded-xl text-sm font-semibold">ขยะติดเชื้อ</TabsTrigger>
         </TabsList>
 
         <Card className="shadow-lg mt-4 border border-slate-200 rounded-2xl bg-white">
@@ -279,20 +286,21 @@ export default function WasteLog() {
         </Card>
 
         <TabsContent value="dashboard" className="space-y-4 mt-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Card className="shadow-card border border-border/50 rounded-2xl card-ocean">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <Card className="shadow-lg border-0 rounded-3xl bg-gradient-to-br from-sky-50 to-sky-100/50 backdrop-blur-sm">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-primary">{chartData.totalWeight}</p>
+                <p className="text-2xl font-extrabold text-sky-600">{chartData.totalWeight}</p>
                 <p className="text-xs text-muted-foreground mt-1">น้ำหนักรวม (กก.)</p>
               </CardContent>
             </Card>
             {Object.entries(wasteTypes).map(([k, v]) => {
               const typeWeight = filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
               return (
-                <Card key={k} className={`shadow-card border border-border/50 rounded-2xl ${v.color}`}>
+                <Card key={k} className="shadow-lg border-0 rounded-3xl bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
                   <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold">{Math.round(typeWeight * 100) / 100}</p>
-                    <p className="text-xs mt-1">{v.label} (กก.)</p>
+                    <div className="w-8 h-8 rounded-full mx-auto mb-2 shadow-sm" style={{ background: v.chartColor, opacity: 0.8 }} />
+                    <p className="text-2xl font-extrabold" style={{ color: v.chartColor }}>{Math.round(typeWeight * 100) / 100}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{v.label} (กก.)</p>
                   </CardContent>
                 </Card>
               );
@@ -340,8 +348,8 @@ export default function WasteLog() {
           {filteredLogs.map((log: any) => {
             const wt = wasteTypes[log.waste_type] || wasteTypes.general;
             return (
-              <Card key={log.id} className="group relative overflow-hidden rounded-2xl border-0 shadow-card hover:shadow-elevated transition-all duration-300 cursor-pointer hover:-translate-y-0.5 animate-fade-in bg-white/80 backdrop-blur-sm" onClick={() => setSelectedLog(log)}>
-                <div className="absolute inset-0 opacity-[0.03] rounded-2xl" style={{ background: `linear-gradient(135deg, ${wt.chartColor}, transparent)` }} />
+              <Card key={log.id} className="group relative overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer hover:-translate-y-1 animate-fade-in bg-white/70 backdrop-blur-md" onClick={() => setSelectedLog(log)}>
+                <div className="absolute inset-0 opacity-[0.05] rounded-3xl" style={{ background: `linear-gradient(135deg, ${wt.chartColor}, transparent)` }} />
                 <CardContent className="relative flex items-center justify-between p-5">
                   <div className="flex items-center gap-4">
                     <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm" style={{ background: `${wt.chartColor}20` }}>
@@ -487,7 +495,52 @@ export default function WasteLog() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="infectious" className="mt-4">
+          <InfectiousWasteTab />
+        </TabsContent>
       </Tabs>
+
+      {/* Add waste form dialog */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader><DialogTitle>บันทึกน้ำหนักขยะ</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="font-semibold">แผนก</Label>
+              <Select value={selectedDept} onValueChange={setSelectedDept}>
+                <SelectTrigger className="h-12 rounded-2xl"><SelectValue placeholder="เลือกแผนก" /></SelectTrigger>
+                <SelectContent>
+                  {departments.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="font-semibold">ประเภทขยะ</Label>
+              <Select value={wasteType} onValueChange={setWasteType}>
+                <SelectTrigger className="h-12 rounded-2xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(wasteTypes).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block w-3 h-3 rounded-full" style={{ background: v.chartColor }} />
+                        <span>{v.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="font-semibold">น้ำหนัก (กก.)</Label>
+              <Input type="number" step="0.1" min="0" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0.0" className="text-lg h-12 rounded-2xl" />
+            </div>
+            <Button className="w-full h-12 text-base rounded-2xl font-bold" onClick={() => createLog.mutate()} disabled={createLog.isPending || !weight}>
+              {createLog.isPending ? "กำลังบันทึก..." : "บันทึก"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Detail dialog */}
       <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
