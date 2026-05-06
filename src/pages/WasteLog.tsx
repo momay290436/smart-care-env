@@ -20,7 +20,8 @@ import { exportToExcel } from "@/lib/exportExcel";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid, BarChart, Bar, Area, AreaChart } from "recharts";
 import PageHeader from "@/components/PageHeader";
 import InfectiousWasteTab from "@/components/InfectiousWasteTab";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 const wasteTypes: Record<string, { label: string; color: string; chartColor: string }> = {
   general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "hsl(210 15% 55%)" },
@@ -166,11 +167,48 @@ export default function WasteLog() {
     return Math.round(cost * 100) / 100;
   }, [filteredLogs, costPerKg]);
 
-  
+  const handleAdvancedExport = () => {
+    const wb = XLSX.utils.book_new();
+    const deptNames = departments.map((d: any) => d.name).sort();
+    const now2 = new Date();
+    const yr = now2.getFullYear();
+    const mo = now2.getMonth();
+    const dim = new Date(yr, mo + 1, 0).getDate();
+    ["general", "infectious"].forEach((type) => {
+      const sn = type === "general" ? "ขยะทั่วไป" : "ขยะเปียก";
+      const h1: any[] = ["ลำดับ", "แผนก"];
+      const h2: any[] = ["", ""];
+      for (let d = 1; d <= dim; d++) { h1.push(`${d}`, ""); h2.push("เช้า", "บ่าย"); }
+      h1.push("รวม"); h2.push("");
+      const dr: any[][] = [];
+      deptNames.forEach((dn: string, idx: number) => {
+        const row: any[] = [idx + 1, dn];
+        let total = 0;
+        for (let d = 1; d <= dim; d++) {
+          const ds = `${yr}-${String(mo + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          const am = logs.filter((l: any) => { const ld = new Date(l.created_at); return l.waste_type === type && l.departments?.name === dn && format(ld, "yyyy-MM-dd") === ds && ld.getHours() < 12; }).reduce((s: number, l: any) => s + Number(l.weight), 0);
+          const pm = logs.filter((l: any) => { const ld = new Date(l.created_at); return l.waste_type === type && l.departments?.name === dn && format(ld, "yyyy-MM-dd") === ds && ld.getHours() >= 12; }).reduce((s: number, l: any) => s + Number(l.weight), 0);
+          row.push(am || "", pm || ""); total += am + pm;
+        }
+        row.push(total || ""); dr.push(row);
+      });
+      const ws = XLSX.utils.aoa_to_sheet([h1, h2, ...dr]);
+      const mg: XLSX.Range[] = [{ s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }];
+      for (let d = 0; d < dim; d++) mg.push({ s: { r: 0, c: 2 + d * 2 }, e: { r: 0, c: 3 + d * 2 } });
+      mg.push({ s: { r: 0, c: 2 + dim * 2 }, e: { r: 1, c: 2 + dim * 2 } });
+      ws["!merges"] = mg;
+      XLSX.utils.book_append_sheet(wb, ws, sn);
+    });
+    XLSX.writeFile(wb, `waste-report-${format(now2, "yyyy-MM")}.xlsx`);
+    toast.success("ส่งออกรายงานขยะประจำเดือนสำเร็จ");
+  };
 
   return (
     <div className="space-y-5">
       <PageHeader title="จัดการข้อมูลขยะ" subtitle="บันทึก วิเคราะห์ และคำนวณต้นทุน" gradient="from-emerald-600/90 to-teal-500/90">
+        <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 border-white/30 text-white hover:bg-white/10 gap-1" onClick={handleAdvancedExport}>
+          <Download className="h-3.5 w-3.5" /> รายงานเดือน
+        </Button>
         <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 border-white/30 text-white hover:bg-white/10 gap-1" onClick={() => {
           exportToExcel(filteredLogs.map((l: any) => ({
             "วันที่": new Date(l.created_at).toLocaleDateString("th-TH"),
