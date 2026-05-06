@@ -212,7 +212,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard index={0} label="งานซ่อมทั้งหมด" value={repairStats?.total ?? 0} sub={`รอดำเนินการ ${repairStats?.pending ?? 0}`} icon={Wrench} accent="sky" onClick={() => setDrilldown("repair")} trend={repairStats && repairStats.pending > 5 ? "down" : "up"} trendLabel={`อัตราสำเร็จ ${completionRate}%`} />
         <KpiCard index={1} label="คะแนน 5ส เฉลี่ย" value={avgScore ? `${avgScore}%` : "-"} sub="คะแนนรวมทุกแผนก" icon={CheckCircle} accent="teal" onClick={() => setDrilldown("5s")} trend={avgScore && avgScore >= 70 ? "up" : "down"} trendLabel={avgScore && avgScore >= 70 ? "ผ่านเกณฑ์" : "ต่ำกว่าเกณฑ์"} />
-        <KpiCard index={2} label="ถังดับเพลิง" value={fireChecks ? `${fireChecks.rate}%` : "-"} sub={`ปกติ ${fireChecks?.ok ?? 0}/${fireChecks?.total ?? 0}`} icon={Flame} accent="red" onClick={() => navigate("/fire-check")} trend={fireChecks && fireChecks.rate >= 80 ? "up" : "down"} trendLabel={fireChecks && fireChecks.rate >= 80 ? "สภาพดี" : "ต้องตรวจสอบ"} />
+        <KpiCard index={2} label="ถังดับเพลิง" value={fireChecks ? `${fireChecks.rate}%` : "-"} sub={`ปกติ ${fireChecks?.ok ?? 0}/${fireChecks?.total ?? 0}`} icon={Flame} accent="red" onClick={() => setDrilldown("fire")} trend={fireChecks && fireChecks.rate >= 80 ? "up" : "down"} trendLabel={fireChecks && fireChecks.rate >= 80 ? "สภาพดี" : "ต้องตรวจสอบ"} />
         <KpiCard index={3} label="น้ำหนักขยะ" value={wasteData ? `${wasteData.total}` : "-"} sub={`กก. (${filterLabel[wasteFilter]})`} icon={Trash2} accent="rose" onClick={() => setDrilldown("waste")} />
       </div>
 
@@ -553,6 +553,36 @@ export default function Dashboard() {
             )}
             <div className="grid grid-cols-2 gap-2">
               <Button className="rounded-2xl bg-[#0097a7] text-foreground hover:bg-[#00838f]" onClick={() => { setDrilldown(null); navigate("/env-round"); }}>ไปหน้า ENV Round</Button>
+              <Button variant="outline" className="rounded-2xl" onClick={() => { setDrilldown(null); navigate("/issues"); }}>ดูหน้าจัดการปัญหา</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fire Extinguisher Drilldown */}
+      <Dialog open={drilldown === "fire"} onOpenChange={(open) => !open && setDrilldown(null)}>
+        <DialogContent className="max-w-md rounded-2xl bg-white max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-slate-800">รายละเอียดถังดับเพลิง</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-emerald-50 rounded-2xl p-4 text-center border border-emerald-100">
+                <p className="text-3xl font-extrabold text-emerald-600">{fireChecks?.ok ?? 0}</p>
+                <p className="text-xs text-emerald-600 mt-1 font-medium">ปกติ ✓</p>
+              </div>
+              <div className="bg-red-50 rounded-2xl p-4 text-center border border-red-100">
+                <p className="text-3xl font-extrabold text-red-600">{(fireChecks?.total ?? 0) - (fireChecks?.ok ?? 0)}</p>
+                <p className="text-xs text-red-600 mt-1 font-medium">ไม่ปกติ ✕</p>
+              </div>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-center">
+              <p className="text-sm text-slate-600">อัตราปกติ</p>
+              <p className="text-4xl font-extrabold text-slate-800 mt-1">{fireChecks?.rate ?? 0}%</p>
+              <p className="text-xs text-muted-foreground mt-1">จากการตรวจล่าสุด {fireChecks?.total ?? 0} รายการ</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button className="rounded-2xl bg-[#0097a7] text-foreground hover:bg-[#00838f]" onClick={() => { setDrilldown(null); navigate("/fire-check"); }}>ไปหน้าตรวจถังดับเพลิง</Button>
               <Button variant="outline" className="rounded-2xl" onClick={() => { setDrilldown(null); navigate("/issues"); }}>ดูหน้าจัดการปัญหา</Button>
             </div>
           </div>
