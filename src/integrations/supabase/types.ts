@@ -651,6 +651,48 @@ export type Database = {
         }
         Relationships: []
       }
+      infectious_waste_records: {
+        Row: {
+          collection_date: string
+          created_at: string
+          delivered_by: string | null
+          health_center_name: string
+          id: string
+          non_sharp_waste_kg: number | null
+          notes: string | null
+          recorded_by: string | null
+          sharp_waste_kg: number | null
+          transfer_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          collection_date: string
+          created_at?: string
+          delivered_by?: string | null
+          health_center_name: string
+          id?: string
+          non_sharp_waste_kg?: number | null
+          notes?: string | null
+          recorded_by?: string | null
+          sharp_waste_kg?: number | null
+          transfer_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          collection_date?: string
+          created_at?: string
+          delivered_by?: string | null
+          health_center_name?: string
+          id?: string
+          non_sharp_waste_kg?: number | null
+          notes?: string | null
+          recorded_by?: string | null
+          sharp_waste_kg?: number | null
+          transfer_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       issues: {
         Row: {
           assigned_to: string | null
