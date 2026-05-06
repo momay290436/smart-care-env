@@ -20,6 +20,7 @@ import { exportToExcel } from "@/lib/exportExcel";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid, BarChart, Bar, Area, AreaChart } from "recharts";
 import PageHeader from "@/components/PageHeader";
 import InfectiousWasteTab from "@/components/InfectiousWasteTab";
+import { Plus } from "lucide-react";
 
 const wasteTypes: Record<string, { label: string; color: string; chartColor: string }> = {
   general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "hsl(210 15% 55%)" },
