@@ -78,10 +78,49 @@ export default function IssueManagement() {
     },
   });
 
+  // Pull fire check abnormal items
+  const { data: fireIssues = [] } = useQuery({
+    queryKey: ["fire-check-issues"],
+    queryFn: async () => {
+      const { data } = await supabase.from("fire_extinguisher_checks")
+        .select("id, checked_at, notes, pressure_ok, condition_ok, fire_extinguishers(code, location, departments(name))")
+        .or("pressure_ok.eq.false,condition_ok.eq.false")
+        .order("checked_at", { ascending: false }).limit(100);
+      return (data || []).map((c: any) => ({
+        id: `fire_${c.id}`,
+        title: `ถังดับเพลิง ${c.fire_extinguishers?.code || "-"} - พบปัญหา`,
+        description: `ตำแหน่ง: ${c.fire_extinguishers?.location || "-"}${!c.pressure_ok ? " | ความดันไม่ปกติ" : ""}${!c.condition_ok ? " | สภาพไม่ปกติ" : ""}${c.notes ? ` | ${c.notes}` : ""}`,
+        source_module: "fire_check", source_id: c.id,
+        severity: "high", status: "pending",
+        created_at: c.checked_at || new Date().toISOString(),
+        _dept: c.fire_extinguishers?.departments?.name,
+      }));
+    },
+  });
+
+  // Pull 5S audit low-score items
+  const { data: fiveSIssues = [] } = useQuery({
+    queryKey: ["5s-issues"],
+    queryFn: async () => {
+      const { data } = await supabase.from("audit_5s")
+        .select("id, total_score, auditor_name, created_at, departments(name)")
+        .lt("total_score", 60)
+        .order("created_at", { ascending: false }).limit(50);
+      return (data || []).map((a: any) => ({
+        id: `5s_${a.id}`,
+        title: `คะแนน 5ส ต่ำ: ${a.total_score}% - ${a.departments?.name || "ไม่ระบุ"}`,
+        description: `ผู้ตรวจ: ${a.auditor_name || "-"} | คะแนน ${a.total_score}% (ต่ำกว่าเกณฑ์ 60%)`,
+        source_module: "5s", source_id: a.id,
+        severity: a.total_score < 40 ? "high" : "medium", status: "pending",
+        created_at: a.created_at, _dept: a.departments?.name,
+      }));
+    },
+  });
+
   // Merge all issues
   const allIssues = useMemo(() => {
     const dbIssues = issues.map((i: any) => ({ ...i, _source: "db" }));
-    const virtuals = [...envAbnormal, ...repairIssues].filter(
+    const virtuals = [...envAbnormal, ...repairIssues, ...fireIssues, ...fiveSIssues].filter(
       (v) => !issues.some((i: any) => i.source_module === v.source_module && i.source_id === v.source_id)
     ).map((v) => ({ ...v, _source: "virtual" }));
     const merged = [...dbIssues, ...virtuals];
@@ -98,7 +137,7 @@ export default function IssueManagement() {
         if (sa !== sb) return sa - sb;
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
-  }, [issues, envAbnormal, repairIssues, filterStatus, filterSeverity]);
+  }, [issues, envAbnormal, repairIssues, fireIssues, fiveSIssues, filterStatus, filterSeverity]);
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
