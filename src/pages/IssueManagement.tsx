@@ -62,10 +62,10 @@ export default function IssueManagement() {
   const { data: envAbnormal = [] } = useQuery({
     queryKey: ["env-abnormal-issues"],
     queryFn: async () => {
-      const { data } = await supabase.from("env_round_items").select("id, category, item_name, result, severity, details, photo_url, env_rounds(id, status, created_at, departments(name))").eq("result", "abnormal").order("created_at", { ascending: false }).limit(200);
+      const { data } = await supabase.from("env_round_items").select("id, category, item_name, result, severity, notes, photo_url, round_id, env_rounds(id, status, created_at, departments(name))").eq("result", "abnormal").order("created_at", { ascending: false }).limit(200);
       return (data || []).map((item: any) => ({
         id: `env_${item.id}`, title: `${item.item_name} - ${item.category}`,
-        description: item.details || "พบความผิดปกติจาก ENV Round",
+        description: item.notes || "พบความผิดปกติจาก ENV Round",
         source_module: "env_round", source_id: item.env_rounds?.id,
         severity: item.severity || "medium", status: "pending",
         created_at: item.env_rounds?.created_at || new Date().toISOString(),
@@ -96,17 +96,17 @@ export default function IssueManagement() {
     queryKey: ["fire-check-issues"],
     queryFn: async () => {
       const { data } = await supabase.from("fire_extinguisher_checks")
-        .select("id, checked_at, notes, pressure_ok, condition_ok, fire_extinguishers(code, location, departments(name))")
+        .select("id, checked_at, notes, pressure_ok, condition_ok, location, department_id, departments(name)")
         .or("pressure_ok.eq.false,condition_ok.eq.false")
         .order("checked_at", { ascending: false }).limit(100);
       return (data || []).map((c: any) => ({
         id: `fire_${c.id}`,
-        title: `ถังดับเพลิง ${c.fire_extinguishers?.code || "-"} - พบปัญหา`,
-        description: `ตำแหน่ง: ${c.fire_extinguishers?.location || "-"}${!c.pressure_ok ? " | ความดันไม่ปกติ" : ""}${!c.condition_ok ? " | สภาพไม่ปกติ" : ""}${c.notes ? ` | ${c.notes}` : ""}`,
+        title: `ถังดับเพลิง - พบปัญหา`,
+        description: `ตำแหน่ง: ${c.location || "-"}${!c.pressure_ok ? " | ความดันไม่ปกติ" : ""}${!c.condition_ok ? " | สภาพไม่ปกติ" : ""}${c.notes ? ` | ${c.notes}` : ""}`,
         source_module: "fire_check", source_id: c.id,
         severity: "high", status: "pending",
         created_at: c.checked_at || new Date().toISOString(),
-        _dept: c.fire_extinguishers?.departments?.name,
+        _dept: (c as any).departments?.name,
         _photo: null,
       }));
     },
@@ -117,13 +117,13 @@ export default function IssueManagement() {
     queryKey: ["5s-issues"],
     queryFn: async () => {
       const { data } = await supabase.from("audit_5s")
-        .select("id, total_score, auditor_name, created_at, departments(name)")
+        .select("id, total_score, auditor_id, created_at, departments(name)")
         .lt("total_score", 60)
         .order("created_at", { ascending: false }).limit(50);
       return (data || []).map((a: any) => ({
         id: `5s_${a.id}`,
         title: `คะแนน 5ส ต่ำ: ${a.total_score}% - ${a.departments?.name || "ไม่ระบุ"}`,
-        description: `ผู้ตรวจ: ${a.auditor_name || "-"} | คะแนน ${a.total_score}% (ต่ำกว่าเกณฑ์ 60%)`,
+        description: `คะแนน ${a.total_score}% (ต่ำกว่าเกณฑ์ 60%)`,
         source_module: "5s", source_id: a.id,
         severity: a.total_score < 40 ? "high" : "medium", status: "pending",
         created_at: a.created_at, _dept: a.departments?.name,
