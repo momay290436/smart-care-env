@@ -20,7 +20,8 @@ import PageHeader from "@/components/PageHeader";
 import EnvRoundCalendar from "@/components/EnvRoundCalendar";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Html5QrcodeScanner } from "html5-qrcode";
-import { Download, Camera, ChevronLeft, ChevronRight, Send } from "lucide-react";
+import { Download, Camera, ChevronLeft, ChevronRight, Send, Wrench } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 const CATEGORIES = [
   { key: "physical_safety", label: "ความปลอดภัยกายภาพ", color: "text-blue-600", items: ["สภาพพื้น", "เพดาน", "แสงสว่าง", "ทางหนีไฟ", "ป้ายบอกทาง", "ราวจับ/ราวกันตก"] },
@@ -72,6 +73,9 @@ export default function EnvRound() {
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
+  const [issueDialog, setIssueDialog] = useState<any>(null);
+  const [issueNotes, setIssueNotes] = useState("");
+  const [issueSaving, setIssueSaving] = useState(false);
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -339,32 +343,50 @@ export default function EnvRound() {
                   <p><span className="text-muted-foreground">ผู้ตรวจ:</span> {selectedRound.inspector_name}</p>
                   <p><span className="text-muted-foreground">วันที่:</span> {format(new Date(selectedRound.created_at), "d MMMM yyyy HH:mm น.", { locale: th })}</p>
                 </div>
-                {CATEGORIES.map(cat => {
-                  const catItems = roundItems.filter(i => i.category === cat.key);
-                  if (catItems.length === 0) return null;
+                {/* Split normal / abnormal */}
+                {(() => {
+                  const normalItems = roundItems.filter(i => i.result !== "abnormal");
+                  const abnormalItems = roundItems.filter(i => i.result === "abnormal");
                   return (
-                    <div key={cat.key}>
-                      <h4 className={`text-base font-bold ${cat.color} mb-2`}>{cat.label}</h4>
-                      <div className="space-y-1.5">
-                        {catItems.map((item: any) => (
-                          <div key={item.id} className={`flex items-center justify-between p-3 rounded-2xl text-sm ${item.result === "abnormal" ? "bg-red-50" : "bg-secondary/50"}`}>
-                            <span>{item.item_name}</span>
-                            <div className="flex items-center gap-2">
-                              {item.result === "abnormal" && item.severity && (
-                                <Badge variant="destructive" className="text-xs rounded-2xl">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Normal items - left */}
+                      <div>
+                        <h4 className="text-sm font-bold text-emerald-700 mb-2 flex items-center gap-1">✅ ปกติ ({normalItems.length})</h4>
+                        <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                          {normalItems.map((item: any) => (
+                            <div key={item.id} className="flex items-center justify-between p-2.5 rounded-xl text-sm bg-emerald-50 border border-emerald-200">
+                              <span className="text-emerald-800">{item.item_name}</span>
+                              <Badge className="bg-emerald-100 text-emerald-700 text-[10px] rounded-lg border-emerald-200" variant="outline">ปกติ</Badge>
+                            </div>
+                          ))}
+                          {normalItems.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">ไม่มี</p>}
+                        </div>
+                      </div>
+                      {/* Abnormal items - right */}
+                      <div>
+                        <h4 className="text-sm font-bold text-red-700 mb-2 flex items-center gap-1">⚠️ ผิดปกติ ({abnormalItems.length})</h4>
+                        <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                          {abnormalItems.map((item: any) => (
+                            <div key={item.id} className="p-2.5 rounded-xl text-sm bg-red-50 border border-red-200 space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-red-800 font-medium">{item.item_name}</span>
+                                <Badge variant="destructive" className="text-[10px] rounded-lg">
                                   {item.severity === "high" ? "สูง" : item.severity === "medium" ? "กลาง" : "ต่ำ"}
                                 </Badge>
-                              )}
-                              <Badge variant={item.result === "normal" ? "default" : item.result === "abnormal" ? "destructive" : "secondary"} className="text-xs rounded-2xl">
-                                {item.result === "normal" ? "ปกติ" : item.result === "abnormal" ? "ผิดปกติ" : "N/A"}
-                              </Badge>
+                              </div>
+                              {item.notes && <p className="text-xs text-red-600">{item.notes}</p>}
+                              {item.photo_url && <img src={item.photo_url} alt="" className="h-16 w-full rounded-lg object-cover" />}
+                              <Button size="sm" variant="outline" className="w-full h-8 text-xs rounded-lg border-red-300 text-red-700 hover:bg-red-100 gap-1" onClick={() => { setIssueDialog(item); setIssueNotes(""); }}>
+                                <Wrench className="h-3 w-3" /> จัดการปัญหา
+                              </Button>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                          {abnormalItems.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">ไม่มี</p>}
+                        </div>
                       </div>
                     </div>
                   );
-                })}
+                })()}
                 <Button variant="outline" className="w-full rounded-2xl h-11 gap-1.5" onClick={() => {
                   exportToExcel(roundItems.map((i: any) => ({
                     "หมวดหมู่": CATEGORIES.find(c => c.key === i.category)?.label || i.category,
@@ -375,6 +397,51 @@ export default function EnvRound() {
                   toast.success("ส่งออก Excel สำเร็จ");
                 }}>
                   <Download className="h-4 w-4" /> Export Excel
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Issue resolution dialog */}
+        <Dialog open={!!issueDialog} onOpenChange={(o) => !o && setIssueDialog(null)}>
+          <DialogContent className="rounded-3xl max-w-md">
+            <DialogHeader><DialogTitle>จัดการปัญหา</DialogTitle></DialogHeader>
+            {issueDialog && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-red-50 border border-red-200 p-4 space-y-1">
+                  <p className="text-sm font-bold text-red-800">{issueDialog.item_name}</p>
+                  <p className="text-xs text-red-600">หมวด: {CATEGORIES.find(c => c.key === issueDialog.category)?.label || issueDialog.category}</p>
+                  {issueDialog.notes && <p className="text-xs text-red-600">หมายเหตุ: {issueDialog.notes}</p>}
+                  <Badge variant="destructive" className="text-[10px] rounded-lg mt-1">
+                    ความรุนแรง: {issueDialog.severity === "high" ? "สูง" : issueDialog.severity === "medium" ? "กลาง" : "ต่ำ"}
+                  </Badge>
+                </div>
+                {issueDialog.photo_url && <img src={issueDialog.photo_url} alt="" className="rounded-2xl w-full max-h-40 object-cover" />}
+                <div>
+                  <Label className="text-sm font-semibold">วิธีการจัดการ/แก้ไขปัญหา</Label>
+                  <Textarea value={issueNotes} onChange={(e) => setIssueNotes(e.target.value)} placeholder="ระบุวิธีการแก้ไขปัญหา..." rows={3} className="rounded-2xl mt-1" />
+                </div>
+                <Button className="w-full h-12 rounded-2xl font-bold" disabled={!issueNotes.trim() || issueSaving} onClick={async () => {
+                  setIssueSaving(true);
+                  const { error } = await supabase.from("issues").insert({
+                    title: `[ENV Round] ${issueDialog.item_name} ผิดปกติ`,
+                    description: `หมวด: ${CATEGORIES.find(c => c.key === issueDialog.category)?.label || issueDialog.category}\n${issueDialog.notes || ""}`,
+                    source_module: "env_round", source_id: issueDialog.round_id,
+                    severity: issueDialog.severity || "medium", status: "resolved",
+                    resolution_notes: issueNotes,
+                    photo_url: issueDialog.photo_url || null,
+                    department_name: selectedRound?.departments?.name || null,
+                    created_by: user?.id,
+                    resolved_at: new Date().toISOString(), resolved_by: user?.id,
+                  });
+                  setIssueSaving(false);
+                  if (error) { toast.error(error.message); return; }
+                  toast.success("บันทึกการจัดการปัญหาสำเร็จ");
+                  setIssueDialog(null);
+                  queryClient.invalidateQueries({ queryKey: ["issues"] });
+                }}>
+                  {issueSaving ? "กำลังบันทึก..." : "บันทึกการจัดการปัญหา"}
                 </Button>
               </div>
             )}
