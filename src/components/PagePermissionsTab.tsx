@@ -75,10 +75,11 @@ export default function PagePermissionsTab() {
   const savePermissions = useMutation({
     mutationFn: async () => {
       if (!editUser) return;
-      // Update role
+      // Update role - delete old then insert new to avoid constraint issues
+      await supabase.from("user_roles").delete().eq("user_id", editUser.auth_id);
       const { error: rErr } = await supabase
         .from("user_roles")
-        .upsert({ user_id: editUser.auth_id, role: editRole as any }, { onConflict: "user_id" });
+        .insert({ user_id: editUser.auth_id, role: editRole as any });
       if (rErr) throw rErr;
       // Update simplified flag on profile
       const { error: pErr } = await supabase
