@@ -20,6 +20,9 @@ const menuCards = [
   { path: "/issues", label: "จัดการปัญหา", desc: "รวบรวมปัญหาจากทุกระบบ เรียงตามความเสี่ยง และอัพเดตสถานะ", icon: AlertTriangle, borderColor: "border-t-red-500", iconBg: "bg-red-500", statusDot: "bg-red-400", statusText: "Issue Management", badgeKey: null },
 ];
 
+// Separate so we can use it in query
+const ISSUE_BADGE_PATH = "/issues";
+
 export default function HomePage() {
   const { user, isAdmin, isSimplified } = useAuth();
   const navigate = useNavigate();
@@ -38,6 +41,16 @@ export default function HomePage() {
         supabase.from("env_rounds").select("id", { count: "exact", head: true }),
       ]);
       return { audits: audits.count || 0, tickets: tickets.count || 0, waste: waste.count || 0, fireChecks: fireChecks.count || 0, chemicals: chemicals.count || 0, envRounds: envRounds.count || 0 };
+    },
+    staleTime: 30000,
+  });
+
+  // Count pending issues for badge
+  const { data: pendingIssuesCount } = useQuery({
+    queryKey: ["pending-issues-count"],
+    queryFn: async () => {
+      const { count } = await supabase.from("issues").select("id", { count: "exact", head: true }).eq("status", "pending");
+      return count || 0;
     },
     staleTime: 30000,
   });
@@ -87,7 +100,8 @@ export default function HomePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {visibleCards.map((item, index) => {
             const Icon = item.icon;
-            const badgeCount = item.badgeKey && badges ? (badges as any)[item.badgeKey] : null;
+            let badgeCount = item.badgeKey && badges ? (badges as any)[item.badgeKey] : null;
+            if (item.path === ISSUE_BADGE_PATH && pendingIssuesCount) badgeCount = pendingIssuesCount;
             return (
               <Card
                 key={item.path}
