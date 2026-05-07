@@ -77,6 +77,13 @@ export type Database = {
             referencedRelation: "departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_audit_5s_department"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
         ]
       }
       chemical_transactions: {
@@ -315,6 +322,13 @@ export type Database = {
             referencedRelation: "env_rounds"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_env_round_items_round"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "env_rounds"
+            referencedColumns: ["id"]
+          },
         ]
       }
       env_rounds: {
@@ -354,6 +368,13 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "env_rounds_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_env_rounds_department"
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
@@ -599,6 +620,13 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "fire_extinguisher_checks_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_fire_checks_department"
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
