@@ -19,6 +19,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import FireQrPrintDialog from "@/components/FireQrPrintDialog";
 import { Pencil, Trash2, Plus, Shield, KeyRound, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // --- Departments Tab ---
 function DepartmentsTab() {
