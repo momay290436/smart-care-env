@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import PageHeader from "@/components/PageHeader";
-import { AlertTriangle, CheckCircle2, Clock, Loader2, ChevronRight, Image as ImageIcon } from "lucide-react";
+import { ChevronRight, Image as ImageIcon } from "lucide-react";
 
 const SEVERITY_CONFIG: Record<string, { label: string; color: string; bg: string; order: number }> = {
   high: { label: "สูง", color: "text-red-700", bg: "bg-red-50 border-red-200", order: 0 },
@@ -22,9 +22,9 @@ const SEVERITY_CONFIG: Record<string, { label: string; color: string; bg: string
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  pending: { label: "รอการจัดการ", color: "bg-red-500 text-white", icon: Clock },
-  in_progress: { label: "อยู่ระหว่างดำเนินการ", color: "bg-amber-500 text-white", icon: Loader2 },
-  resolved: { label: "แก้ไขปัญหาแล้ว", color: "bg-emerald-500 text-white", icon: CheckCircle2 },
+  pending: { label: "รอการจัดการ", color: "bg-red-500 text-white", icon: null },
+  in_progress: { label: "อยู่ระหว่างดำเนินการ", color: "bg-amber-500 text-white", icon: null },
+  resolved: { label: "แก้ไขปัญหาแล้ว", color: "bg-emerald-500 text-white", icon: null },
 };
 
 const MODULE_LABELS: Record<string, string> = {
@@ -58,93 +58,12 @@ export default function IssueManagement() {
     },
   });
 
-  // Also pull ENV round abnormal items as virtual issues
-  const { data: envAbnormal = [] } = useQuery({
-    queryKey: ["env-abnormal-issues"],
-    queryFn: async () => {
-      const { data } = await supabase.from("env_round_items").select("id, category, item_name, result, severity, notes, photo_url, round_id, env_rounds(id, status, created_at, departments(name))").eq("result", "abnormal").order("created_at", { ascending: false }).limit(200);
-      return (data || []).map((item: any) => ({
-        id: `env_${item.id}`, title: `${item.item_name} - ${item.category}`,
-        description: item.notes || "พบความผิดปกติจาก ENV Round",
-        source_module: "env_round", source_id: item.env_rounds?.id,
-        severity: item.severity || "medium", status: "pending",
-        created_at: item.env_rounds?.created_at || new Date().toISOString(),
-        _dept: item.env_rounds?.departments?.name,
-        _photo: item.photo_url || null,
-      }));
-    },
-  });
-
-  // Pull repair tickets with pending status
-  const { data: repairIssues = [] } = useQuery({
-    queryKey: ["repair-issues"],
-    queryFn: async () => {
-      const { data } = await supabase.from("repair_tickets").select("id, description, priority, status, created_at, equipment(name, departments(name))").in("status", ["pending", "accepted"]).order("created_at", { ascending: false }).limit(100);
-      return (data || []).map((t: any) => ({
-        id: `repair_${t.id}`, title: t.description || "งานซ่อม",
-        description: `อุปกรณ์: ${t.equipment?.name || "-"} | แผนก: ${t.equipment?.departments?.name || "-"}`,
-        source_module: "repair", source_id: t.id,
-        severity: t.priority === "urgent" ? "high" : t.priority === "high" ? "high" : "medium",
-        status: t.status === "pending" ? "pending" : "in_progress",
-        created_at: t.created_at, _dept: t.equipment?.departments?.name,
-      }));
-    },
-  });
-
-  // Pull fire check abnormal items
-  const { data: fireIssues = [] } = useQuery({
-    queryKey: ["fire-check-issues"],
-    queryFn: async () => {
-      const { data } = await supabase.from("fire_extinguisher_checks")
-        .select("id, checked_at, notes, pressure_ok, condition_ok, location, department_id, departments(name)")
-        .or("pressure_ok.eq.false,condition_ok.eq.false")
-        .order("checked_at", { ascending: false }).limit(100);
-      return (data || []).map((c: any) => ({
-        id: `fire_${c.id}`,
-        title: `ถังดับเพลิง - พบปัญหา`,
-        description: `ตำแหน่ง: ${c.location || "-"}${!c.pressure_ok ? " | ความดันไม่ปกติ" : ""}${!c.condition_ok ? " | สภาพไม่ปกติ" : ""}${c.notes ? ` | ${c.notes}` : ""}`,
-        source_module: "fire_check", source_id: c.id,
-        severity: "high", status: "pending",
-        created_at: c.checked_at || new Date().toISOString(),
-        _dept: (c as any).departments?.name,
-        _photo: null,
-      }));
-    },
-  });
-
-  // Pull 5S audit low-score items
-  const { data: fiveSIssues = [] } = useQuery({
-    queryKey: ["5s-issues"],
-    queryFn: async () => {
-      const { data } = await supabase.from("audit_5s")
-        .select("id, total_score, auditor_id, created_at, departments(name)")
-        .lt("total_score", 60)
-        .order("created_at", { ascending: false }).limit(50);
-      return (data || []).map((a: any) => ({
-        id: `5s_${a.id}`,
-        title: `คะแนน 5ส ต่ำ: ${a.total_score}% - ${a.departments?.name || "ไม่ระบุ"}`,
-        description: `คะแนน ${a.total_score}% (ต่ำกว่าเกณฑ์ 60%)`,
-        source_module: "5s", source_id: a.id,
-        severity: a.total_score < 40 ? "high" : "medium", status: "pending",
-        created_at: a.created_at, _dept: a.departments?.name,
-        _photo: null,
-      }));
-    },
-  });
-
-  // Merge all issues
   const allIssues = useMemo(() => {
-    const dbIssues = issues.map((i: any) => ({ ...i, _source: "db" }));
-    const virtuals = [...envAbnormal, ...repairIssues, ...fireIssues, ...fiveSIssues].filter(
-      (v) => !issues.some((i: any) => i.source_module === v.source_module && i.source_id === v.source_id)
-    ).map((v) => ({ ...v, _source: "virtual" }));
-    const merged = [...dbIssues, ...virtuals];
-
-    return merged
+    return issues
       .filter((i) => {
         if (filterStatus !== "all" && i.status !== filterStatus) return false;
         if (filterSeverity !== "all" && i.severity !== filterSeverity) return false;
-        if (filterDept !== "all" && (i._dept || i.department_name) !== filterDept) return false;
+        if (filterDept !== "all" && i.department_name !== filterDept) return false;
         return true;
       })
       .sort((a, b) => {
@@ -153,7 +72,7 @@ export default function IssueManagement() {
         if (sa !== sb) return sa - sb;
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
-  }, [issues, envAbnormal, repairIssues, fireIssues, fiveSIssues, filterStatus, filterSeverity, filterDept]);
+  }, [issues, filterStatus, filterSeverity, filterDept]);
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -171,32 +90,8 @@ export default function IssueManagement() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // For virtual issues, create a DB record first then update
   const handleStatusChange = (issue: any, newStatus: string) => {
-    if (issue._source === "virtual") {
-      // Create DB record first
-      supabase.from("issues").insert({
-        title: issue.title, description: issue.description,
-        source_module: issue.source_module, source_id: issue.source_id,
-        severity: issue.severity, status: newStatus,
-        resolution_notes: resolutionNotes || null,
-        photo_url: issue._photo || null,
-        department_name: issue._dept || null,
-        created_by: user?.id,
-        resolved_at: newStatus === "resolved" ? new Date().toISOString() : null,
-        resolved_by: newStatus === "resolved" ? user?.id : null,
-      }).then(({ error }) => {
-        if (error) toast.error(error.message);
-        else {
-          toast.success("อัพเดตสถานะสำเร็จ");
-          queryClient.invalidateQueries({ queryKey: ["issues"] });
-          setSelected(null);
-          setResolutionNotes("");
-        }
-      });
-    } else {
-      updateStatus.mutate({ id: issue.id, status: newStatus });
-    }
+    updateStatus.mutate({ id: issue.id, status: newStatus });
   };
 
   const counts = useMemo(() => ({
@@ -213,21 +108,18 @@ export default function IssueManagement() {
       <div className="grid grid-cols-3 gap-2 md:gap-3">
         <Card className="bg-white rounded-2xl shadow-card border-0 border-t-4 border-t-red-500">
           <CardContent className="p-3 md:p-4 text-center">
-            <Clock className="h-5 w-5 text-red-500 mx-auto mb-1" />
             <p className="text-2xl font-extrabold text-red-600">{counts.pending}</p>
             <p className="text-[10px] md:text-xs text-muted-foreground">รอการจัดการ</p>
           </CardContent>
         </Card>
         <Card className="bg-white rounded-2xl shadow-card border-0 border-t-4 border-t-amber-500">
           <CardContent className="p-3 md:p-4 text-center">
-            <Loader2 className="h-5 w-5 text-amber-500 mx-auto mb-1" />
             <p className="text-2xl font-extrabold text-amber-600">{counts.in_progress}</p>
             <p className="text-[10px] md:text-xs text-muted-foreground">กำลังดำเนินการ</p>
           </CardContent>
         </Card>
         <Card className="bg-white rounded-2xl shadow-card border-0 border-t-4 border-t-emerald-500">
           <CardContent className="p-3 md:p-4 text-center">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500 mx-auto mb-1" />
             <p className="text-2xl font-extrabold text-emerald-600">{counts.resolved}</p>
             <p className="text-[10px] md:text-xs text-muted-foreground">แก้ไขแล้ว</p>
           </CardContent>
@@ -271,21 +163,21 @@ export default function IssueManagement() {
           const stat = STATUS_CONFIG[issue.status] || STATUS_CONFIG.pending;
           const StatIcon = stat.icon;
           return (
-            <Card key={issue.id} className={`rounded-2xl border shadow-card hover:shadow-elevated transition-all cursor-pointer ${sev.bg}`} onClick={() => setSelected(issue)}>
+            <Card key={issue.id} className={`rounded-2xl border shadow-card hover:shadow-elevated transition-all cursor-pointer ${sev.bg}`} onClick={() => { setSelected(issue); setResolutionNotes(issue.resolution_notes || ""); }}>
               <CardContent className="p-4 flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${issue.severity === "high" ? "bg-red-100" : issue.severity === "medium" ? "bg-amber-100" : "bg-green-100"}`}>
-                  <AlertTriangle className={`h-5 w-5 ${sev.color}`} />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg font-bold ${issue.severity === "high" ? "bg-red-100 text-red-600" : issue.severity === "medium" ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"}`}>
+                  {issue.severity === "high" ? "!" : issue.severity === "medium" ? "·" : "—"}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate">{issue.title}</p>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <Badge variant="outline" className="text-[10px] rounded-full px-2">{MODULE_LABELS[issue.source_module] || issue.source_module}</Badge>
                     <Badge className={`text-[10px] rounded-full px-2 ${stat.color}`}>
-                      <StatIcon className="h-3 w-3 mr-0.5" />{stat.label}
+                      {stat.label}
                     </Badge>
                     <Badge variant="outline" className={`text-[10px] rounded-full px-2 ${sev.color}`}>ความรุนแรง: {sev.label}</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">{format(new Date(issue.created_at), "d MMM yy HH:mm", { locale: th })}{issue._dept ? ` · ${issue._dept}` : ""}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{format(new Date(issue.created_at), "d MMM yy HH:mm", { locale: th })}{issue.department_name ? ` · ${issue.department_name}` : ""}</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               </CardContent>
@@ -295,8 +187,8 @@ export default function IssueManagement() {
         {allIssues.length === 0 && (
           <Card className="rounded-2xl border-0 shadow-card">
             <CardContent className="py-12 text-center text-muted-foreground">
-              <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-emerald-400" />
-              <p className="text-base font-medium">ไม่มีปัญหาค้างอยู่ 🎉</p>
+              <p className="text-3xl mb-3">✅</p>
+              <p className="text-base font-medium">ไม่มีรายการปัญหา</p>
             </CardContent>
           </Card>
         )}
@@ -314,15 +206,15 @@ export default function IssueManagement() {
                 <div className="flex gap-2 mt-2 flex-wrap">
                   <Badge variant="outline" className="text-xs rounded-full">{MODULE_LABELS[selected.source_module] || selected.source_module}</Badge>
                   <Badge variant="outline" className={`text-xs rounded-full ${SEVERITY_CONFIG[selected.severity]?.color}`}>ความรุนแรง: {SEVERITY_CONFIG[selected.severity]?.label}</Badge>
-                  {selected._dept && <Badge variant="outline" className="text-xs rounded-full">{selected._dept}</Badge>}
+                  {selected.department_name && <Badge variant="outline" className="text-xs rounded-full">{selected.department_name}</Badge>}
                 </div>
               <p className="text-xs text-muted-foreground mt-2">{format(new Date(selected.created_at), "d MMMM yyyy HH:mm น.", { locale: th })}</p>
               </div>
 
-              {(selected._photo || selected.photo_url) && (
+              {selected.photo_url && (
                 <div>
-                  <p className="text-sm font-semibold mb-2 flex items-center gap-1"><ImageIcon className="h-4 w-4" /> รูปภาพประกอบ</p>
-                  <img src={selected._photo || selected.photo_url} alt="ภาพความผิดปกติ" className="rounded-2xl w-full max-h-60 object-cover border" />
+                  <p className="text-sm font-semibold mb-2">รูปภาพประกอบ</p>
+                  <img src={selected.photo_url} alt="ภาพความผิดปกติ" className="rounded-2xl w-full max-h-60 object-cover border" />
                 </div>
               )}
 
@@ -351,7 +243,6 @@ export default function IssueManagement() {
                         disabled={isCurrent}
                         onClick={() => handleStatusChange(selected, s)}
                       >
-                        <cfg.icon className="h-4 w-4 mr-2" />
                         {cfg.label}
                         {isCurrent && " (ปัจจุบัน)"}
                       </Button>
