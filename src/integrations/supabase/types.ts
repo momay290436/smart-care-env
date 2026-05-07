@@ -698,8 +698,11 @@ export type Database = {
           assigned_to: string | null
           created_at: string
           created_by: string | null
+          department_name: string | null
           description: string | null
           id: string
+          photo_url: string | null
+          resolution_notes: string | null
           resolved_at: string | null
           resolved_by: string | null
           severity: string
@@ -713,8 +716,11 @@ export type Database = {
           assigned_to?: string | null
           created_at?: string
           created_by?: string | null
+          department_name?: string | null
           description?: string | null
           id?: string
+          photo_url?: string | null
+          resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
           severity?: string
@@ -728,8 +734,11 @@ export type Database = {
           assigned_to?: string | null
           created_at?: string
           created_by?: string | null
+          department_name?: string | null
           description?: string | null
           id?: string
+          photo_url?: string | null
+          resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
           severity?: string
