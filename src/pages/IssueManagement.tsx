@@ -161,7 +161,6 @@ export default function IssueManagement() {
         {allIssues.map((issue) => {
           const sev = SEVERITY_CONFIG[issue.severity] || SEVERITY_CONFIG.medium;
           const stat = STATUS_CONFIG[issue.status] || STATUS_CONFIG.pending;
-          const StatIcon = stat.icon;
           return (
             <Card key={issue.id} className={`rounded-2xl border shadow-card hover:shadow-elevated transition-all cursor-pointer ${sev.bg}`} onClick={() => { setSelected(issue); setResolutionNotes(issue.resolution_notes || ""); }}>
               <CardContent className="p-4 flex items-center gap-3">
