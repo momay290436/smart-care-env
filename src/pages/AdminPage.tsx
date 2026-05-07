@@ -19,6 +19,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import FireQrPrintDialog from "@/components/FireQrPrintDialog";
 import { Pencil, Trash2, Plus, Shield, KeyRound, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // --- Departments Tab ---
 function DepartmentsTab() {
@@ -346,7 +347,7 @@ function FireLocationsTab() {
   const [fuelType, setFuelType] = useState("");
   const [manufactureYear, setManufactureYear] = useState("");
 
-  const colorOptions = ["สีเขียว", "สีแดง"];
+  const colorOptions = ["สีเขียว", "สีแดง", "สีบอร์น"];
   const sizeOptions = ["5 ปอนด์", "10 ปอนด์", "15 ปอนด์", "20 ปอนด์"];
   const typeOptions = [
     "ถังดับเพลิงชนิดผงเคมีแห้ง (Dry Chemical)",
@@ -401,11 +402,68 @@ function FireLocationsTab() {
   const [showQr, setShowQr] = useState<string | null>(null);
   const [deleteLocId, setDeleteLocId] = useState<string | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const previewUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllLocs = () => {
+    if (selectedIds.size === (locations?.length || 0)) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set((locations || []).map((l: any) => l.id)));
+    }
+  };
+
+  const downloadSelectedQRs = async () => {
+    if (selectedIds.size === 0) { toast.info("กรุณาเลือกรายการก่อน"); return; }
+    const selected = (locations || []).filter((l: any) => selectedIds.has(l.id));
+    // Generate a printable HTML with all selected QRs
+    let html = `<html><head><meta charset="utf-8"><title>QR Codes ถังดับเพลิง</title><style>
+      body{font-family:sans-serif;padding:20px}
+      .qr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+      .qr-card{border:1px solid #ddd;border-radius:12px;padding:16px;text-align:center;page-break-inside:avoid}
+      .qr-card h3{font-size:14px;margin:0 0 4px}
+      .qr-card p{font-size:11px;color:#666;margin:2px 0}
+      .qr-label{font-size:10px;font-weight:bold;margin:8px 0 4px;color:#333}
+      svg{margin:0 auto}
+      @media print{.no-print{display:none}}
+    </style></head><body>
+    <h2 style="text-align:center">QR Codes ถังดับเพลิง (${selected.length} รายการ)</h2>
+    <button class="no-print" onclick="window.print()" style="display:block;margin:12px auto;padding:8px 24px;background:#0891b2;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨️ พิมพ์</button>
+    <div class="qr-grid">`;
+    selected.forEach((l: any) => {
+      html += `<div class="qr-card">
+        <h3>${l.name}</h3>
+        <p>${l.building || ""} ${l.floor ? "ชั้น " + l.floor : ""}</p>
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:8px">
+          <div><p class="qr-label">QR ตรวจสอบ</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(l.id)}" width="120" height="120"/></div>
+          <div><p class="qr-label">QR ข้อมูล</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(previewUrl + "/fire-info/" + l.id)}" width="120" height="120"/></div>
+        </div>
+      </div>`;
+    });
+    html += `</div></body></html>`;
+    const win = window.open("", "_blank");
+    if (win) { win.document.write(html); win.document.close(); }
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap gap-2 justify-end">
+        {selectedIds.size > 0 && (
+          <Button variant="default" size="sm" className="rounded-2xl gap-1.5 h-10" onClick={downloadSelectedQRs}>
+            <Printer className="h-4 w-4" /> ดาวน์โหลด QR ({selectedIds.size} รายการ)
+          </Button>
+        )}
+        <Button variant="outline" size="sm" className="rounded-2xl gap-1.5 h-10 text-xs" onClick={selectAllLocs}>
+          {selectedIds.size === (locations?.length || 0) ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
+        </Button>
         <Button variant="outline" size="sm" className="rounded-2xl gap-1.5 h-10 border-primary/30 text-primary" onClick={() => setPrintOpen(true)}>
           <Printer className="h-4 w-4" /> พิมพ์สติกเกอร์ QR
         </Button>
@@ -448,13 +506,20 @@ function FireLocationsTab() {
         <Card key={l.id} className="shadow-card border-0 rounded-2xl">
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <Checkbox
+                  checked={selectedIds.has(l.id)}
+                  onCheckedChange={() => toggleSelect(l.id)}
+                  className="mt-1"
+                />
+                <div className="flex-1 min-w-0">
                 <p className="font-semibold text-base">{l.name}</p>
                 {l.building && <p className="text-sm text-muted-foreground">{l.building} - {l.floor}</p>}
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {l.color && <Badge variant="outline" className="text-xs rounded-2xl">{l.color}</Badge>}
                   {l.size && <Badge variant="outline" className="text-xs rounded-2xl">{l.size}</Badge>}
                   {l.extinguisher_type && <Badge variant="outline" className="text-xs rounded-2xl">{l.extinguisher_type}</Badge>}
+                </div>
                 </div>
               </div>
               <div className="flex gap-1.5">

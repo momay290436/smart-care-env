@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 import PageHeader from "@/components/PageHeader";
-import { Plus, Download, CalendarIcon, FileText, Search } from "lucide-react";
+import { Plus, Download, CalendarIcon, FileText, Search, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import * as XLSX from "xlsx";
@@ -76,6 +76,21 @@ export default function WaterMeter() {
     });
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filtered]);
+
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const deleteRecord = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("water_meter_records").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบข้อมูลสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["water-meter-records"] });
+      setDeleteId(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   const addRecord = useMutation({
     mutationFn: async () => {
@@ -289,6 +304,7 @@ export default function WaterMeter() {
                   <th className="text-right py-3 px-2 text-xs font-bold text-blue-700">ผลรวม</th>
                   <th className="text-center py-3 px-2 text-xs font-bold text-blue-700">รายชื่อ</th>
                   <th className="text-left py-3 px-2 text-xs font-bold text-blue-700">หมายเหตุ</th>
+                  {isAdmin && <th className="text-center py-3 px-2 text-xs font-bold text-blue-700">จัดการ</th>}
                 </tr>
               </thead>
               <tbody>
@@ -306,11 +322,18 @@ export default function WaterMeter() {
                       <td className="py-2.5 px-2 text-right text-xs font-mono font-bold text-blue-600">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
                       <td className="py-2.5 px-2 text-center text-xs">{r.recorder_name || "-"}</td>
                       <td className="py-2.5 px-2 text-xs text-muted-foreground">{r.notes || "-"}</td>
+                      {isAdmin && (
+                        <td className="py-2.5 px-2 text-center">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive rounded-lg" onClick={() => { if (confirm("ยืนยันลบข้อมูลนี้?")) deleteRecord.mutate(r.id); }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 ))}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูล</td></tr>
+                  <tr><td colSpan={isAdmin ? 8 : 7} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูล</td></tr>
                 )}
               </tbody>
             </table>
@@ -361,29 +384,12 @@ export default function WaterMeter() {
                 </div>
                 <div>
                   <Label className="font-semibold text-sm">ผู้บันทึก</Label>
-                  <Popover modal={true}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start text-left font-normal", !customRecorderName && "text-muted-foreground")}>
-                        <Search className="mr-2 h-4 w-4 flex-shrink-0" />
-                        {customRecorderName || "เลือกผู้บันทึก (ว่าง = ตัวเอง)"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0 z-[9999] pointer-events-auto" align="start" side="bottom" sideOffset={4}>
-                      <Command>
-                        <CommandInput placeholder="ค้นหาชื่อ..." value={recorderSearch} onValueChange={setRecorderSearch} />
-                        <CommandList className="max-h-[200px]">
-                          <CommandEmpty>ไม่พบผู้ใช้</CommandEmpty>
-                          <CommandGroup>
-                            {filteredProfiles.map((p: any) => (
-                              <CommandItem key={p.auth_id} value={p.full_name || p.auth_id} onSelect={() => { setCustomRecorderName(p.full_name); setCustomRecorderId(p.auth_id); }}>
-                                {p.full_name || "ไม่ระบุชื่อ"}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                  <Input
+                    value={customRecorderName}
+                    onChange={(e) => setCustomRecorderName(e.target.value)}
+                    placeholder="กรอกชื่อผู้บันทึก (ว่าง = ตัวเอง)"
+                    className="h-12 rounded-2xl"
+                  />
                 </div>
                 {customRecordDate && (
                   <div className="rounded-xl bg-amber-50 border border-amber-200 p-2 text-xs text-amber-700">

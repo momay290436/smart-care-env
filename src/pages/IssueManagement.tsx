@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import PageHeader from "@/components/PageHeader";
-import { AlertTriangle, CheckCircle2, Clock, Loader2, ChevronRight } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Loader2, ChevronRight, Image as ImageIcon } from "lucide-react";
 
 const SEVERITY_CONFIG: Record<string, { label: string; color: string; bg: string; order: number }> = {
   high: { label: "สูง", color: "text-red-700", bg: "bg-red-50 border-red-200", order: 0 },
@@ -36,7 +38,17 @@ export default function IssueManagement() {
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterSeverity, setFilterSeverity] = useState("all");
+  const [filterDept, setFilterDept] = useState("all");
   const [selected, setSelected] = useState<any>(null);
+  const [resolutionNotes, setResolutionNotes] = useState("");
+
+  const { data: deptList = [] } = useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      const { data } = await supabase.from("departments").select("id, name").order("name");
+      return data || [];
+    },
+  });
 
   const { data: issues = [] } = useQuery({
     queryKey: ["issues"],
@@ -58,6 +70,7 @@ export default function IssueManagement() {
         severity: item.severity || "medium", status: "pending",
         created_at: item.env_rounds?.created_at || new Date().toISOString(),
         _dept: item.env_rounds?.departments?.name,
+        _photo: item.photo_url || null,
       }));
     },
   });
@@ -94,6 +107,7 @@ export default function IssueManagement() {
         severity: "high", status: "pending",
         created_at: c.checked_at || new Date().toISOString(),
         _dept: c.fire_extinguishers?.departments?.name,
+        _photo: null,
       }));
     },
   });
@@ -113,6 +127,7 @@ export default function IssueManagement() {
         source_module: "5s", source_id: a.id,
         severity: a.total_score < 40 ? "high" : "medium", status: "pending",
         created_at: a.created_at, _dept: a.departments?.name,
+        _photo: null,
       }));
     },
   });
@@ -129,6 +144,7 @@ export default function IssueManagement() {
       .filter((i) => {
         if (filterStatus !== "all" && i.status !== filterStatus) return false;
         if (filterSeverity !== "all" && i.severity !== filterSeverity) return false;
+        if (filterDept !== "all" && (i._dept || i.department_name) !== filterDept) return false;
         return true;
       })
       .sort((a, b) => {
@@ -137,11 +153,11 @@ export default function IssueManagement() {
         if (sa !== sb) return sa - sb;
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
-  }, [issues, envAbnormal, repairIssues, fireIssues, fiveSIssues, filterStatus, filterSeverity]);
+  }, [issues, envAbnormal, repairIssues, fireIssues, fiveSIssues, filterStatus, filterSeverity, filterDept]);
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const update: any = { status, updated_at: new Date().toISOString() };
+      const update: any = { status, updated_at: new Date().toISOString(), resolution_notes: resolutionNotes || null };
       if (status === "resolved") { update.resolved_at = new Date().toISOString(); update.resolved_by = user?.id; }
       const { error } = await supabase.from("issues").update(update).eq("id", id);
       if (error) throw error;
@@ -150,6 +166,7 @@ export default function IssueManagement() {
       toast.success("อัพเดตสถานะสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       setSelected(null);
+      setResolutionNotes("");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -162,6 +179,9 @@ export default function IssueManagement() {
         title: issue.title, description: issue.description,
         source_module: issue.source_module, source_id: issue.source_id,
         severity: issue.severity, status: newStatus,
+        resolution_notes: resolutionNotes || null,
+        photo_url: issue._photo || null,
+        department_name: issue._dept || null,
         created_by: user?.id,
         resolved_at: newStatus === "resolved" ? new Date().toISOString() : null,
         resolved_by: newStatus === "resolved" ? user?.id : null,
@@ -171,6 +191,7 @@ export default function IssueManagement() {
           toast.success("อัพเดตสถานะสำเร็จ");
           queryClient.invalidateQueries({ queryKey: ["issues"] });
           setSelected(null);
+          setResolutionNotes("");
         }
       });
     } else {
@@ -233,6 +254,13 @@ export default function IssueManagement() {
             <SelectItem value="low">ต่ำ</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={filterDept} onValueChange={setFilterDept}>
+          <SelectTrigger className="h-10 w-40 rounded-2xl text-sm"><SelectValue placeholder="ทุกแผนก" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">ทุกแผนก</SelectItem>
+            {deptList.map((d: any) => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Badge variant="secondary" className="h-10 px-4 flex items-center rounded-2xl">{allIssues.length} รายการ</Badge>
       </div>
 
@@ -288,7 +316,25 @@ export default function IssueManagement() {
                   <Badge variant="outline" className={`text-xs rounded-full ${SEVERITY_CONFIG[selected.severity]?.color}`}>ความรุนแรง: {SEVERITY_CONFIG[selected.severity]?.label}</Badge>
                   {selected._dept && <Badge variant="outline" className="text-xs rounded-full">{selected._dept}</Badge>}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">{format(new Date(selected.created_at), "d MMMM yyyy HH:mm น.", { locale: th })}</p>
+              <p className="text-xs text-muted-foreground mt-2">{format(new Date(selected.created_at), "d MMMM yyyy HH:mm น.", { locale: th })}</p>
+              </div>
+
+              {(selected._photo || selected.photo_url) && (
+                <div>
+                  <p className="text-sm font-semibold mb-2 flex items-center gap-1"><ImageIcon className="h-4 w-4" /> รูปภาพประกอบ</p>
+                  <img src={selected._photo || selected.photo_url} alt="ภาพความผิดปกติ" className="rounded-2xl w-full max-h-60 object-cover border" />
+                </div>
+              )}
+
+              <div>
+                <Label className="text-sm font-semibold">วิธีการจัดการ/แก้ไขปัญหา</Label>
+                <Textarea
+                  value={resolutionNotes || selected.resolution_notes || ""}
+                  onChange={(e) => setResolutionNotes(e.target.value)}
+                  placeholder="ระบุวิธีการแก้ไขปัญหา..."
+                  rows={3}
+                  className="rounded-2xl mt-1"
+                />
               </div>
 
               <div>
