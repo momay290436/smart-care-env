@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
 import { Check, ChevronsUpDown, Download } from "lucide-react";
+import { Wrench } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import PageHeader from "@/components/PageHeader";
 
@@ -76,6 +77,9 @@ export default function FireCheck() {
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
+  const [issueDialog, setIssueDialog] = useState<any>(null);
+  const [issueNotes, setIssueNotes] = useState("");
+  const [issueSaving, setIssueSaving] = useState(false);
 
   const { data: locations } = useQuery({
     queryKey: ["fire-locations"],
@@ -399,18 +403,38 @@ export default function FireCheck() {
                   </Badge>
                 </div>
                 {details && (
-                  <div className="space-y-2">
-                    {inspectionItems.map((item) => (
-                      <div key={item.key} className={`flex items-center justify-between rounded-xl p-3 ${details[item.key] ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
-                        <div>
-                          <p className="text-sm font-semibold">{item.label}</p>
-                          <p className="text-xs text-muted-foreground">{item.desc}</p>
-                        </div>
-                        <Badge variant={details[item.key] ? "default" : "destructive"} className="rounded-full text-xs">
-                          {details[item.key] ? "ปกติ" : "ผิดปกติ"}
-                        </Badge>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Normal - left */}
+                    <div>
+                      <h4 className="text-sm font-bold text-emerald-700 mb-2">✅ ปกติ ({inspectionItems.filter(i => details[i.key]).length})</h4>
+                      <div className="space-y-1.5">
+                        {inspectionItems.filter(i => details[i.key]).map((item) => (
+                          <div key={item.key} className="p-2.5 rounded-xl text-sm bg-emerald-50 border border-emerald-200">
+                            <p className="font-medium text-emerald-800">{item.label}</p>
+                            <p className="text-[11px] text-emerald-600">{item.desc}</p>
+                          </div>
+                        ))}
+                        {inspectionItems.filter(i => details[i.key]).length === 0 && <p className="text-xs text-muted-foreground text-center py-4">ไม่มี</p>}
                       </div>
-                    ))}
+                    </div>
+                    {/* Abnormal - right */}
+                    <div>
+                      <h4 className="text-sm font-bold text-red-700 mb-2">⚠️ ผิดปกติ ({inspectionItems.filter(i => !details[i.key]).length})</h4>
+                      <div className="space-y-1.5">
+                        {inspectionItems.filter(i => !details[i.key]).map((item) => (
+                          <div key={item.key} className="p-2.5 rounded-xl text-sm bg-red-50 border border-red-200 space-y-1.5">
+                            <p className="font-medium text-red-800">{item.label}</p>
+                            <p className="text-[11px] text-red-600">{item.desc}</p>
+                            <Button size="sm" variant="outline" className="w-full h-7 text-[11px] rounded-lg border-red-300 text-red-700 hover:bg-red-100 gap-1" onClick={() => {
+                              setIssueDialog({ ...item, check: selectedCheck }); setIssueNotes("");
+                            }}>
+                              <Wrench className="h-3 w-3" /> จัดการปัญหา
+                            </Button>
+                          </div>
+                        ))}
+                        {inspectionItems.filter(i => !details[i.key]).length === 0 && <p className="text-xs text-muted-foreground text-center py-4">ไม่มี</p>}
+                      </div>
+                    </div>
                   </div>
                 )}
                 {selectedCheck.notes && (
@@ -436,6 +460,49 @@ export default function FireCheck() {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Issue resolution dialog for fire check */}
+      <Dialog open={!!issueDialog} onOpenChange={(o) => !o && setIssueDialog(null)}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader><DialogTitle>จัดการปัญหาถังดับเพลิง</DialogTitle></DialogHeader>
+          {issueDialog && (
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-red-50 border border-red-200 p-4 space-y-1">
+                <p className="text-sm font-bold text-red-800">{issueDialog.label}</p>
+                <p className="text-xs text-red-600">{issueDialog.desc}</p>
+                {issueDialog.check && (
+                  <p className="text-xs text-muted-foreground mt-1">ตำแหน่ง: {issueDialog.check.location_name || issueDialog.check.location}</p>
+                )}
+              </div>
+              <div>
+                <Label className="text-sm font-semibold">วิธีการจัดการ/แก้ไขปัญหา</Label>
+                <Textarea value={issueNotes} onChange={(e) => setIssueNotes(e.target.value)} placeholder="ระบุวิธีการแก้ไขปัญหา..." rows={3} className="rounded-2xl mt-1" />
+              </div>
+              <Button className="w-full h-12 rounded-2xl font-bold" disabled={!issueNotes.trim() || issueSaving} onClick={async () => {
+                setIssueSaving(true);
+                const chk = issueDialog.check;
+                const { error } = await supabase.from("issues").insert({
+                  title: `[ถังดับเพลิง] ${issueDialog.label} ผิดปกติ`,
+                  description: `ตำแหน่ง: ${chk?.location_name || chk?.location || "-"}\n${issueDialog.desc}`,
+                  source_module: "fire_check", source_id: chk?.id,
+                  severity: "high", status: "resolved",
+                  resolution_notes: issueNotes,
+                  department_name: chk?.departments?.name || null,
+                  created_by: user?.id,
+                  resolved_at: new Date().toISOString(), resolved_by: user?.id,
+                });
+                setIssueSaving(false);
+                if (error) { toast.error(error.message); return; }
+                toast.success("บันทึกการจัดการปัญหาสำเร็จ");
+                setIssueDialog(null);
+                queryClient.invalidateQueries({ queryKey: ["issues"] });
+              }}>
+                {issueSaving ? "กำลังบันทึก..." : "บันทึกการจัดการปัญหา"}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
