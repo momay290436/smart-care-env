@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, Download } from "lucide-react";
+import { Check, ChevronsUpDown, Download, Trash2 } from "lucide-react";
 import { Wrench } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import PageHeader from "@/components/PageHeader";
@@ -125,6 +125,19 @@ export default function FireCheck() {
   });
 
   const toggleItem = (key: keyof InspectionDetails) => { setInspection((prev) => ({ ...prev, [key]: !prev[key] })); };
+
+  const deleteCheck = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("fire_extinguisher_checks").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["fire-checks"] });
+      setSelectedCheck(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   const groups = inspectionItems.reduce((acc, item) => {
     if (!acc[item.group]) acc[item.group] = [];
@@ -345,7 +358,7 @@ export default function FireCheck() {
           const failCount = details ? Object.values(details).filter(v => !v).length : 0;
           const failItems = details ? inspectionItems.filter(item => !details[item.key]) : [];
           return (
-            <Card key={c.id} className={`border border-slate-200 shadow-lg rounded-2xl animate-slide-up border-l-4 bg-white cursor-pointer hover:shadow-xl transition-all ${allOk ? "border-l-primary" : "border-l-destructive"}`} style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'both' }} onClick={() => setSelectedCheck(c)}>
+            <Card key={c.id} className={`border border-slate-200 shadow-lg rounded-2xl animate-slide-up border-l-4 bg-white cursor-pointer hover:shadow-xl transition-all group ${allOk ? "border-l-primary" : "border-l-destructive"}`} style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'both' }} onClick={() => setSelectedCheck(c)}>
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-0.5">
@@ -355,9 +368,16 @@ export default function FireCheck() {
                     </p>
                     {c.inspector_name && <p className="text-xs text-muted-foreground">ผู้ตรวจ: {c.inspector_name}</p>}
                   </div>
-                  <Badge variant={allOk ? "default" : "destructive"} className="shrink-0 mt-0.5 rounded-xl">
-                    {allOk ? "ปกติ" : `${failCount} รายการ`}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={allOk ? "default" : "destructive"} className="shrink-0 mt-0.5 rounded-xl">
+                      {allOk ? "ปกติ" : `${failCount} รายการ`}
+                    </Badge>
+                    {profile?.role === "admin" && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/60 hover:text-destructive rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); if (confirm("ยืนยันลบ?")) deleteCheck.mutate(c.id); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 {!allOk && failItems.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">

@@ -11,9 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
-import { format, subDays } from "date-fns";
+import { format, subDays, startOfDay } from "date-fns";
 import { th } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 import PageHeader from "@/components/PageHeader";
@@ -21,7 +24,8 @@ import WaterPathogenTab from "@/components/WaterPathogenTab";
 import WaterMaintenanceTab from "@/components/WaterMaintenanceTab";
 import WaterSystemTab from "@/components/WaterSystemTab";
 import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
-import { Droplets, Gauge, AlertTriangle, Plus, ClipboardList, Wrench, Download, Settings, Shield } from "lucide-react";
+import { Droplets, Gauge, AlertTriangle, Plus, ClipboardList, Wrench, Download, Settings, Shield, CalendarIcon } from "lucide-react";
+import * as XLSX from "xlsx";
 
 const CHECK_POINTS = ["อาคาร OPD", "อาคาร IPD ชาย", "อาคาร IPD หญิง", "อาคารอำนวยการ", "ห้องผ่าตัด", "ห้องปฏิบัติการ", "โรงครัว"];
 
@@ -45,6 +49,8 @@ export default function WaterManagement() {
   const [meterReading, setMeterReading] = useState("");
   const [meterNotes, setMeterNotes] = useState("");
   const [formData, setFormData] = useState({ check_point: "", ph_value: "", chlorine_value: "", turbidity_value: "", notes: "" });
+  const [meterStartDate, setMeterStartDate] = useState<Date | undefined>();
+  const [meterEndDate, setMeterEndDate] = useState<Date | undefined>();
 
   const { data: qualityLogs = [] } = useQuery({
     queryKey: ["water-quality-logs"],
@@ -103,6 +109,86 @@ export default function WaterManagement() {
     });
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
   }, [meterRecords]);
+
+  // Filter meter records by date range
+  const filteredMeterRecords = useMemo(() => {
+    return meterRecords.filter((r: any) => {
+      if (meterStartDate && new Date(r.record_date) < startOfDay(meterStartDate)) return false;
+      if (meterEndDate && new Date(r.record_date) > new Date(startOfDay(meterEndDate).getTime() + 86400000 - 1)) return false;
+      return true;
+    });
+  }, [meterRecords, meterStartDate, meterEndDate]);
+
+  // Grouped filtered meter records
+  const groupedFilteredMeter = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    filteredMeterRecords.forEach((r: any) => {
+      if (!map[r.record_date]) map[r.record_date] = [];
+      map[r.record_date].push(r);
+    });
+    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filteredMeterRecords]);
+
+  // Export water meter records to Excel
+  const handleExportMeterRecords = () => {
+    if (filteredMeterRecords.length === 0) {
+      toast.error("ไม่มีข้อมูลการบันทึกมิเตอร์น้ำในช่วงวันที่ที่เลือก");
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+    const headers = ["วันที่", "เวลา", "มิเตอร์น้ำออก", "จำนวนน้ำที่ใช้ไป", "ผลรวมรายวัน", "ผู้บันทึก", "หมายเหตุ"];
+    const rows: any[][] = [headers];
+    const merges: XLSX.Range[] = [];
+    let rowIdx = 1;
+
+    groupedFilteredMeter.forEach(([date, dateRecords]) => {
+      const sorted = [...dateRecords].sort((a: any, b: any) => a.record_time.localeCompare(b.record_time));
+      const dailyTotal = sorted.reduce((s: number, r: any) => s + Number(r.usage_amount || 0), 0);
+      const startRow = rowIdx;
+      
+      sorted.forEach((r: any) => {
+        rows.push([
+          format(new Date(date), "d/M/yyyy"),
+          r.record_time?.substring(0, 5) || "-",
+          Number(r.meter_reading),
+          Number(r.usage_amount || 0),
+          dailyTotal > 0 ? dailyTotal : "",
+          r.recorder_name || "-",
+          r.notes || "-",
+        ]);
+        rowIdx++;
+      });
+
+      // Merge date column (col 0) for same-date rows
+      if (sorted.length > 1) {
+        merges.push({ s: { r: startRow, c: 0 }, e: { r: rowIdx - 1, c: 0 } });
+      }
+      // Merge daily_total column (col 4) for same-date rows
+      if (sorted.length > 1) {
+        merges.push({ s: { r: startRow, c: 4 }, e: { r: rowIdx - 1, c: 4 } });
+      }
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!merges"] = merges;
+    ws["!cols"] = [{ wch: 12 }, { wch: 8 }, { wch: 16 }, { wch: 18 }, { wch: 15 }, { wch: 16 }, { wch: 20 }];
+    
+    // Set header style
+    for (let i = 0; i < headers.length; i++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: i });
+      if (!ws[cellRef]) ws[cellRef] = {};
+      ws[cellRef].s = {
+        fill: { fgColor: { rgb: "1e40af" } },
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        alignment: { horizontal: "center", vertical: "center" }
+      };
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, "มิเตอร์น้ำ");
+    XLSX.writeFile(wb, `water-meter-records-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    toast.success("ส่งออก Excel สำเร็จ");
+  };
 
   const addQualityLog = useMutation({
     mutationFn: async () => {
@@ -226,9 +312,12 @@ export default function WaterManagement() {
 
       {/* Tabs: คุณภาพน้ำ / ระบบ / ตรวจเชื้อ / บำรุงรักษา */}
       <Tabs defaultValue="quality" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
           <TabsTrigger value="quality" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
             <Droplets className="h-4 w-4 mr-1" /> คุณภาพน้ำ
+          </TabsTrigger>
+          <TabsTrigger value="meter" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
+            <Gauge className="h-4 w-4 mr-1" /> มิเตอร์น้ำ
           </TabsTrigger>
           <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Settings className="h-4 w-4 mr-1" /> บริหารระบบ
@@ -253,33 +342,131 @@ export default function WaterManagement() {
           <WaterMaintenanceTab />
         </TabsContent>
 
-        <TabsContent value="quality" className="mt-4">
-      <div className="space-y-4">
-          {/* Water Quality Batch Form */}
-          <WaterQualityBatchForm />
+        <TabsContent value="meter" className="mt-4">
+          <div className="space-y-4">
+            {/* Date Range Filter */}
+            <Card className="bg-white rounded-2xl shadow-elevated border-0">
+              <CardContent className="p-4">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">กรองวันที่:</span>
+                  {[
+                    { val: meterStartDate, set: setMeterStartDate, placeholder: "วันเริ่มต้น" },
+                    { val: meterEndDate, set: setMeterEndDate, placeholder: "วันสิ้นสุด" },
+                  ].map((cfg, i) => (
+                    <Popover key={i}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className={cn("text-sm h-9 w-36 justify-start rounded-2xl", !cfg.val && "text-slate-400")}>
+                          {cfg.val ? format(cfg.val, "d MMM yy", { locale: th }) : cfg.placeholder}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={cfg.val} onSelect={cfg.set} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                      </PopoverContent>
+                    </Popover>
+                  ))}
+                  {(meterStartDate || meterEndDate) && (
+                    <Button variant="ghost" size="sm" className="text-xs rounded-2xl" onClick={() => { setMeterStartDate(undefined); setMeterEndDate(undefined); }}>ล้าง</Button>
+                  )}
+                  <div className="flex-1" />
+                  <Button size="sm" className="rounded-2xl gap-2 bg-blue-600 hover:bg-blue-700" onClick={handleExportMeterRecords}>
+                    <Download className="h-4 w-4" /> ส่งออก Excel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Water Usage Chart */}
-          <Card className="bg-white rounded-2xl shadow-elevated border-0">
-            <CardContent className="p-4 md:p-5">
-              <h3 className="text-base md:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Droplets className="h-5 w-5 text-blue-500" /> ปริมาณการใช้น้ำ 7 วันย้อนหลัง
-              </h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={usageChart}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: any) => [`${v} ลบ.ม.`, "ปริมาณน้ำ"]} />
-                  <Line type="monotone" dataKey="usage" stroke="#0891b2" strokeWidth={2.5} dot={{ fill: "#0891b2", r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-      </div>
+            {/* Meter Records Table */}
+            <Card className="bg-white rounded-2xl shadow-elevated border-0">
+              <CardContent className="p-4">
+                <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Gauge className="h-5 w-5 text-cyan-500" /> ประวัติการบันทึกมิเตอร์น้ำ
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b-2 border-cyan-200 bg-cyan-50/50">
+                        <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">วันที่</th>
+                        <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">เวลา</th>
+                        <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">มิเตอร์น้ำออก</th>
+                        <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">จำนวนน้ำที่ใช้ไป</th>
+                        <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">ผลรวมรายวัน</th>
+                        <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">ผู้บันทึก</th>
+                        <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">หมายเหตุ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupedFilteredMeter.map(([date, dateRecords]) => (
+                        dateRecords.sort((a: any, b: any) => a.record_time.localeCompare(b.record_time)).map((r: any, i: number) => (
+                          <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                            {i === 0 ? (
+                              <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-100" rowSpan={dateRecords.length}>
+                                {format(new Date(date), "d/M/yy")}
+                              </td>
+                            ) : null}
+                            <td className="py-2.5 px-2 text-center text-xs">{r.record_time?.substring(0, 5)}</td>
+                            <td className="py-2.5 px-2 text-right text-xs font-mono font-semibold">{Number(r.meter_reading).toLocaleString()}</td>
+                            <td className="py-2.5 px-2 text-right text-xs font-mono">{Number(r.usage_amount || 0).toLocaleString()}</td>
+                            <td className="py-2.5 px-2 text-right text-xs font-mono font-bold text-cyan-600">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
+                            <td className="py-2.5 px-2 text-center text-xs">{r.recorder_name || "-"}</td>
+                            <td className="py-2.5 px-2 text-xs text-muted-foreground">{r.notes || "-"}</td>
+                          </tr>
+                        ))
+                      ))}
+                      {filteredMeterRecords.length === 0 && (
+                        <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูลการบันทึกมิเตอร์น้ำในช่วงวันที่ที่เลือก</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Water Usage Chart */}
+            <Card className="bg-white rounded-2xl shadow-elevated border-0">
+              <CardContent className="p-4 md:p-5">
+                <h3 className="text-base md:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Droplets className="h-5 w-5 text-blue-500" /> ปริมาณการใช้น้ำ 7 วันย้อนหลัง
+                </h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={usageChart}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(v: any) => [`${v} ลบ.ม.`, "ปริมาณน้ำ"]} />
+                    <Line type="monotone" dataKey="usage" stroke="#0891b2" strokeWidth={2.5} dot={{ fill: "#0891b2", r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="quality" className="mt-4">
+          <div className="space-y-4">
+            {/* Water Quality Batch Form */}
+            <WaterQualityBatchForm />
+
+            {/* Water Usage Chart */}
+            <Card className="bg-white rounded-2xl shadow-elevated border-0">
+              <CardContent className="p-4 md:p-5">
+                <h3 className="text-base md:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Droplets className="h-5 w-5 text-blue-500" /> ปริมาณการใช้น้ำ 7 วันย้อนหลัง
+                </h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={usageChart}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(v: any) => [`${v} ลบ.ม.`, "ปริมาณน้ำ"]} />
+                    <Line type="monotone" dataKey="usage" stroke="#0891b2" strokeWidth={2.5} dot={{ fill: "#0891b2", r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
-
-      {/* Meter Record Dialog - Opens directly */}
       <Dialog open={showMeterDialog} onOpenChange={setShowMeterDialog}>
         <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>

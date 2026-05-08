@@ -172,6 +172,19 @@ export default function Dashboard() {
     },
   });
 
+  const { data: issueStats } = useQuery({
+    queryKey: ["issue-stats"],
+    queryFn: async () => {
+      const { data } = await supabase.from("issues").select("status").order("created_at", { ascending: false }).limit(500);
+      if (!data) return { pending: 0, in_progress: 0, resolved: 0 };
+      return {
+        pending: data.filter((i) => i.status === "pending").length,
+        in_progress: data.filter((i) => i.status === "in_progress").length,
+        resolved: data.filter((i) => i.status === "resolved").length,
+      };
+    },
+  });
+
   const { data: wasteData } = useQuery({
     queryKey: ["waste-filtered", wasteRange.from, wasteRange.to],
     queryFn: async () => {
@@ -220,7 +233,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard index={4} label="ENV Round" value={envRoundStats?.totalRounds ?? 0} sub={`เสร็จสิ้น ${envRoundStats?.completed ?? 0}`} icon={Search} accent="cyan" onClick={() => setDrilldown("env")} trend={envRoundStats && envRoundStats.abnormal > 0 ? "down" : "up"} trendLabel={`พบปัญหา ${envRoundStats?.abnormal ?? 0} จุด`} />
         <KpiCard index={5} label="สารเคมีคลัง" value={hazmatStats?.total ?? 0} sub={`สต็อกต่ำ ${hazmatStats?.lowStock ?? 0}`} icon={FlaskConical} accent="amber" onClick={() => navigate("/hazmat")} trend={hazmatStats && hazmatStats.lowStock > 0 ? "down" : "up"} trendLabel={hazmatStats && hazmatStats.lowStock > 0 ? "มีรายการสต็อกต่ำ" : "สต็อกเพียงพอ"} />
-        <KpiCard index={6} label="Risk สูง (ENV)" value={envRoundStats?.highRisk ?? 0} sub="จุดเสี่ยงสูง" icon={AlertTriangle} accent="red" onClick={() => navigate("/issues")} trend={envRoundStats && envRoundStats.highRisk > 0 ? "down" : "up"} trendLabel={envRoundStats && envRoundStats.highRisk > 0 ? "ต้องแก้ไขด่วน" : "ไม่มีจุดเสี่ยง"} />
+        <KpiCard index={6} label="ปัญหาค้างแขวน" value={(issueStats?.pending ?? 0) + (issueStats?.in_progress ?? 0)} sub={`รอจัดการ ${issueStats?.pending ?? 0} | ดำเนินการ ${issueStats?.in_progress ?? 0}`} icon={AlertTriangle} accent="red" onClick={() => navigate("/issues")} trend={(issueStats?.pending ?? 0) + (issueStats?.in_progress ?? 0) > 0 ? "down" : "up"} trendLabel={(issueStats?.pending ?? 0) + (issueStats?.in_progress ?? 0) > 5 ? "ต้องแก้ไขด่วน" : "อยู่ระดับปกติ"} />
         <KpiCard index={7} label="จัดการปัญหา" value="ดูทั้งหมด" sub="รวมปัญหาทุกระบบ" icon={Clock} accent="purple" onClick={() => navigate("/issues")} />
       </div>
 

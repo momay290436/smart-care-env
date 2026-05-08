@@ -48,9 +48,10 @@ Deno.serve(async (req) => {
         }).eq("auth_id", newUser.user.id);
       }
 
-      // Update role if specified
+      // Update role if specified - delete old then insert to avoid constraint conflict
       if (role && role !== "user") {
-        await adminClient.from("user_roles").update({ role }).eq("user_id", newUser.user.id);
+        await adminClient.from("user_roles").delete().eq("user_id", newUser.user.id);
+        await adminClient.from("user_roles").insert({ user_id: newUser.user.id, role });
       }
     }
 

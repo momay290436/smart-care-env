@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 import PageHeader from "@/components/PageHeader";
+import { Trash2 } from "lucide-react";
 
 const categories = [
   { key: "seiri", label: "สะสาง (Seiri)", desc: "แยกสิ่งจำเป็นออกจากสิ่งไม่จำเป็น" },
@@ -144,6 +145,19 @@ export default function Audit5S() {
     setPhotoBefore(null); setPhotoDuring(null); setPhotoAfter(null);
     setPhotoBefore(null); setPhotoAfter(null);
   };
+
+  const deleteAudit = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("audit_5s").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["audits"] });
+      setSelectedAudit(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   const totalScore = Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / 5);
 
@@ -378,6 +392,11 @@ export default function Audit5S() {
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold text-primary">{audit.total_score}%</span>
                     <Badge className={grade.color + " rounded-xl"}>{grade.label}</Badge>
+                    {profile?.role === "admin" && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/60 hover:text-destructive rounded-xl" onClick={(e) => { e.stopPropagation(); if (confirm("ยืนยันลบ?")) deleteAudit.mutate(audit.id); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
