@@ -20,6 +20,7 @@ import PageHeader from "@/components/PageHeader";
 import WaterPathogenTab from "@/components/WaterPathogenTab";
 import WaterMaintenanceTab from "@/components/WaterMaintenanceTab";
 import WaterSystemTab from "@/components/WaterSystemTab";
+import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
 import { Droplets, Gauge, AlertTriangle, Plus, ClipboardList, Wrench, Download, Settings, Shield } from "lucide-react";
 
 const CHECK_POINTS = ["อาคาร OPD", "อาคาร IPD ชาย", "อาคาร IPD หญิง", "อาคารอำนวยการ", "ห้องผ่าตัด", "ห้องปฏิบัติการ", "โรงครัว"];
@@ -253,56 +254,9 @@ export default function WaterManagement() {
         </TabsContent>
 
         <TabsContent value="quality" className="mt-4">
-      {/* 2-Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Left Column */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* Digital Logbook */}
-          <Card className="bg-white rounded-2xl shadow-elevated border-0">
-            <CardContent className="p-4 md:p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5 text-blue-500" /> ผลตรวจคุณภาพน้ำ
-                </h3>
-                <Button size="sm" className="rounded-2xl gap-1.5" onClick={() => setShowAddDialog(true)}>
-                  <Plus className="h-4 w-4" /> เพิ่มข้อมูล
-                </Button>
-              </div>
-              <div className="table-responsive">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200">
-                      <th className="text-left py-2 px-2 text-xs text-slate-500 font-semibold">วันที่</th>
-                      <th className="text-left py-2 px-2 text-xs text-slate-500 font-semibold">จุดตรวจ</th>
-                      <th className="text-center py-2 px-1 text-xs text-slate-500 font-semibold">pH</th>
-                      <th className="text-center py-2 px-1 text-xs text-slate-500 font-semibold">คลอรีน</th>
-                      <th className="text-center py-2 px-1 text-xs text-slate-500 font-semibold">ความขุ่น</th>
-                      <th className="text-center py-2 px-1 text-xs text-slate-500 font-semibold">สถานะ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {qualityLogs.slice(0, 10).map((log: any, i: number) => (
-                      <tr key={log.id} className={i % 2 === 0 ? "bg-slate-50/50" : ""}>
-                        <td className="py-2 px-2 text-xs">{format(new Date(log.created_at), "d MMM", { locale: th })}</td>
-                        <td className="py-2 px-2 text-xs font-medium">{log.check_point}</td>
-                        <td className="py-2 px-1 text-center text-xs">{log.ph_value ?? "-"}</td>
-                        <td className="py-2 px-1 text-center text-xs">{log.chlorine_value ?? "-"}</td>
-                        <td className="py-2 px-1 text-center text-xs">{log.turbidity_value ?? "-"}</td>
-                        <td className="py-2 px-1 text-center">
-                          <Badge variant={log.status === "pass" ? "default" : "destructive"} className="text-[10px] rounded-full px-2">
-                            {log.status === "pass" ? "Pass" : "Fail"}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                    {qualityLogs.length === 0 && (
-                      <tr><td colSpan={6} className="py-8 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูล กดปุ่ม "เพิ่มข้อมูล" เพื่อเริ่มต้น</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="space-y-4">
+          {/* Water Quality Batch Form */}
+          <WaterQualityBatchForm />
 
           {/* Water Usage Chart */}
           <Card className="bg-white rounded-2xl shadow-elevated border-0">
@@ -321,120 +275,6 @@ export default function WaterManagement() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-
-          {/* Meter Records Table - Inline */}
-          <Card className="bg-white rounded-2xl shadow-elevated border-0">
-            <CardContent className="p-4 md:p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
-                  <Gauge className="h-5 w-5 text-blue-500" /> ประวัติบันทึกมิเตอร์น้ำ
-                </h3>
-                <Button size="sm" variant="outline" className="rounded-2xl text-xs gap-1.5" onClick={() => {
-                  const sorted = [...meterRecords].sort((a: any, b: any) => {
-                    const dc = a.record_date.localeCompare(b.record_date);
-                    if (dc !== 0) return dc;
-                    return (a.record_time || "").localeCompare(b.record_time || "");
-                  });
-                  exportToExcel(sorted.map((r: any) => ({
-                    "วันที่": format(new Date(r.record_date), "d/M/yyyy"),
-                    "เวลา": r.record_time?.substring(0, 5) || "-",
-                    "มิเตอร์น้ำออก": r.meter_reading,
-                    "จำนวนน้ำที่ใช้ไป": r.usage_amount,
-                    "ผลรวม": r.daily_total ?? "-",
-                    "รายชื่อ": r.recorder_name || "-",
-                    "หมายเหตุ": r.notes || "-",
-                  })), "water-meter-records", "มิเตอร์น้ำ");
-                  toast.success("ส่งออก Excel สำเร็จ");
-                }}>
-                  <Download className="h-3.5 w-3.5" /> Excel
-                </Button>
-              </div>
-              <div className="overflow-x-auto -mx-2">
-                <table className="w-full text-sm min-w-[600px]">
-                  <thead>
-                    <tr className="border-b-2 border-blue-200 bg-blue-50/50">
-                      <th className="text-left py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-20">วันที่</th>
-                      <th className="text-center py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-16">เวลา</th>
-                      <th className="text-right py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-24">มิเตอร์น้ำออก</th>
-                      <th className="text-right py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-20">ใช้ไป</th>
-                      <th className="text-right py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-16">ผลรวม</th>
-                      <th className="text-center py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-20">ผู้บันทึก</th>
-                      <th className="text-left py-2.5 px-2 text-xs font-bold text-blue-700 whitespace-nowrap w-16">หมายเหตุ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groupedMeter.map(([date, dateRecords], gi) => {
-                      const sorted = dateRecords.sort((a: any, b: any) => (a.record_time || "").localeCompare(b.record_time || ""));
-                      const dailyTotal = sorted.reduce((s: number, r: any) => s + Number(r.usage_amount || 0), 0);
-                      return sorted.map((r: any, i: number) => (
-                        <tr key={r.id} className={`${gi % 2 === 0 ? "bg-white" : "bg-slate-50/60"} ${i === 0 && gi > 0 ? "border-t-2 border-blue-100" : ""}`}>
-                          {i === 0 ? (
-                            <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-200 whitespace-nowrap" rowSpan={sorted.length}>
-                              {format(new Date(date), "d/M/yy")}
-                            </td>
-                          ) : null}
-                          <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{r.record_time?.substring(0, 5)}</td>
-                          <td className="py-2.5 px-2 text-right text-xs font-mono font-semibold">{Number(r.meter_reading).toLocaleString()}</td>
-                          <td className="py-2.5 px-2 text-right text-xs font-mono">{Number(r.usage_amount).toLocaleString()}</td>
-                          {i === 0 ? (
-                            <td className="py-2.5 px-2 text-right text-xs font-mono font-bold text-blue-600 border-r border-slate-200" rowSpan={sorted.length}>
-                              {dailyTotal > 0 ? dailyTotal.toLocaleString() : "-"}
-                            </td>
-                          ) : null}
-                          <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{r.recorder_name || "-"}</td>
-                          <td className="py-2.5 px-2 text-xs text-muted-foreground truncate max-w-[80px]">{r.notes || "-"}</td>
-                        </tr>
-                      ));
-                    })}
-                    {meterRecords.length === 0 && (
-                      <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูล</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* PM Alerts */}
-          <Card className="bg-white rounded-2xl shadow-elevated border-0">
-            <CardContent className="p-4 md:p-5">
-              <h3 className="text-base md:text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
-                <Wrench className="h-5 w-5 text-amber-500" /> แจ้งเตือนบำรุงรักษา
-              </h3>
-              <div className="space-y-2">
-                {PM_ALERTS.map((alert, i) => (
-                  <div key={i} className={`p-3 rounded-xl border ${alert.status === "overdue" ? "border-red-200 bg-red-50" : alert.status === "due" ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
-                    <p className="text-sm font-semibold text-slate-800">{alert.title}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-muted-foreground">{alert.schedule}</p>
-                      <Badge variant={alert.status === "overdue" ? "destructive" : alert.status === "due" ? "default" : "secondary"} className="text-[10px] rounded-full">
-                        {alert.status === "overdue" ? "เลยกำหนด" : alert.status === "due" ? "ถึงกำหนด" : alert.due}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Emergency Buttons */}
-          <Card className="bg-white rounded-2xl shadow-elevated border-0">
-            <CardContent className="p-4 md:p-5 space-y-3">
-              <h3 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-500" /> เหตุฉุกเฉิน
-              </h3>
-              <Button variant="destructive" className="w-full h-11 md:h-12 rounded-2xl text-sm md:text-base font-bold gap-2" onClick={() => toast.info("ระบบแจ้งเหตุท่อแตก/น้ำไม่ไหล - กำลังพัฒนา")}>
-                🚰 แจ้งเหตุท่อแตก / น้ำไม่ไหล
-              </Button>
-              <Button variant="outline" className="w-full h-11 md:h-12 rounded-2xl text-sm md:text-base font-semibold gap-2 border-blue-300 text-blue-600 hover:bg-blue-50" onClick={() => toast.info("ผังวาล์วประปา - กำลังพัฒนา")}>
-                📐 เปิดผังวาล์วประปา (As-built)
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
       </div>
         </TabsContent>
       </Tabs>

@@ -85,8 +85,17 @@ export default function EnvRound() {
   const { data: rounds = [] } = useQuery({
     queryKey: ["env_rounds"],
     queryFn: async () => {
-      const { data } = await supabase.from("env_rounds").select("*, departments(name)").order("created_at", { ascending: false }).limit(100);
-      return data || [];
+      const { data, error } = await supabase.from("env_rounds").select("*").order("created_at", { ascending: false }).limit(200);
+      if (error) { console.error("env_rounds error", error); return []; }
+      if (!data || data.length === 0) return [];
+      // Manually join department names
+      const deptIds = [...new Set(data.filter((r: any) => r.department_id).map((r: any) => r.department_id))];
+      let deptMap: Record<string, string> = {};
+      if (deptIds.length > 0) {
+        const { data: depts } = await supabase.from("departments").select("id, name").in("id", deptIds);
+        deptMap = Object.fromEntries((depts || []).map((d: any) => [d.id, d.name]));
+      }
+      return data.map((r: any) => ({ ...r, departments: r.department_id ? { name: deptMap[r.department_id] || "ไม่ระบุ" } : { name: "ไม่ระบุแผนก" } }));
     },
   });
 

@@ -1,32 +1,26 @@
 
-# แผนการดำเนินงาน 9 รายการ
+# แผนการแก้ไข
 
-## 1. แก้ไขปัญหากำหนดสิทธิ์ (ON CONFLICT error)
-- ตาราง `user_roles` มี unique constraint บน `(user_id, role)` ไม่ใช่ `user_id` เพียงอย่างเดียว
-- แก้ไข `PagePermissionsTab.tsx` ให้ลบ role เดิมก่อนแล้ว insert ใหม่ แทนการใช้ upsert
+## 1. แก้ไขประวัติการตรวจไม่แสดง (FireCheck, 5S, ENV Round)
+- ตรวจสอบ query ที่ดึงข้อมูลและแก้ไขให้แสดงรายการตรวจทั้งหมด
+- เพิ่ม limit จาก 30 → 200 และแก้ filter logic
 
-## 2. ปุ่ม แก้ไข/ลบ สำหรับ Admin ในทุกหน้าบันทึกข้อมูล
-- เพิ่มปุ่มเล็กๆ ท้ายแถวข้อมูลในหน้า WaterMeter, WasteLog, EnvRound, FireCheck, Audit5S
-- แสดงเฉพาะเมื่อผู้ใช้เป็น Admin
+## 2. ระบบบันทึกผลตรวจคุณภาพน้ำแบบใหม่ (Batch Testing)
+- สร้างตาราง `water_quality_batches` เก็บข้อมูลชุดการตรวจ (report_period, water_type, test_date)
+- สร้างตาราง `water_quality_batch_items` เก็บผลแต่ละรายการตรวจ (parameter_name, test_result, standard_value, unit)
+- ออกแบบฟอร์มบันทึกใหม่ที่รวมทุกรายการตรวจ พร้อมเลือกประเภทน้ำและรอบการตรวจ
+- แสดงประวัติพร้อมเลือกช่วงเวลา
+- Export Excel 3 Sheets (น้ำทิ้ง, ประปา, กากตะกอน) ตามรูปแบบไฟล์ตัวอย่าง โดยใช้ exceljs
 
-## 3. QR ถังดับเพลิง - ดาวน์โหลดหลายรายการ + เพิ่มสีบอร์น
-- เพิ่ม checkbox สำหรับเลือกหลายรายการ และปุ่มดาวน์โหลด QR ทั้งหมด
-- เพิ่มตัวเลือกสี "บอร์น" (bronze) ใน dropdown สีถัง
+## 3. Admin edit สำหรับประวัติการบันทึก
+- เพิ่มปุ่มแก้ไขใน water meter, pathogen, water quality history
+- เปิด dialog แก้ไขข้อมูลได้
 
-## 4. แก้ไขการสร้างผู้ใช้จากแอป
-- ตรวจสอบ edge function `create-user` ให้ทำงานได้ถูกต้อง
+## 4. แก้ไข Excel Export มิเตอร์น้ำ
+- คำนวณ daily total ให้ถูกต้องทุกวัน (ไม่ใช่แค่วันที่มี daily_total ใน DB)
 
-## 5. มิเตอร์น้ำ - Admin เลือกวันที่/เวลา/ผู้บันทึก
-- ปรับ UI ให้ calendar, time input, และ recorder name เป็นช่องกรอกที่ใช้งานได้จริง
-
-## 6-9. ปรับปรุงหน้าจัดการปัญหา (Issue Management)
-- เพิ่ม Text Area สำหรับ "วิธีการจัดการ"
-- แสดงรูปภาพความผิดปกติ
-- เพิ่ม Filter แผนก
-- Badge แจ้งเตือนจำนวนปัญหาค้างบนหน้าหลัก
-- Auto-create issue เมื่อบันทึกผลว่า "ผิดปกติ"
-- อัพเดตสถานะกลับไปหน้าต้นทางเมื่อ "เสร็จสิ้น"
-
-## Technical Details
-- Migration: เพิ่ม unique constraint `user_id` บน `user_roles` หรือแก้ logic ฝั่ง client
-- แก้ไขไฟล์: PagePermissionsTab.tsx, WaterMeter.tsx, IssueManagement.tsx, HomePage.tsx, AdminPage.tsx, FireCheck.tsx, WasteLog.tsx, EnvRound.tsx, Audit5S.tsx
+## รายละเอียดทางเทคนิค
+- Migration: สร้าง 2 ตาราง water_quality_batches, water_quality_batch_items พร้อม RLS
+- แก้ไขไฟล์: FireCheck.tsx, Audit5S.tsx, EnvRound.tsx, WaterMeter.tsx, WaterManagement.tsx (หรือ component ที่เกี่ยวข้อง)
+- ติดตั้ง exceljs สำหรับ export ที่ซับซ้อน
+- สร้าง component ใหม่: WaterQualityBatchForm.tsx

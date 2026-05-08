@@ -91,10 +91,11 @@ export default function FireCheck() {
   const { data: checks } = useQuery({
     queryKey: ["fire-checks"],
     queryFn: async () => {
-      const { data } = await supabase.from("fire_extinguisher_checks").select("*, departments(name)").order("checked_at", { ascending: false }).limit(30);
+      const { data, error } = await supabase.from("fire_extinguisher_checks").select("*").order("checked_at", { ascending: false }).limit(200);
+      if (error) { console.error("fire-checks error", error); return []; }
       if (!data) return [];
       const locIds = [...new Set(data.map((c: any) => c.location))];
-      const { data: locs } = await supabase.from("fire_extinguisher_locations").select("id, name").in("id", locIds);
+      const { data: locs } = await supabase.from("fire_extinguisher_locations").select("id, name, building, floor").in("id", locIds.length > 0 ? locIds : ["__none__"]);
       const locMap = Object.fromEntries((locs || []).map((l) => [l.id, l.name]));
       return data.map((c: any) => ({ ...c, location_name: locMap[c.location] || c.location }));
     },

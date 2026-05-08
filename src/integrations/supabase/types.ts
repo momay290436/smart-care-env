@@ -1444,6 +1444,83 @@ export type Database = {
         }
         Relationships: []
       }
+      water_quality_batch_items: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          parameter_name: string
+          sort_order: number
+          standard_value: string | null
+          test_result: string | null
+          unit: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          parameter_name: string
+          sort_order?: number
+          standard_value?: string | null
+          test_result?: string | null
+          unit?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          parameter_name?: string
+          sort_order?: number
+          standard_value?: string | null
+          test_result?: string | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "water_quality_batch_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "water_quality_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      water_quality_batches: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          recorded_by: string
+          recorder_name: string
+          report_period: string
+          test_date: string
+          updated_at: string
+          water_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          recorded_by: string
+          recorder_name?: string
+          report_period?: string
+          test_date?: string
+          updated_at?: string
+          water_type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          recorded_by?: string
+          recorder_name?: string
+          report_period?: string
+          test_date?: string
+          updated_at?: string
+          water_type?: string
+        }
+        Relationships: []
+      }
       water_quality_logs: {
         Row: {
           check_date: string
