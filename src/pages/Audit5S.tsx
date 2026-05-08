@@ -65,12 +65,16 @@ export default function Audit5S() {
   const { data: audits } = useQuery({
     queryKey: ["audits"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("audit_5s")
-        .select("*, departments(name)")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      return data || [];
+      const { data, error } = await supabase.from("audit_5s").select("*").order("created_at", { ascending: false }).limit(200);
+      if (error) { console.error("audits error", error); return []; }
+      if (!data || data.length === 0) return [];
+      const deptIds = [...new Set(data.filter((a: any) => a.department_id).map((a: any) => a.department_id))];
+      let deptMap: Record<string, string> = {};
+      if (deptIds.length > 0) {
+        const { data: depts } = await supabase.from("departments").select("id, name").in("id", deptIds);
+        deptMap = Object.fromEntries((depts || []).map((d: any) => [d.id, d.name]));
+      }
+      return data.map((a: any) => ({ ...a, departments: a.department_id ? { name: deptMap[a.department_id] || "-" } : { name: "-" } }));
     },
   });
 
