@@ -74,7 +74,7 @@ export default function WaterManagement() {
   const { data: disinfectantLogs = [] } = useQuery({
     queryKey: ["water-disinfectant-logs"],
     queryFn: async () => {
-      const { data } = await supabase.from("water_disinfectant_logs").select("*").order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
+      const { data } = await (supabase.from("water_disinfectant_logs") as any).select("*").order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
       return data || [];
     },
   });
@@ -274,7 +274,7 @@ export default function WaterManagement() {
       const passSource = sourceConcentration >= 0.2 && sourceConcentration <= 0.5 && sourcePh >= 6.5 && sourcePh <= 8.5;
       const passOutlet = outletConcentration >= 0.2 && outletConcentration <= 0.5 && outletPh >= 6.5 && outletPh <= 8.5;
       const status = passSource && passOutlet ? "pass" : "fail";
-      const { error } = await supabase.from("water_disinfectant_logs").insert({
+      const { error } = await (supabase.from("water_disinfectant_logs") as any).insert({
         check_date: checkDate,
         check_time: checkTime,
         disinfectant_name: "คลอรีน",
@@ -415,7 +415,7 @@ export default function WaterManagement() {
             <Droplets className="h-4 w-4 mr-1" /> คุณภาพน้ำ
           </TabsTrigger>
           <TabsTrigger value="meter" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
-            <Gauge className="h-4 w-4 mr-1" /> มิเตอร์น้ำ
+            <Gauge className="h-4 w-4 mr-1" /> ประวัติการบันทึก
           </TabsTrigger>
           <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Settings className="h-4 w-4 mr-1" /> บริหารระบบ
@@ -435,8 +435,8 @@ export default function WaterManagement() {
 
         <TabsContent value="meter" className="mt-4">
           <div className="space-y-4">
-            {/* Date Range Filter */}
-            <Card className="bg-white rounded-2xl shadow-elevated border-0">
+            {/* Date Range Filter - Desktop */}
+            <Card className="bg-white rounded-2xl shadow-elevated border-0 hidden md:block">
               <CardContent className="p-4">
                 <div className="flex flex-wrap gap-2 items-center">
                   <CalendarIcon className="h-4 w-4 text-muted-foreground" />
@@ -459,134 +459,279 @@ export default function WaterManagement() {
                   {(meterStartDate || meterEndDate) && (
                     <Button variant="ghost" size="sm" className="text-xs rounded-2xl" onClick={() => { setMeterStartDate(undefined); setMeterEndDate(undefined); }}>ล้าง</Button>
                   )}
-                  <div className="flex-1" />
-                  <Button size="sm" className="rounded-2xl gap-2 bg-blue-600 hover:bg-blue-700" onClick={handleExportMeterRecords}>
-                    <Download className="h-4 w-4" /> ส่งออก Excel
-                  </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Meter Records Table */}
-            <Card className="bg-white rounded-2xl shadow-elevated border-0">
-              <CardContent className="p-4">
-                <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <Gauge className="h-5 w-5 text-cyan-500" /> ประวัติการบันทึกมิเตอร์น้ำ
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b-2 border-cyan-200 bg-cyan-50/50">
-                        <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">วันที่</th>
-                        <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">เวลา</th>
-                        <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">มิเตอร์น้ำออก</th>
-                        <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">จำนวนน้ำที่ใช้ไป</th>
-                        <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">ผลรวมรายวัน</th>
-                        <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">ผู้บันทึก</th>
-                        <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">หมายเหตุ</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {groupedFilteredMeter.map(([date, dateRecords]) => (
-                        dateRecords.sort((a: any, b: any) => a.record_time.localeCompare(b.record_time)).map((r: any, i: number) => (
-                          <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
-                            {i === 0 ? (
-                              <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-100" rowSpan={dateRecords.length}>
-                                {format(new Date(date), "d/M/yy")}
-                              </td>
-                            ) : null}
-                            <td className="py-2.5 px-2 text-center text-xs">{r.record_time?.substring(0, 5)}</td>
-                            <td className="py-2.5 px-2 text-right text-xs font-mono font-semibold">{Number(r.meter_reading).toLocaleString()}</td>
-                            <td className="py-2.5 px-2 text-right text-xs font-mono">{Number(r.usage_amount || 0).toLocaleString()}</td>
-                            <td className="py-2.5 px-2 text-right text-xs font-mono font-bold text-cyan-600">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
-                            <td className="py-2.5 px-2 text-center text-xs">{r.recorder_name || "-"}</td>
-                            <td className="py-2.5 px-2 text-xs text-muted-foreground">{r.notes || "-"}</td>
-                          </tr>
-                        ))
-                      ))}
-                      {filteredMeterRecords.length === 0 && (
-                        <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูลการบันทึกมิเตอร์น้ำในช่วงวันที่ที่เลือก</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Two Column Layout - Desktop */}
+            <div className="hidden md:grid md:grid-cols-2 md:gap-4">
+              {/* Left Column: Meter Records */}
+              <Card className="bg-white rounded-2xl shadow-elevated border-0">
+                <CardContent className="p-4">
+                  <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Gauge className="h-5 w-5 text-cyan-500" /> มิเตอร์น้ำ
+                  </h3>
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b-2 border-cyan-200 bg-cyan-50/50 sticky top-0">
+                          <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">วันที่</th>
+                          <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">เวลา</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">มิเตอร์</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">การใช้</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">รวม</th>
+                          <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">ผู้บันทึก</th>
+                          <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">หมายเหตุ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupedFilteredMeter.map(([date, dateRecords]) => (
+                          dateRecords.sort((a: any, b: any) => a.record_time.localeCompare(b.record_time)).map((r: any, i: number) => (
+                            <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                              {i === 0 ? (
+                                <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-100" rowSpan={dateRecords.length}>
+                                  {format(new Date(date), "d/M")}
+                                </td>
+                              ) : null}
+                              <td className="py-2.5 px-2 text-center text-xs">{r.record_time?.substring(0, 5)}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono font-semibold">{Number(r.meter_reading).toLocaleString()}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono">{Number(r.usage_amount || 0).toLocaleString()}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono font-bold text-cyan-600">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
+                              <td className="py-2.5 px-2 text-center text-xs text-muted-foreground">{r.recorder_name || "-"}</td>
+                              <td className="py-2.5 px-2 text-xs text-muted-foreground truncate">{r.notes || "-"}</td>
+                            </tr>
+                          ))
+                        ))}
+                        {filteredMeterRecords.length === 0 && (
+                          <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">ไม่มีข้อมูล</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <Button size="sm" className="rounded-2xl gap-2 bg-blue-600 hover:bg-blue-700 text-xs flex-1" onClick={handleExportMeterRecords}>
+                      <Download className="h-4 w-4" /> ส่งออก
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card className="bg-white rounded-2xl shadow-elevated border-0">
-              <CardContent className="p-4">
-                <div className="flex flex-wrap gap-2 items-center mb-4">
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">กรองประวัติสารเคมี:</span>
-                  {[
-                    { val: disinfectantStartDate, set: setDisinfectantStartDate, placeholder: "วันเริ่มต้น" },
-                    { val: disinfectantEndDate, set: setDisinfectantEndDate, placeholder: "วันสิ้นสุด" },
-                  ].map((cfg, i) => (
-                    <Popover key={i}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className={cn("text-sm h-9 w-36 justify-start rounded-2xl", !cfg.val && "text-slate-400")}>
-                          {cfg.val ? format(cfg.val, "d MMM yy", { locale: th }) : cfg.placeholder}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={cfg.val} onSelect={cfg.set} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
-                      </PopoverContent>
-                    </Popover>
-                  ))}
-                  {(disinfectantStartDate || disinfectantEndDate) && (
-                    <Button variant="ghost" size="sm" className="text-xs rounded-2xl" onClick={() => { setDisinfectantStartDate(undefined); setDisinfectantEndDate(undefined); }}>ล้าง</Button>
-                  )}
-                  <div className="flex-1" />
-                  <Button size="sm" className="rounded-2xl gap-2 bg-amber-500 hover:bg-amber-600 text-black" onClick={handleExportDisinfectantRecords}>
-                    <Download className="h-4 w-4" /> ส่งออก Excel
-                  </Button>
-                </div>
-                <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <Gauge className="h-5 w-5 text-amber-500" /> ประวัติสารเคมีกำจัดเชื้อโรค
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b-2 border-amber-200 bg-amber-50/50">
-                        <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">วันที่</th>
-                        <th className="text-center py-3 px-2 text-xs font-bold text-amber-700">เวลา</th>
-                        <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">สารเคมี</th>
-                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">ความเข้มข้นต้นทาง (mg/l)</th>
-                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">pH ต้นทาง</th>
-                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">ความเข้มข้นปลายทาง (mg/l)</th>
-                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">pH ปลายทาง</th>
-                        <th className="text-center py-3 px-2 text-xs font-bold text-amber-700">ผู้บันทึก</th>
-                        <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">หมายเหตุ</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {groupedDisinfectantLogs.map(([date, dateRecords]) => (
-                        dateRecords.sort((a: any, b: any) => a.check_time.localeCompare(b.check_time)).map((r: any, i: number) => (
-                          <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
-                            {i === 0 ? (
-                              <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-100" rowSpan={dateRecords.length}>
-                                {format(new Date(date), "d/M/yy")}
-                              </td>
-                            ) : null}
-                            <td className="py-2.5 px-2 text-center text-xs">{r.check_time?.substring(0, 5)}</td>
-                            <td className="py-2.5 px-2 text-xs font-medium">{r.disinfectant_name || "-"}</td>
-                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.source_concentration ?? "-"}</td>
-                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.source_ph ?? "-"}</td>
-                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.outlet_concentration ?? "-"}</td>
-                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.outlet_ph ?? "-"}</td>
-                            <td className="py-2.5 px-2 text-center text-xs">{r.inspector_name || "-"}</td>
-                            <td className="py-2.5 px-2 text-xs text-muted-foreground">{r.notes || "-"}</td>
-                          </tr>
-                        ))
-                      ))}
-                      {filteredDisinfectantLogs.length === 0 && (
-                        <tr><td colSpan={9} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูลสารเคมีกำจัดเชื้อโรคในช่วงวันที่ที่เลือก</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Right Column: Disinfectant Logs */}
+              <Card className="bg-white rounded-2xl shadow-elevated border-0">
+                <CardContent className="p-4">
+                  <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Gauge className="h-5 w-5 text-amber-500" /> สารเคมี
+                  </h3>
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b-2 border-amber-200 bg-amber-50/50 sticky top-0">
+                          <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">วันที่</th>
+                          <th className="text-center py-3 px-2 text-xs font-bold text-amber-700">เวลา</th>
+                          <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">สารเคมี</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">ต้นทาง</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">pH</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">ปลายทาง</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">pH</th>
+                          <th className="text-center py-3 px-2 text-xs font-bold text-amber-700">ผู้บันทึก</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupedDisinfectantLogs.map(([date, dateRecords]) => (
+                          dateRecords.sort((a: any, b: any) => a.check_time.localeCompare(b.check_time)).map((r: any, i: number) => (
+                            <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                              {i === 0 ? (
+                                <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-100" rowSpan={dateRecords.length}>
+                                  {format(new Date(date), "d/M")}
+                                </td>
+                              ) : null}
+                              <td className="py-2.5 px-2 text-center text-xs">{r.check_time?.substring(0, 5)}</td>
+                              <td className="py-2.5 px-2 text-xs font-medium">{r.disinfectant_name || "-"}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono">{r.source_concentration ?? "-"}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono">{r.source_ph ?? "-"}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono">{r.outlet_concentration ?? "-"}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono">{r.outlet_ph ?? "-"}</td>
+                              <td className="py-2.5 px-2 text-center text-xs text-muted-foreground">{r.inspector_name || "-"}</td>
+                            </tr>
+                          ))
+                        ))}
+                        {filteredDisinfectantLogs.length === 0 && (
+                          <tr><td colSpan={8} className="py-10 text-center text-sm text-muted-foreground">ไม่มีข้อมูล</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <Button size="sm" className="rounded-2xl gap-2 bg-amber-500 hover:bg-amber-600 text-black text-xs flex-1" onClick={handleExportDisinfectantRecords}>
+                      <Download className="h-4 w-4" /> ส่งออก
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Mobile Layout - Stacked */}
+            <div className="md:hidden space-y-4">
+              {/* Mobile Meter Filter */}
+              <Card className="bg-white rounded-2xl shadow-elevated border-0">
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">กรองวันที่:</span>
+                    {[
+                      { val: meterStartDate, set: setMeterStartDate, placeholder: "วันเริ่มต้น" },
+                      { val: meterEndDate, set: setMeterEndDate, placeholder: "วันสิ้นสุด" },
+                    ].map((cfg, i) => (
+                      <Popover key={i}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("text-sm h-9 w-36 justify-start rounded-2xl", !cfg.val && "text-slate-400")}>
+                            {cfg.val ? format(cfg.val, "d MMM yy", { locale: th }) : cfg.placeholder}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={cfg.val} onSelect={cfg.set} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    ))}
+                    {(meterStartDate || meterEndDate) && (
+                      <Button variant="ghost" size="sm" className="text-xs rounded-2xl" onClick={() => { setMeterStartDate(undefined); setMeterEndDate(undefined); }}>ล้าง</Button>
+                    )}
+                    <div className="flex-1" />
+                    <Button size="sm" className="rounded-2xl gap-2 bg-blue-600 hover:bg-blue-700" onClick={handleExportMeterRecords}>
+                      <Download className="h-4 w-4" /> ส่งออก Excel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Mobile Meter Records Table */}
+              <Card className="bg-white rounded-2xl shadow-elevated border-0">
+                <CardContent className="p-4">
+                  <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Gauge className="h-5 w-5 text-cyan-500" /> ประวัติการบันทึกมิเตอร์น้ำ
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b-2 border-cyan-200 bg-cyan-50/50">
+                          <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">วันที่</th>
+                          <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">เวลา</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">มิเตอร์น้ำออก</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">จำนวนน้ำที่ใช้ไป</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">ผลรวมรายวัน</th>
+                          <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">ผู้บันทึก</th>
+                          <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">หมายเหตุ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupedFilteredMeter.map(([date, dateRecords]) => (
+                          dateRecords.sort((a: any, b: any) => a.record_time.localeCompare(b.record_time)).map((r: any, i: number) => (
+                            <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                              {i === 0 ? (
+                                <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-100" rowSpan={dateRecords.length}>
+                                  {format(new Date(date), "d/M/yy")}
+                                </td>
+                              ) : null}
+                              <td className="py-2.5 px-2 text-center text-xs">{r.record_time?.substring(0, 5)}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono font-semibold">{Number(r.meter_reading).toLocaleString()}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono">{Number(r.usage_amount || 0).toLocaleString()}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono font-bold text-cyan-600">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
+                              <td className="py-2.5 px-2 text-center text-xs">{r.recorder_name || "-"}</td>
+                              <td className="py-2.5 px-2 text-xs text-muted-foreground">{r.notes || "-"}</td>
+                            </tr>
+                          ))
+                        ))}
+                        {filteredMeterRecords.length === 0 && (
+                          <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูลการบันทึกมิเตอร์น้ำในช่วงวันที่ที่เลือก</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Mobile Disinfectant Filter */}
+              <Card className="bg-white rounded-2xl shadow-elevated border-0">
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap gap-2 items-center mb-4">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">กรองประวัติสารเคมี:</span>
+                    {[
+                      { val: disinfectantStartDate, set: setDisinfectantStartDate, placeholder: "วันเริ่มต้น" },
+                      { val: disinfectantEndDate, set: setDisinfectantEndDate, placeholder: "วันสิ้นสุด" },
+                    ].map((cfg, i) => (
+                      <Popover key={i}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("text-sm h-9 w-36 justify-start rounded-2xl", !cfg.val && "text-slate-400")}>
+                            {cfg.val ? format(cfg.val, "d MMM yy", { locale: th }) : cfg.placeholder}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={cfg.val} onSelect={cfg.set} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    ))}
+                    {(disinfectantStartDate || disinfectantEndDate) && (
+                      <Button variant="ghost" size="sm" className="text-xs rounded-2xl" onClick={() => { setDisinfectantStartDate(undefined); setDisinfectantEndDate(undefined); }}>ล้าง</Button>
+                    )}
+                    <div className="flex-1" />
+                    <Button size="sm" className="rounded-2xl gap-2 bg-amber-500 hover:bg-amber-600 text-black" onClick={handleExportDisinfectantRecords}>
+                      <Download className="h-4 w-4" /> ส่งออก Excel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Mobile Disinfectant Logs Table */}
+              <Card className="bg-white rounded-2xl shadow-elevated border-0">
+                <CardContent className="p-4">
+                  <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Gauge className="h-5 w-5 text-amber-500" /> ประวัติสารเคมีกำจัดเชื้อโรค
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b-2 border-amber-200 bg-amber-50/50">
+                          <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">วันที่</th>
+                          <th className="text-center py-3 px-2 text-xs font-bold text-amber-700">เวลา</th>
+                          <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">สารเคมี</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">ความเข้มข้นต้นทาง (mg/l)</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">pH ต้นทาง</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">ความเข้มข้นปลายทาง (mg/l)</th>
+                          <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">pH ปลายทาง</th>
+                          <th className="text-center py-3 px-2 text-xs font-bold text-amber-700">ผู้บันทึก</th>
+                          <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">หมายเหตุ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupedDisinfectantLogs.map(([date, dateRecords]) => (
+                          dateRecords.sort((a: any, b: any) => a.check_time.localeCompare(b.check_time)).map((r: any, i: number) => (
+                            <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                              {i === 0 ? (
+                                <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-100" rowSpan={dateRecords.length}>
+                                  {format(new Date(date), "d/M/yy")}
+                                </td>
+                              ) : null}
+                              <td className="py-2.5 px-2 text-center text-xs">{r.check_time?.substring(0, 5)}</td>
+                              <td className="py-2.5 px-2 text-xs font-medium">{r.disinfectant_name || "-"}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono">{r.source_concentration ?? "-"}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono">{r.source_ph ?? "-"}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono">{r.outlet_concentration ?? "-"}</td>
+                              <td className="py-2.5 px-2 text-right text-xs font-mono">{r.outlet_ph ?? "-"}</td>
+                              <td className="py-2.5 px-2 text-center text-xs">{r.inspector_name || "-"}</td>
+                              <td className="py-2.5 px-2 text-xs text-muted-foreground">{r.notes || "-"}</td>
+                            </tr>
+                          ))
+                        ))}
+                        {filteredDisinfectantLogs.length === 0 && (
+                          <tr><td colSpan={9} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูลสารเคมีกำจัดเชื้อโรคในช่วงวันที่ที่เลือก</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Water Usage Chart */}
             <Card className="bg-white rounded-2xl shadow-elevated border-0">
@@ -612,24 +757,6 @@ export default function WaterManagement() {
           <div className="space-y-4">
             {/* Water Quality Batch Form */}
             <WaterQualityBatchForm />
-
-            {/* Water Usage Chart */}
-            <Card className="bg-white rounded-2xl shadow-elevated border-0">
-              <CardContent className="p-4 md:p-5">
-                <h3 className="text-base md:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <Droplets className="h-5 w-5 text-blue-500" /> ปริมาณการใช้น้ำ 7 วันย้อนหลัง
-                </h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={usageChart}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v: any) => [`${v} ลบ.ม.`, "ปริมาณน้ำ"]} />
-                    <Line type="monotone" dataKey="usage" stroke="#0891b2" strokeWidth={2.5} dot={{ fill: "#0891b2", r: 4 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
       </Tabs>
