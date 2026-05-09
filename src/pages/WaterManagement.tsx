@@ -49,7 +49,7 @@ export default function WaterManagement() {
   const [meterReading, setMeterReading] = useState("");
   const [meterNotes, setMeterNotes] = useState("");
   const [formData, setFormData] = useState({ check_point: "", ph_value: "", chlorine_value: "", turbidity_value: "", notes: "" });
-  const [disinfectantForm, setDisinfectantForm] = useState({ disinfectant_name: "", disinfectant_value: "", ph_value: "", notes: "" });
+  const [disinfectantForm, setDisinfectantForm] = useState({ disinfectant_name: "คลอรีน", source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
   const [meterStartDate, setMeterStartDate] = useState<Date | undefined>();
   const [meterEndDate, setMeterEndDate] = useState<Date | undefined>();
   const [disinfectantStartDate, setDisinfectantStartDate] = useState<Date | undefined>();
@@ -227,8 +227,10 @@ export default function WaterManagement() {
       "วันที่": format(new Date(l.check_date), "d MMM yyyy", { locale: th }),
       "เวลา": l.check_time?.substring(0, 5) || "-",
       "สารเคมี": l.disinfectant_name || "-",
-      "ความเข้มข้น (mg/l)": l.disinfectant_value ?? "-",
-      "pH": l.ph_value ?? "-",
+      "ความเข้มข้นต้นทาง (mg/l)": l.source_concentration ?? "-",
+      "pH ต้นทาง": l.source_ph ?? "-",
+      "ความเข้มข้นปลายทาง (mg/l)": l.outlet_concentration ?? "-",
+      "pH ปลายทาง": l.outlet_ph ?? "-",
       "ผู้บันทึก": l.inspector_name || "-",
       "หมายเหตุ": l.notes || "-",
       "สถานะ": l.status === "pass" ? "ผ่าน" : "ไม่ผ่าน",
@@ -261,19 +263,25 @@ export default function WaterManagement() {
   const addDisinfectantLog = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
-      if (!disinfectantForm.disinfectant_name || !disinfectantForm.disinfectant_value) throw new Error("กรุณากรอกข้อมูลสารเคมีและความเข้มข้น");
+      if (!disinfectantForm.source_concentration || !disinfectantForm.source_ph || !disinfectantForm.outlet_concentration || !disinfectantForm.outlet_ph) throw new Error("กรุณากรอกค่าต้นทางและปลายทางให้ครบ");
       const now = new Date();
       const checkDate = format(now, "yyyy-MM-dd");
       const checkTime = format(now, "HH:mm:ss");
-      const disinfectantValue = Number(disinfectantForm.disinfectant_value);
-      const ph = disinfectantForm.ph_value ? Number(disinfectantForm.ph_value) : null;
-      const status = (disinfectantValue >= 0.2 && disinfectantValue <= 0.5) && (!ph || (ph >= 6.5 && ph <= 8.5)) ? "pass" : "fail";
+      const sourceConcentration = Number(disinfectantForm.source_concentration);
+      const sourcePh = Number(disinfectantForm.source_ph);
+      const outletConcentration = Number(disinfectantForm.outlet_concentration);
+      const outletPh = Number(disinfectantForm.outlet_ph);
+      const passSource = sourceConcentration >= 0.2 && sourceConcentration <= 0.5 && sourcePh >= 6.5 && sourcePh <= 8.5;
+      const passOutlet = outletConcentration >= 0.2 && outletConcentration <= 0.5 && outletPh >= 6.5 && outletPh <= 8.5;
+      const status = passSource && passOutlet ? "pass" : "fail";
       const { error } = await supabase.from("water_disinfectant_logs").insert({
         check_date: checkDate,
         check_time: checkTime,
-        disinfectant_name: disinfectantForm.disinfectant_name,
-        disinfectant_value: disinfectantValue,
-        ph_value: ph,
+        disinfectant_name: "คลอรีน",
+        source_concentration: sourceConcentration,
+        source_ph: sourcePh,
+        outlet_concentration: outletConcentration,
+        outlet_ph: outletPh,
         inspector_id: user.id,
         inspector_name: profile?.full_name || "",
         notes: disinfectantForm.notes || null,
@@ -285,7 +293,7 @@ export default function WaterManagement() {
       toast.success("บันทึกสารเคมีกำจัดเชื้อโรคสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["water-disinfectant-logs"] });
       setShowDisinfectantDialog(false);
-      setDisinfectantForm({ disinfectant_name: "", disinfectant_value: "", ph_value: "", notes: "" });
+      setDisinfectantForm({ disinfectant_name: "คลอรีน", source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -543,8 +551,10 @@ export default function WaterManagement() {
                         <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">วันที่</th>
                         <th className="text-center py-3 px-2 text-xs font-bold text-amber-700">เวลา</th>
                         <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">สารเคมี</th>
-                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">ความเข้มข้น (mg/l)</th>
-                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">pH</th>
+                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">ความเข้มข้นต้นทาง (mg/l)</th>
+                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">pH ต้นทาง</th>
+                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">ความเข้มข้นปลายทาง (mg/l)</th>
+                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">pH ปลายทาง</th>
                         <th className="text-center py-3 px-2 text-xs font-bold text-amber-700">ผู้บันทึก</th>
                         <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">หมายเหตุ</th>
                       </tr>
@@ -560,15 +570,17 @@ export default function WaterManagement() {
                             ) : null}
                             <td className="py-2.5 px-2 text-center text-xs">{r.check_time?.substring(0, 5)}</td>
                             <td className="py-2.5 px-2 text-xs font-medium">{r.disinfectant_name || "-"}</td>
-                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.disinfectant_value ?? "-"}</td>
-                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.ph_value ?? "-"}</td>
+                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.source_concentration ?? "-"}</td>
+                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.source_ph ?? "-"}</td>
+                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.outlet_concentration ?? "-"}</td>
+                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.outlet_ph ?? "-"}</td>
                             <td className="py-2.5 px-2 text-center text-xs">{r.inspector_name || "-"}</td>
                             <td className="py-2.5 px-2 text-xs text-muted-foreground">{r.notes || "-"}</td>
                           </tr>
                         ))
                       ))}
                       {filteredDisinfectantLogs.length === 0 && (
-                        <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูลสารเคมีกำจัดเชื้อโรคในช่วงวันที่ที่เลือก</td></tr>
+                        <tr><td colSpan={9} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูลสารเคมีกำจัดเชื้อโรคในช่วงวันที่ที่เลือก</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -665,17 +677,27 @@ export default function WaterManagement() {
               <p><span className="font-semibold">ผู้บันทึก:</span> {profile?.full_name || "ผู้ใช้งาน"}</p>
             </div>
             <div>
-              <Label className="font-semibold">ชื่อสารเคมี / ยี่ห้อ *</Label>
-              <Input type="text" value={disinfectantForm.disinfectant_name} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, disinfectant_name: e.target.value })} placeholder="เช่น คลอรีน/โซเดียมไฮโปคลอไรต์" className="h-12 rounded-2xl" />
+              <Label className="font-semibold">ชื่อสารเคมี</Label>
+              <Input type="text" value="คลอรีน" readOnly className="h-12 rounded-2xl bg-slate-100" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="font-semibold">ความเข้มข้น (mg/l) *</Label>
-                <Input type="number" step="0.01" value={disinfectantForm.disinfectant_value} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, disinfectant_value: e.target.value })} placeholder="0.30" className="h-12 rounded-2xl" />
+                <Label className="font-semibold">ความเข้มข้นต้นทาง (mg/l) *</Label>
+                <Input type="number" step="0.01" value={disinfectantForm.source_concentration} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, source_concentration: e.target.value })} placeholder="0.30" className="h-12 rounded-2xl" />
               </div>
               <div>
-                <Label className="font-semibold">pH</Label>
-                <Input type="number" step="0.1" value={disinfectantForm.ph_value} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, ph_value: e.target.value })} placeholder="7.0" className="h-12 rounded-2xl" />
+                <Label className="font-semibold">pH ต้นทาง *</Label>
+                <Input type="number" step="0.1" value={disinfectantForm.source_ph} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, source_ph: e.target.value })} placeholder="7.0" className="h-12 rounded-2xl" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="font-semibold">ความเข้มข้นปลายทาง (mg/l) *</Label>
+                <Input type="number" step="0.01" value={disinfectantForm.outlet_concentration} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, outlet_concentration: e.target.value })} placeholder="0.30" className="h-12 rounded-2xl" />
+              </div>
+              <div>
+                <Label className="font-semibold">pH ปลายทาง *</Label>
+                <Input type="number" step="0.1" value={disinfectantForm.outlet_ph} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, outlet_ph: e.target.value })} placeholder="7.0" className="h-12 rounded-2xl" />
               </div>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 text-xs text-slate-600 space-y-1">
@@ -687,7 +709,7 @@ export default function WaterManagement() {
               <Label className="font-semibold">หมายเหตุ</Label>
               <Textarea value={disinfectantForm.notes} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, notes: e.target.value })} placeholder="บันทึกข้อมูลเพิ่มเติม..." rows={2} className="rounded-2xl" />
             </div>
-            <Button className="w-full h-12 rounded-2xl text-base font-bold bg-amber-500 text-black hover:bg-amber-600" onClick={() => addDisinfectantLog.mutate()} disabled={addDisinfectantLog.isPending || !disinfectantForm.disinfectant_name || !disinfectantForm.disinfectant_value}>
+            <Button className="w-full h-12 rounded-2xl text-base font-bold bg-amber-500 text-black hover:bg-amber-600" onClick={() => addDisinfectantLog.mutate()} disabled={addDisinfectantLog.isPending || !disinfectantForm.source_concentration || !disinfectantForm.source_ph || !disinfectantForm.outlet_concentration || !disinfectantForm.outlet_ph}>
               {addDisinfectantLog.isPending ? "กำลังบันทึก..." : "บันทึกสารเคมี"}
             </Button>
           </div>
