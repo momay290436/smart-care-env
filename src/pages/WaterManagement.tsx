@@ -20,11 +20,10 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 import PageHeader from "@/components/PageHeader";
-import WaterPathogenTab from "@/components/WaterPathogenTab";
 import WaterMaintenanceTab from "@/components/WaterMaintenanceTab";
 import WaterSystemTab from "@/components/WaterSystemTab";
 import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
-import { Droplets, Gauge, AlertTriangle, Plus, ClipboardList, Wrench, Download, Settings, Shield, CalendarIcon } from "lucide-react";
+import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const CHECK_POINTS = ["อาคาร OPD", "อาคาร IPD ชาย", "อาคาร IPD หญิง", "อาคารอำนวยการ", "ห้องผ่าตัด", "ห้องปฏิบัติการ", "โรงครัว"];
@@ -46,11 +45,15 @@ export default function WaterManagement() {
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showMeterDialog, setShowMeterDialog] = useState(false);
+  const [showDisinfectantDialog, setShowDisinfectantDialog] = useState(false);
   const [meterReading, setMeterReading] = useState("");
   const [meterNotes, setMeterNotes] = useState("");
   const [formData, setFormData] = useState({ check_point: "", ph_value: "", chlorine_value: "", turbidity_value: "", notes: "" });
+  const [disinfectantForm, setDisinfectantForm] = useState({ disinfectant_name: "", disinfectant_value: "", ph_value: "", notes: "" });
   const [meterStartDate, setMeterStartDate] = useState<Date | undefined>();
   const [meterEndDate, setMeterEndDate] = useState<Date | undefined>();
+  const [disinfectantStartDate, setDisinfectantStartDate] = useState<Date | undefined>();
+  const [disinfectantEndDate, setDisinfectantEndDate] = useState<Date | undefined>();
 
   const { data: qualityLogs = [] } = useQuery({
     queryKey: ["water-quality-logs"],
@@ -64,6 +67,14 @@ export default function WaterManagement() {
     queryKey: ["water-meter-all"],
     queryFn: async () => {
       const { data } = await supabase.from("water_meter_records").select("*").order("record_date", { ascending: false }).order("record_time", { ascending: false }).limit(200);
+      return data || [];
+    },
+  });
+
+  const { data: disinfectantLogs = [] } = useQuery({
+    queryKey: ["water-disinfectant-logs"],
+    queryFn: async () => {
+      const { data } = await supabase.from("water_disinfectant_logs").select("*").order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
       return data || [];
     },
   });
@@ -109,6 +120,23 @@ export default function WaterManagement() {
     });
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
   }, [meterRecords]);
+
+  const filteredDisinfectantLogs = useMemo(() => {
+    return disinfectantLogs.filter((r: any) => {
+      if (disinfectantStartDate && new Date(r.check_date) < startOfDay(disinfectantStartDate)) return false;
+      if (disinfectantEndDate && new Date(r.check_date) > new Date(startOfDay(disinfectantEndDate).getTime() + 86400000 - 1)) return false;
+      return true;
+    });
+  }, [disinfectantLogs, disinfectantStartDate, disinfectantEndDate]);
+
+  const groupedDisinfectantLogs = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    filteredDisinfectantLogs.forEach((r: any) => {
+      if (!map[r.check_date]) map[r.check_date] = [];
+      map[r.check_date].push(r);
+    });
+    return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [filteredDisinfectantLogs]);
 
   // Filter meter records by date range
   const filteredMeterRecords = useMemo(() => {
@@ -190,6 +218,24 @@ export default function WaterManagement() {
     toast.success("ส่งออก Excel สำเร็จ");
   };
 
+  const handleExportDisinfectantRecords = () => {
+    if (filteredDisinfectantLogs.length === 0) {
+      toast.error("ไม่มีข้อมูลการบันทึกสารเคมีกำจัดเชื้อโรคในช่วงวันที่ที่เลือก");
+      return;
+    }
+    exportToExcel(filteredDisinfectantLogs.map((l: any) => ({
+      "วันที่": format(new Date(l.check_date), "d MMM yyyy", { locale: th }),
+      "เวลา": l.check_time?.substring(0, 5) || "-",
+      "สารเคมี": l.disinfectant_name || "-",
+      "ความเข้มข้น (mg/l)": l.disinfectant_value ?? "-",
+      "pH": l.ph_value ?? "-",
+      "ผู้บันทึก": l.inspector_name || "-",
+      "หมายเหตุ": l.notes || "-",
+      "สถานะ": l.status === "pass" ? "ผ่าน" : "ไม่ผ่าน",
+    })), "water-disinfectant-records", "สารเคมีฆ่าเชื้อ");
+    toast.success("ส่งออก Excel สำเร็จ");
+  };
+
   const addQualityLog = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
@@ -208,6 +254,38 @@ export default function WaterManagement() {
       queryClient.invalidateQueries({ queryKey: ["water-quality-logs"] });
       setShowAddDialog(false);
       setFormData({ check_point: "", ph_value: "", chlorine_value: "", turbidity_value: "", notes: "" });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const addDisinfectantLog = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
+      if (!disinfectantForm.disinfectant_name || !disinfectantForm.disinfectant_value) throw new Error("กรุณากรอกข้อมูลสารเคมีและความเข้มข้น");
+      const now = new Date();
+      const checkDate = format(now, "yyyy-MM-dd");
+      const checkTime = format(now, "HH:mm:ss");
+      const disinfectantValue = Number(disinfectantForm.disinfectant_value);
+      const ph = disinfectantForm.ph_value ? Number(disinfectantForm.ph_value) : null;
+      const status = (disinfectantValue >= 0.2 && disinfectantValue <= 0.5) && (!ph || (ph >= 6.5 && ph <= 8.5)) ? "pass" : "fail";
+      const { error } = await supabase.from("water_disinfectant_logs").insert({
+        check_date: checkDate,
+        check_time: checkTime,
+        disinfectant_name: disinfectantForm.disinfectant_name,
+        disinfectant_value: disinfectantValue,
+        ph_value: ph,
+        inspector_id: user.id,
+        inspector_name: profile?.full_name || "",
+        notes: disinfectantForm.notes || null,
+        status,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("บันทึกสารเคมีกำจัดเชื้อโรคสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["water-disinfectant-logs"] });
+      setShowDisinfectantDialog(false);
+      setDisinfectantForm({ disinfectant_name: "", disinfectant_value: "", ph_value: "", notes: "" });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -271,18 +349,30 @@ export default function WaterManagement() {
         </Button>
       </PageHeader>
 
-      {/* Water Meter Button - TOP on mobile */}
-      <Card className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 rounded-2xl shadow-xl border-0 cursor-pointer hover:shadow-2xl transition-all active:scale-[0.97] ring-2 ring-blue-300/50 animate-pulse-subtle" onClick={() => setShowMeterDialog(true)}>
-        <CardContent className="p-5 md:p-6 flex items-center gap-4">
-          <div className="w-16 h-16 md:w-14 md:h-14 rounded-2xl bg-white/25 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner">
-            <Plus className="h-8 w-8 md:h-7 md:w-7 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-lg md:text-xl font-extrabold text-white">📝 บันทึกมิเตอร์น้ำออก</p>
-            <p className="text-sm md:text-base text-white/80 truncate">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-4">
+        <Card className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 rounded-2xl shadow-xl border-0 cursor-pointer hover:shadow-2xl transition-all active:scale-[0.97] ring-2 ring-blue-300/50 animate-pulse-subtle" onClick={() => setShowMeterDialog(true)}>
+          <CardContent className="p-5 md:p-6 flex items-center gap-4">
+            <div className="w-16 h-16 md:w-14 md:h-14 rounded-2xl bg-white/25 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner">
+              <Plus className="h-8 w-8 md:h-7 md:w-7 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-lg md:text-xl font-extrabold text-white">📝 บันทึกมิเตอร์น้ำออก</p>
+              <p className="text-sm md:text-base text-white/80 truncate">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 rounded-2xl shadow-xl border-0 cursor-pointer hover:shadow-2xl transition-all active:scale-[0.97] ring-2 ring-amber-300/50 animate-pulse-subtle" onClick={() => setShowDisinfectantDialog(true)}>
+          <CardContent className="p-5 md:p-6 flex items-center gap-4">
+            <div className="w-16 h-16 md:w-14 md:h-14 rounded-2xl bg-white/25 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner">
+              <Plus className="h-8 w-8 md:h-7 md:w-7 text-black" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-lg md:text-xl font-extrabold text-black">🧪 บันทึกปริมาณสารเคมีกำจัดเชื้อโรค</p>
+              <p className="text-sm md:text-base text-black/80 truncate">กดเพื่อบันทึกผลตรวจสารฆ่าเชื้อในน้ำประปา</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Top KPI Cards */}
       <div className="grid grid-cols-3 gap-2 md:gap-3">
@@ -310,9 +400,9 @@ export default function WaterManagement() {
         </Card>
       </div>
 
-      {/* Tabs: คุณภาพน้ำ / ระบบ / ตรวจเชื้อ / บำรุงรักษา */}
+      {/* Tabs: คุณภาพน้ำ / ระบบ / บำรุงรักษา */}
       <Tabs defaultValue="quality" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
           <TabsTrigger value="quality" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
             <Droplets className="h-4 w-4 mr-1" /> คุณภาพน้ำ
           </TabsTrigger>
@@ -322,9 +412,6 @@ export default function WaterManagement() {
           <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Settings className="h-4 w-4 mr-1" /> บริหารระบบ
           </TabsTrigger>
-          <TabsTrigger value="pathogen" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-rose-500 data-[state=active]:text-white">
-            <Shield className="h-4 w-4 mr-1" /> ตรวจเชื้อ
-          </TabsTrigger>
           <TabsTrigger value="maintenance" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-amber-500 data-[state=active]:text-white">
             <Wrench className="h-4 w-4 mr-1" /> บำรุงรักษา
           </TabsTrigger>
@@ -332,10 +419,6 @@ export default function WaterManagement() {
 
         <TabsContent value="system" className="mt-4">
           <WaterSystemTab />
-        </TabsContent>
-
-        <TabsContent value="pathogen" className="mt-4">
-          <WaterPathogenTab />
         </TabsContent>
 
         <TabsContent value="maintenance" className="mt-4">
@@ -422,6 +505,77 @@ export default function WaterManagement() {
               </CardContent>
             </Card>
 
+            <Card className="bg-white rounded-2xl shadow-elevated border-0">
+              <CardContent className="p-4">
+                <div className="flex flex-wrap gap-2 items-center mb-4">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">กรองประวัติสารเคมี:</span>
+                  {[
+                    { val: disinfectantStartDate, set: setDisinfectantStartDate, placeholder: "วันเริ่มต้น" },
+                    { val: disinfectantEndDate, set: setDisinfectantEndDate, placeholder: "วันสิ้นสุด" },
+                  ].map((cfg, i) => (
+                    <Popover key={i}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className={cn("text-sm h-9 w-36 justify-start rounded-2xl", !cfg.val && "text-slate-400")}>
+                          {cfg.val ? format(cfg.val, "d MMM yy", { locale: th }) : cfg.placeholder}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={cfg.val} onSelect={cfg.set} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                      </PopoverContent>
+                    </Popover>
+                  ))}
+                  {(disinfectantStartDate || disinfectantEndDate) && (
+                    <Button variant="ghost" size="sm" className="text-xs rounded-2xl" onClick={() => { setDisinfectantStartDate(undefined); setDisinfectantEndDate(undefined); }}>ล้าง</Button>
+                  )}
+                  <div className="flex-1" />
+                  <Button size="sm" className="rounded-2xl gap-2 bg-amber-500 hover:bg-amber-600 text-black" onClick={handleExportDisinfectantRecords}>
+                    <Download className="h-4 w-4" /> ส่งออก Excel
+                  </Button>
+                </div>
+                <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Gauge className="h-5 w-5 text-amber-500" /> ประวัติสารเคมีกำจัดเชื้อโรค
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b-2 border-amber-200 bg-amber-50/50">
+                        <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">วันที่</th>
+                        <th className="text-center py-3 px-2 text-xs font-bold text-amber-700">เวลา</th>
+                        <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">สารเคมี</th>
+                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">ความเข้มข้น (mg/l)</th>
+                        <th className="text-right py-3 px-2 text-xs font-bold text-amber-700">pH</th>
+                        <th className="text-center py-3 px-2 text-xs font-bold text-amber-700">ผู้บันทึก</th>
+                        <th className="text-left py-3 px-2 text-xs font-bold text-amber-700">หมายเหตุ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupedDisinfectantLogs.map(([date, dateRecords]) => (
+                        dateRecords.sort((a: any, b: any) => a.check_time.localeCompare(b.check_time)).map((r: any, i: number) => (
+                          <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                            {i === 0 ? (
+                              <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-100" rowSpan={dateRecords.length}>
+                                {format(new Date(date), "d/M/yy")}
+                              </td>
+                            ) : null}
+                            <td className="py-2.5 px-2 text-center text-xs">{r.check_time?.substring(0, 5)}</td>
+                            <td className="py-2.5 px-2 text-xs font-medium">{r.disinfectant_name || "-"}</td>
+                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.disinfectant_value ?? "-"}</td>
+                            <td className="py-2.5 px-2 text-right text-xs font-mono">{r.ph_value ?? "-"}</td>
+                            <td className="py-2.5 px-2 text-center text-xs">{r.inspector_name || "-"}</td>
+                            <td className="py-2.5 px-2 text-xs text-muted-foreground">{r.notes || "-"}</td>
+                          </tr>
+                        ))
+                      ))}
+                      {filteredDisinfectantLogs.length === 0 && (
+                        <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูลสารเคมีกำจัดเชื้อโรคในช่วงวันที่ที่เลือก</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Water Usage Chart */}
             <Card className="bg-white rounded-2xl shadow-elevated border-0">
               <CardContent className="p-4 md:p-5">
@@ -492,6 +646,49 @@ export default function WaterManagement() {
             <p className="text-xs text-muted-foreground">💡 ระบบจะคำนวณ "จำนวนน้ำที่ใช้ไป" อัตโนมัติจากเลขมิเตอร์ครั้งก่อนหน้า</p>
             <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => addMeterRecord.mutate()} disabled={addMeterRecord.isPending || !meterReading}>
               {addMeterRecord.isPending ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDisinfectantDialog} onOpenChange={setShowDisinfectantDialog}>
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg flex items-center gap-2">
+              <Droplets className="h-5 w-5 text-amber-500" /> บันทึกสารเคมีกำจัดเชื้อโรค
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-amber-50 p-3 space-y-1 text-sm">
+              <p><span className="font-semibold">วันที่:</span> {now.toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}</p>
+              <p><span className="font-semibold">เวลา:</span> {now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.</p>
+              <p><span className="font-semibold">ผู้บันทึก:</span> {profile?.full_name || "ผู้ใช้งาน"}</p>
+            </div>
+            <div>
+              <Label className="font-semibold">ชื่อสารเคมี / ยี่ห้อ *</Label>
+              <Input type="text" value={disinfectantForm.disinfectant_name} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, disinfectant_name: e.target.value })} placeholder="เช่น คลอรีน/โซเดียมไฮโปคลอไรต์" className="h-12 rounded-2xl" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="font-semibold">ความเข้มข้น (mg/l) *</Label>
+                <Input type="number" step="0.01" value={disinfectantForm.disinfectant_value} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, disinfectant_value: e.target.value })} placeholder="0.30" className="h-12 rounded-2xl" />
+              </div>
+              <div>
+                <Label className="font-semibold">pH</Label>
+                <Input type="number" step="0.1" value={disinfectantForm.ph_value} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, ph_value: e.target.value })} placeholder="7.0" className="h-12 rounded-2xl" />
+              </div>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 text-xs text-slate-600 space-y-1">
+              <p>💡 เกณฑ์มาตรฐาน:</p>
+              <p>• ความเข้มข้นคลอรีน 0.2 - 0.5 mg/l</p>
+              <p>• pH 6.5 - 8.5</p>
+            </div>
+            <div>
+              <Label className="font-semibold">หมายเหตุ</Label>
+              <Textarea value={disinfectantForm.notes} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, notes: e.target.value })} placeholder="บันทึกข้อมูลเพิ่มเติม..." rows={2} className="rounded-2xl" />
+            </div>
+            <Button className="w-full h-12 rounded-2xl text-base font-bold bg-amber-500 text-black hover:bg-amber-600" onClick={() => addDisinfectantLog.mutate()} disabled={addDisinfectantLog.isPending || !disinfectantForm.disinfectant_name || !disinfectantForm.disinfectant_value}>
+              {addDisinfectantLog.isPending ? "กำลังบันทึก..." : "บันทึกสารเคมี"}
             </Button>
           </div>
         </DialogContent>
