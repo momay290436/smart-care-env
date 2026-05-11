@@ -105,7 +105,7 @@ export default function HomePage() {
             return (
               <Card
                 key={item.path}
-                className={`group cursor-pointer border-t-4 ${item.borderColor} bg-white rounded-2xl shadow-elevated hover:shadow-[0_12px_36px_-8px_rgba(0,0,0,0.15)] transition-all duration-300 active:scale-[0.97] hover:-translate-y-1 animate-slide-up overflow-hidden border-0`}
+                className={`group cursor-pointer border-t-4 ${item.borderColor} bg-white/95 rounded-3xl border border-slate-200/80 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.2)] hover:shadow-[0_22px_70px_-30px_rgba(15,23,42,0.25)] transition-all duration-300 active:scale-[0.98] hover:-translate-y-1 animate-slide-up overflow-hidden`}
                 style={{ animationDelay: `${index * 50}ms`, animationFillMode: "both" }}
                 onClick={() => navigate(item.path)}
               >
