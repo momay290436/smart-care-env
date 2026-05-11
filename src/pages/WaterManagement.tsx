@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,6 +29,14 @@ import * as XLSX from "xlsx";
 
 const CHECK_POINTS = ["อาคาร OPD", "อาคาร IPD ชาย", "อาคาร IPD หญิง", "อาคารอำนวยการ", "ห้องผ่าตัด", "ห้องปฏิบัติการ", "โรงครัว"];
 
+const METER_NOTE_OPTIONS = [
+  "ล้างถังกรอง",
+  "ตักทราย",
+  "ดันหน้าทราย",
+  "เปลี่ยนทราย",
+  "อื่นๆ(ระบุ)",
+];
+
 const PM_ALERTS = [
   { title: "กำหนดล้างถังพักน้ำอาคาร A", schedule: "ทุก 6 เดือน", due: "15 มิ.ย. 2569", status: "upcoming" },
   { title: "เปลี่ยนไส้กรองเครื่องกรองน้ำ RO", schedule: "ทุก 3 เดือน", due: "1 พ.ค. 2569", status: "due" },
@@ -47,7 +56,8 @@ export default function WaterManagement() {
   const [showMeterDialog, setShowMeterDialog] = useState(false);
   const [showDisinfectantDialog, setShowDisinfectantDialog] = useState(false);
   const [meterReading, setMeterReading] = useState("");
-  const [meterNotes, setMeterNotes] = useState("");
+  const [meterNotes, setMeterNotes] = useState<string[]>([]);
+  const [meterNotesOther, setMeterNotesOther] = useState("");
   const [formData, setFormData] = useState({ check_point: "", ph_value: "", chlorine_value: "", turbidity_value: "", notes: "" });
   const [disinfectantForm, setDisinfectantForm] = useState({ disinfectant_name: "คลอรีน", source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
   const [meterStartDate, setMeterStartDate] = useState<Date | undefined>();
@@ -74,7 +84,7 @@ export default function WaterManagement() {
   const { data: disinfectantLogs = [] } = useQuery({
     queryKey: ["water-disinfectant-logs"],
     queryFn: async () => {
-      const { data } = await (supabase.from("water_disinfectant_logs") as any).select("*").order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
+      const { data } = await supabase.from("water_disinfectant_logs").select("*").order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
       return data || [];
     },
   });
@@ -155,6 +165,23 @@ export default function WaterManagement() {
       map[r.record_date].push(r);
     });
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filteredMeterRecords]);
+
+  const meterSummary = useMemo(() => {
+    const map: Record<string, { totalUsage: number; records: number }> = {};
+    filteredMeterRecords.forEach((r: any) => {
+      const date = r.record_date;
+      if (!map[date]) map[date] = { totalUsage: 0, records: 0 };
+      map[date].totalUsage += Number(r.usage_amount || 0);
+      map[date].records += 1;
+    });
+    const dates = Object.keys(map).sort((a, b) => b.localeCompare(a));
+    const totalUsage = Object.values(map).reduce((sum, item) => sum + item.totalUsage, 0);
+    return {
+      totalDays: dates.length,
+      totalUsage,
+      averageUsage: dates.length > 0 ? Number((totalUsage / dates.length).toFixed(2)) : 0,
+    };
   }, [filteredMeterRecords]);
 
   // Export water meter records to Excel
@@ -274,7 +301,7 @@ export default function WaterManagement() {
       const passSource = sourceConcentration >= 0.2 && sourceConcentration <= 0.5 && sourcePh >= 6.5 && sourcePh <= 8.5;
       const passOutlet = outletConcentration >= 0.2 && outletConcentration <= 0.5 && outletPh >= 6.5 && outletPh <= 8.5;
       const status = passSource && passOutlet ? "pass" : "fail";
-      const { error } = await (supabase.from("water_disinfectant_logs") as any).insert({
+      const { error } = await supabase.from("water_disinfectant_logs").insert({
         check_date: checkDate,
         check_time: checkTime,
         disinfectant_name: "คลอรีน",
@@ -318,7 +345,11 @@ export default function WaterManagement() {
       const { error } = await supabase.from("water_meter_records").insert({
         record_date: todayStr, record_time: timeStr, shift, meter_reading: reading,
         usage_amount: usageAmount, daily_total: dailyTotal, recorded_by: user.id,
-        recorder_name: profile?.full_name || "", notes: meterNotes || null,
+        recorder_name: profile?.full_name || "",
+      notes: meterNotes.length > 0 ? [
+        ...meterNotes.filter((note) => note !== "อื่นๆ(ระบุ)"),
+        meterNotes.includes("อื่นๆ(ระบุ)") && meterNotesOther ? `อื่นๆ: ${meterNotesOther}` : null,
+      ].filter(Boolean).join(", ") : null,
       });
       if (error) throw error;
       if (shift === "afternoon" && dailyTotal !== null) {
@@ -332,7 +363,8 @@ export default function WaterManagement() {
       queryClient.invalidateQueries({ queryKey: ["water-meter-recent"] });
       setShowMeterDialog(false);
       setMeterReading("");
-      setMeterNotes("");
+      setMeterNotes([]);
+      setMeterNotesOther("");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -468,40 +500,69 @@ export default function WaterManagement() {
               {/* Left Column: Meter Records */}
               <Card className="bg-white rounded-2xl shadow-elevated border-0">
                 <CardContent className="p-4">
+                  <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-3xl bg-slate-50 p-4 border border-slate-200">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">จำนวนวันที่</p>
+                      <p className="mt-3 text-3xl font-extrabold text-slate-900">{meterSummary.totalDays}</p>
+                      <p className="mt-1 text-sm text-slate-600">วันที่มีข้อมูล</p>
+                    </div>
+                    <div className="rounded-3xl bg-slate-50 p-4 border border-slate-200">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">ยอดรวมการใช้</p>
+                      <p className="mt-3 text-3xl font-extrabold text-cyan-700">{meterSummary.totalUsage.toLocaleString()}</p>
+                      <p className="mt-1 text-sm text-slate-600">หน่วย: ลบ.ม.</p>
+                    </div>
+                    <div className="rounded-3xl bg-slate-50 p-4 border border-slate-200">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">เฉลี่ยต่อวัน</p>
+                      <p className="mt-3 text-3xl font-extrabold text-slate-900">{meterSummary.averageUsage.toLocaleString()}</p>
+                      <p className="mt-1 text-sm text-slate-600">ลบ.ม./วัน</p>
+                    </div>
+                  </div>
                   <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <Gauge className="h-5 w-5 text-cyan-500" /> มิเตอร์น้ำ
+                    <Gauge className="h-5 w-5 text-cyan-500" /> ประวัติการบันทึกมิเตอร์น้ำ
                   </h3>
                   <div className="overflow-x-auto max-h-96 overflow-y-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b-2 border-cyan-200 bg-cyan-50/50 sticky top-0">
-                          <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">วันที่</th>
-                          <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">เวลา</th>
-                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">มิเตอร์</th>
-                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">การใช้</th>
-                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">รวม</th>
-                          <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">ผู้บันทึก</th>
-                          <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">หมายเหตุ</th>
+                        <tr className="border-b-2 border-cyan-200 bg-cyan-50 sticky top-0">
+                          <th className="text-left py-3 px-3 text-xs font-bold text-cyan-700">วันที่</th>
+                          <th className="text-center py-3 px-3 text-xs font-bold text-cyan-700">เวลา</th>
+                          <th className="text-right py-3 px-3 text-xs font-bold text-cyan-700">มิเตอร์</th>
+                          <th className="text-right py-3 px-3 text-xs font-bold text-cyan-700">การใช้</th>
+                          <th className="text-right py-3 px-3 text-xs font-bold text-cyan-700">รวมต่อวัน</th>
+                          <th className="text-center py-3 px-3 text-xs font-bold text-cyan-700">ผู้บันทึก</th>
+                          <th className="text-left py-3 px-3 text-xs font-bold text-cyan-700">หมายเหตุ</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {groupedFilteredMeter.map(([date, dateRecords]) => (
-                          dateRecords.sort((a: any, b: any) => a.record_time.localeCompare(b.record_time)).map((r: any, i: number) => (
-                            <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
-                              {i === 0 ? (
-                                <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-100" rowSpan={dateRecords.length}>
-                                  {format(new Date(date), "d/M")}
-                                </td>
-                              ) : null}
-                              <td className="py-2.5 px-2 text-center text-xs">{r.record_time?.substring(0, 5)}</td>
-                              <td className="py-2.5 px-2 text-right text-xs font-mono font-semibold">{Number(r.meter_reading).toLocaleString()}</td>
-                              <td className="py-2.5 px-2 text-right text-xs font-mono">{Number(r.usage_amount || 0).toLocaleString()}</td>
-                              <td className="py-2.5 px-2 text-right text-xs font-mono font-bold text-cyan-600">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
-                              <td className="py-2.5 px-2 text-center text-xs text-muted-foreground">{r.recorder_name || "-"}</td>
-                              <td className="py-2.5 px-2 text-xs text-muted-foreground truncate">{r.notes || "-"}</td>
-                            </tr>
-                          ))
-                        ))}
+                        {groupedFilteredMeter.map(([date, dateRecords]) => {
+                          const sortedRecords = [...dateRecords].sort((a: any, b: any) => a.record_time.localeCompare(b.record_time));
+                          const dailyTotal = sortedRecords.reduce((sum: number, r: any) => sum + Number(r.usage_amount || 0), 0);
+                          return (
+                            <Fragment key={date}>
+                              {sortedRecords.map((r: any, i: number) => (
+                                <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                                  {i === 0 ? (
+                                    <td className="py-3 px-3 text-xs font-semibold border-r border-slate-100" rowSpan={sortedRecords.length + 1}>
+                                      {format(new Date(date), "d MMM yy", { locale: th })}
+                                    </td>
+                                  ) : null}
+                                  <td className="py-3 px-3 text-center text-xs">{r.record_time?.substring(0, 5)}</td>
+                                  <td className="py-3 px-3 text-right text-xs font-mono font-semibold">{Number(r.meter_reading).toLocaleString()}</td>
+                                  <td className="py-3 px-3 text-right text-xs font-mono">{Number(r.usage_amount || 0).toLocaleString()}</td>
+                                  <td className="py-3 px-3 text-right text-xs font-mono font-bold text-cyan-600">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
+                                  <td className="py-3 px-3 text-center text-xs text-muted-foreground">{r.recorder_name || "-"}</td>
+                                  <td className="py-3 px-3 text-xs text-muted-foreground truncate">{r.notes || "-"}</td>
+                                </tr>
+                              ))}
+                              <tr key={`${date}-summary`} className="bg-slate-100">
+                                <td className="py-3 px-3 text-right text-xs font-semibold text-slate-700" colSpan={2}>ยอดรวมวันที่</td>
+                                <td className="py-3 px-3 text-right text-xs font-bold text-slate-900">{dailyTotal.toLocaleString()}</td>
+                                <td className="py-3 px-3 text-right text-xs font-bold text-cyan-700" colSpan={2}>{sortedRecords[0]?.daily_total != null ? Number(sortedRecords[0].daily_total).toLocaleString() : "-"}</td>
+                                <td className="py-3 px-3" />
+                              </tr>
+                            </Fragment>
+                          );
+                        })}
                         {filteredMeterRecords.length === 0 && (
                           <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">ไม่มีข้อมูล</td></tr>
                         )}
@@ -613,34 +674,46 @@ export default function WaterManagement() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b-2 border-cyan-200 bg-cyan-50/50">
-                          <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">วันที่</th>
-                          <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">เวลา</th>
-                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">มิเตอร์น้ำออก</th>
-                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">จำนวนน้ำที่ใช้ไป</th>
-                          <th className="text-right py-3 px-2 text-xs font-bold text-cyan-700">ผลรวมรายวัน</th>
-                          <th className="text-center py-3 px-2 text-xs font-bold text-cyan-700">ผู้บันทึก</th>
-                          <th className="text-left py-3 px-2 text-xs font-bold text-cyan-700">หมายเหตุ</th>
+                        <tr className="border-b-2 border-cyan-200 bg-cyan-50">
+                          <th className="text-left py-3 px-3 text-xs font-bold text-cyan-700">วันที่</th>
+                          <th className="text-center py-3 px-3 text-xs font-bold text-cyan-700">เวลา</th>
+                          <th className="text-right py-3 px-3 text-xs font-bold text-cyan-700">มิเตอร์น้ำออก</th>
+                          <th className="text-right py-3 px-3 text-xs font-bold text-cyan-700">จำนวนน้ำที่ใช้ไป</th>
+                          <th className="text-right py-3 px-3 text-xs font-bold text-cyan-700">ผลรวมรายวัน</th>
+                          <th className="text-center py-3 px-3 text-xs font-bold text-cyan-700">ผู้บันทึก</th>
+                          <th className="text-left py-3 px-3 text-xs font-bold text-cyan-700">หมายเหตุ</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {groupedFilteredMeter.map(([date, dateRecords]) => (
-                          dateRecords.sort((a: any, b: any) => a.record_time.localeCompare(b.record_time)).map((r: any, i: number) => (
-                            <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
-                              {i === 0 ? (
-                                <td className="py-2.5 px-2 text-xs font-semibold border-r border-slate-100" rowSpan={dateRecords.length}>
-                                  {format(new Date(date), "d/M/yy")}
-                                </td>
-                              ) : null}
-                              <td className="py-2.5 px-2 text-center text-xs">{r.record_time?.substring(0, 5)}</td>
-                              <td className="py-2.5 px-2 text-right text-xs font-mono font-semibold">{Number(r.meter_reading).toLocaleString()}</td>
-                              <td className="py-2.5 px-2 text-right text-xs font-mono">{Number(r.usage_amount || 0).toLocaleString()}</td>
-                              <td className="py-2.5 px-2 text-right text-xs font-mono font-bold text-cyan-600">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
-                              <td className="py-2.5 px-2 text-center text-xs">{r.recorder_name || "-"}</td>
-                              <td className="py-2.5 px-2 text-xs text-muted-foreground">{r.notes || "-"}</td>
-                            </tr>
-                          ))
-                        ))}
+                        {groupedFilteredMeter.map(([date, dateRecords]) => {
+                          const sortedRecords = [...dateRecords].sort((a: any, b: any) => a.record_time.localeCompare(b.record_time));
+                          const dailyTotal = sortedRecords.reduce((sum: number, r: any) => sum + Number(r.usage_amount || 0), 0);
+                          return (
+                            <Fragment key={date}>
+                              {sortedRecords.map((r: any, i: number) => (
+                                <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                                  {i === 0 ? (
+                                    <td className="py-3 px-3 text-xs font-semibold border-r border-slate-100" rowSpan={sortedRecords.length + 1}>
+                                      {format(new Date(date), "d MMM yy", { locale: th })}
+                                    </td>
+                                  ) : null}
+                                  <td className="py-3 px-3 text-center text-xs">{r.record_time?.substring(0, 5)}</td>
+                                  <td className="py-3 px-3 text-right text-xs font-mono font-semibold">{Number(r.meter_reading).toLocaleString()}</td>
+                                  <td className="py-3 px-3 text-right text-xs font-mono">{Number(r.usage_amount || 0).toLocaleString()}</td>
+                                  <td className="py-3 px-3 text-right text-xs font-mono font-bold text-cyan-600">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
+                                  <td className="py-3 px-3 text-center text-xs">{r.recorder_name || "-"}</td>
+                                  <td className="py-3 px-3 text-xs text-muted-foreground">{r.notes || "-"}</td>
+                                </tr>
+                              ))}
+                              <tr key={`${date}-summary`} className="bg-slate-100">
+                                <td className="py-3 px-3 text-right text-xs font-semibold text-slate-700" colSpan={2}>ยอดรวมวันที่</td>
+                                <td className="py-3 px-3 text-right text-xs font-bold text-slate-900">{dailyTotal.toLocaleString()}</td>
+                                <td className="py-3 px-3 text-right text-xs font-bold text-cyan-700" colSpan={2}>{sortedRecords[0]?.daily_total != null ? Number(sortedRecords[0].daily_total).toLocaleString() : "-"}</td>
+                                <td className="py-3 px-3" />
+                              </tr>
+                            </Fragment>
+                          );
+                        })}
                         {filteredMeterRecords.length === 0 && (
                           <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูลการบันทึกมิเตอร์น้ำในช่วงวันที่ที่เลือก</td></tr>
                         )}
@@ -780,7 +853,46 @@ export default function WaterManagement() {
             </div>
             <div>
               <Label className="font-semibold">หมายเหตุ</Label>
-              <Textarea value={meterNotes} onChange={(e) => setMeterNotes(e.target.value)} placeholder="ข้อสังเกตเพิ่มเติม (ถ้ามี)..." rows={2} className="rounded-2xl" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("h-12 w-full justify-between rounded-2xl text-left", meterNotes.length === 0 && "text-slate-500")}> 
+                    <span className="truncate">
+                      {meterNotes.length > 0 ? meterNotes.join(", ") : "เลือกหมายเหตุ"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">▼</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-3">
+                  <div className="space-y-2">
+                    {METER_NOTE_OPTIONS.map((option) => {
+                      const checked = meterNotes.includes(option);
+                      return (
+                        <label key={option} className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50">
+                          <Checkbox checked={checked} onCheckedChange={(value) => {
+                            if (value === true) {
+                              setMeterNotes((current) => Array.from(new Set([...current, option])));
+                            } else {
+                              setMeterNotes((current) => current.filter((item) => item !== option));
+                            }
+                          }} />
+                          <span className="text-sm text-slate-700">{option}</span>
+                        </label>
+                      );
+                    })}
+                    {meterNotes.includes("อื่นๆ(ระบุ)") && (
+                      <Input
+                        value={meterNotesOther}
+                        onChange={(e) => setMeterNotesOther(e.target.value)}
+                        placeholder="ระบุรายละเอียดอื่นๆ"
+                        className="h-11 rounded-2xl"
+                      />
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {meterNotes.includes("อื่นๆ(ระบุ)") && meterNotesOther && (
+                <p className="mt-2 text-xs text-slate-500">ระบุเพิ่มเติม: {meterNotesOther}</p>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">💡 ระบบจะคำนวณ "จำนวนน้ำที่ใช้ไป" อัตโนมัติจากเลขมิเตอร์ครั้งก่อนหน้า</p>
             <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => addMeterRecord.mutate()} disabled={addMeterRecord.isPending || !meterReading}>

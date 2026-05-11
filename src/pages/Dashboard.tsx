@@ -16,55 +16,42 @@ import { cn } from "@/lib/utils";
 import { exportMultiSheet } from "@/lib/exportExcel";
 import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
-import { Wrench, CheckCircle, Flame, Trash2, Search, FlaskConical, AlertTriangle, Clock, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
+import { Wrench, CheckCircle, Flame, Trash2, Search, FlaskConical, AlertTriangle, Clock } from "lucide-react";
 
 type WasteFilter = "day" | "week" | "month" | "custom";
 
 const CHART_COLORS = ["#0097a7", "#26a69a", "#42a5f5", "#ef5350", "#ffa726", "#ab47bc", "#66bb6a", "#ec407a"];
 
-function KpiCard({ label, value, sub, icon: Icon, trend, trendLabel, onClick, index = 0, accent = "sky" }: {
-  label: string; value: string | number; sub?: string; icon?: any; trend?: "up" | "down" | "neutral";
-  trendLabel?: string; onClick?: () => void; index?: number; accent?: string;
+function MetricPanel({ label, value, sub, note, icon: Icon, onClick, accent = "sky" }: {
+  label: string; value: string | number; sub?: string; note?: string; icon?: any; onClick?: () => void; accent?: string;
 }) {
-  const accentMap: Record<string, string> = {
-    sky: "border-t-sky-500 text-sky-600",
-    teal: "border-t-teal-500 text-teal-600",
-    red: "border-t-red-500 text-red-600",
-    rose: "border-t-rose-500 text-rose-600",
-    cyan: "border-t-cyan-500 text-cyan-600",
-    amber: "border-t-amber-500 text-amber-600",
-    purple: "border-t-purple-500 text-purple-600",
-    emerald: "border-t-emerald-500 text-emerald-600",
+  const accentMap: Record<string, { border: string; bg: string; text: string; icon: string }> = {
+    sky: { border: "border-sky-200", bg: "bg-sky-50/70", text: "text-sky-700", icon: "text-sky-500" },
+    teal: { border: "border-teal-200", bg: "bg-teal-50/70", text: "text-teal-700", icon: "text-teal-500" },
+    red: { border: "border-red-200", bg: "bg-red-50/70", text: "text-red-700", icon: "text-red-500" },
+    rose: { border: "border-rose-200", bg: "bg-rose-50/70", text: "text-rose-700", icon: "text-rose-500" },
+    cyan: { border: "border-cyan-200", bg: "bg-cyan-50/70", text: "text-cyan-700", icon: "text-cyan-500" },
+    amber: { border: "border-amber-200", bg: "bg-amber-50/70", text: "text-amber-700", icon: "text-amber-500" },
+    purple: { border: "border-purple-200", bg: "bg-purple-50/70", text: "text-purple-700", icon: "text-purple-500" },
+    emerald: { border: "border-emerald-200", bg: "bg-emerald-50/70", text: "text-emerald-700", icon: "text-emerald-500" },
   };
   const colors = accentMap[accent] || accentMap.sky;
-  const [borderClass, textClass] = colors.split(" ");
 
   return (
-    <Card
-      className={`bg-white border-t-4 ${borderClass} shadow-card hover:shadow-elevated rounded-2xl transition-all duration-300 animate-slide-up ${onClick ? "cursor-pointer hover:-translate-y-1 active:scale-[0.97]" : ""}`}
-      style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}
+    <div
+      className={`rounded-3xl border ${colors.border} ${colors.bg} p-5 transition hover:shadow-md ${onClick ? "cursor-pointer" : ""}`}
       onClick={onClick}
     >
-      <CardContent className="p-5 min-h-[130px] flex flex-col justify-center">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-slate-500">{label}</p>
-            <p className={`text-3xl font-extrabold mt-1 ${textClass}`}>{value}</p>
-            {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
-            {trend && trendLabel && (
-              <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${trend === "up" ? "text-emerald-600" : trend === "down" ? "text-red-500" : "text-muted-foreground"}`}>
-                {trend === "up" ? <TrendingUp className="h-3 w-3" /> : trend === "down" ? <TrendingDown className="h-3 w-3" /> : null}
-                {trendLabel}
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            {Icon && <Icon className={`h-6 w-6 ${textClass} opacity-40`} />}
-            {onClick && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-          </div>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[11px] uppercase tracking-[0.25em] font-semibold text-slate-500">{label}</p>
+          <p className={`mt-3 text-4xl font-extrabold tracking-tight ${colors.text}`}>{value}</p>
+          {sub && <p className="mt-3 text-sm text-slate-600">{sub}</p>}
+          {note && <p className="mt-2 text-xs text-slate-500">{note}</p>}
         </div>
-      </CardContent>
-    </Card>
+        {Icon && <Icon className={`h-7 w-7 ${colors.icon} opacity-80`} />}
+      </div>
+    </div>
   );
 }
 
@@ -210,7 +197,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-6">
-      <PageHeader title="Executive Dashboard" subtitle="ภาพรวม KPI สำหรับผู้บริหาร">
+      <PageHeader title="แดชบอร์ด KPI" subtitle="ข้อมูลสำคัญสำหรับผู้บริหาร">
         <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 gap-1.5" onClick={() => {
           const sheets = [];
           if (repairStats && repairStats.total > 0) sheets.push({ name: "สถิติงานซ่อม", data: [{ "รายการ": "รอรับงาน", "จำนวน": repairStats.byStatus.pending || 0 }, { "รายการ": "รับงานแล้ว", "จำนวน": repairStats.byStatus.accepted || 0 }, { "รายการ": "กำลังซ่อม", "จำนวน": repairStats.byStatus.in_progress || 0 }, { "รายการ": "เสร็จสิ้น", "จำนวน": repairStats.byStatus.completed || 0 }] });
@@ -221,20 +208,84 @@ export default function Dashboard() {
         }}>ส่งออก Excel</Button>
       </PageHeader>
 
-      {/* Row 1: Primary KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard index={0} label="งานซ่อมทั้งหมด" value={repairStats?.total ?? 0} sub={`รอดำเนินการ ${repairStats?.pending ?? 0}`} icon={Wrench} accent="sky" onClick={() => setDrilldown("repair")} trend={repairStats && repairStats.pending > 5 ? "down" : "up"} trendLabel={`อัตราสำเร็จ ${completionRate}%`} />
-        <KpiCard index={1} label="คะแนน 5ส เฉลี่ย" value={avgScore ? `${avgScore}%` : "-"} sub="คะแนนรวมทุกแผนก" icon={CheckCircle} accent="teal" onClick={() => setDrilldown("5s")} trend={avgScore && avgScore >= 70 ? "up" : "down"} trendLabel={avgScore && avgScore >= 70 ? "ผ่านเกณฑ์" : "ต่ำกว่าเกณฑ์"} />
-        <KpiCard index={2} label="ถังดับเพลิง" value={fireChecks ? `${fireChecks.rate}%` : "-"} sub={`ปกติ ${fireChecks?.ok ?? 0}/${fireChecks?.total ?? 0}`} icon={Flame} accent="red" onClick={() => setDrilldown("fire")} trend={fireChecks && fireChecks.rate >= 80 ? "up" : "down"} trendLabel={fireChecks && fireChecks.rate >= 80 ? "สภาพดี" : "ต้องตรวจสอบ"} />
-        <KpiCard index={3} label="น้ำหนักขยะ" value={wasteData ? `${wasteData.total}` : "-"} sub={`กก. (${filterLabel[wasteFilter]})`} icon={Trash2} accent="rose" onClick={() => setDrilldown("waste")} />
-      </div>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <MetricPanel
+            label="งานซ่อมทั้งหมด"
+            value={repairStats?.total ?? 0}
+            sub={`รอดำเนินการ ${repairStats?.pending ?? 0} | เสร็จแล้ว ${repairStats?.completed ?? 0}`}
+            note={`อัตราสำเร็จ ${completionRate}%`}
+            icon={Wrench}
+            accent="sky"
+            onClick={() => setDrilldown("repair")}
+          />
+          <MetricPanel
+            label="คะแนน 5ส เฉลี่ย"
+            value={avgScore ? `${avgScore}%` : "-"}
+            sub={`${auditByDept?.length ?? 0} แผนก`}
+            note={avgScore ? (avgScore >= 70 ? "ผ่านเกณฑ์" : "ต่ำกว่าเกณฑ์") : "ยังไม่มีข้อมูล"}
+            icon={CheckCircle}
+            accent="teal"
+            onClick={() => setDrilldown("5s")}
+          />
+          <MetricPanel
+            label="ถังดับเพลิง"
+            value={fireChecks ? `${fireChecks.rate}%` : "-"}
+            sub={`ปกติ ${fireChecks?.ok ?? 0}/${fireChecks?.total ?? 0}`}
+            note={fireChecks ? (fireChecks.rate >= 80 ? "สภาพดี" : "ต้องตรวจสอบ") : "ไม่มีข้อมูล"}
+            icon={Flame}
+            accent="red"
+            onClick={() => setDrilldown("fire")}
+          />
+          <MetricPanel
+            label="น้ำหนักขยะ"
+            value={wasteData ? `${wasteData.total} กก.` : "-"}
+            sub={`ช่วง ${filterLabel[wasteFilter]}`}
+            note={`${wasteData?.byType?.length ?? 0} ประเภทขยะ`}
+            icon={Trash2}
+            accent="rose"
+            onClick={() => setDrilldown("waste")}
+          />
+        </div>
 
-      {/* Row 2: Secondary KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard index={4} label="ENV Round" value={envRoundStats?.totalRounds ?? 0} sub={`เสร็จสิ้น ${envRoundStats?.completed ?? 0}`} icon={Search} accent="cyan" onClick={() => setDrilldown("env")} trend={envRoundStats && envRoundStats.abnormal > 0 ? "down" : "up"} trendLabel={`พบปัญหา ${envRoundStats?.abnormal ?? 0} จุด`} />
-        <KpiCard index={5} label="สารเคมีคลัง" value={hazmatStats?.total ?? 0} sub={`สต็อกต่ำ ${hazmatStats?.lowStock ?? 0}`} icon={FlaskConical} accent="amber" onClick={() => navigate("/hazmat")} trend={hazmatStats && hazmatStats.lowStock > 0 ? "down" : "up"} trendLabel={hazmatStats && hazmatStats.lowStock > 0 ? "มีรายการสต็อกต่ำ" : "สต็อกเพียงพอ"} />
-        <KpiCard index={6} label="ปัญหาค้างแขวน" value={(issueStats?.pending ?? 0) + (issueStats?.in_progress ?? 0)} sub={`รอจัดการ ${issueStats?.pending ?? 0} | ดำเนินการ ${issueStats?.in_progress ?? 0}`} icon={AlertTriangle} accent="red" onClick={() => navigate("/issues")} trend={(issueStats?.pending ?? 0) + (issueStats?.in_progress ?? 0) > 0 ? "down" : "up"} trendLabel={(issueStats?.pending ?? 0) + (issueStats?.in_progress ?? 0) > 5 ? "ต้องแก้ไขด่วน" : "อยู่ระดับปกติ"} />
-        <KpiCard index={7} label="จัดการปัญหา" value="ดูทั้งหมด" sub="รวมปัญหาทุกระบบ" icon={Clock} accent="purple" onClick={() => navigate("/issues")} />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <MetricPanel
+            label="ENV Round"
+            value={envRoundStats?.totalRounds ?? 0}
+            sub={`เสร็จสิ้น ${envRoundStats?.completed ?? 0}`}
+            note={`พบปัญหา ${envRoundStats?.abnormal ?? 0} จุด`}
+            icon={Search}
+            accent="cyan"
+            onClick={() => setDrilldown("env")}
+          />
+          <MetricPanel
+            label="สารเคมีคลัง"
+            value={hazmatStats?.total ?? 0}
+            sub={`สต็อกต่ำ ${hazmatStats?.lowStock ?? 0}`}
+            note={`หมดอายุ ${hazmatStats?.expired ?? 0} รายการ`}
+            icon={FlaskConical}
+            accent="amber"
+            onClick={() => navigate("/hazmat")}
+          />
+          <MetricPanel
+            label="ปัญหาค้างแขวน"
+            value={(issueStats?.pending ?? 0) + (issueStats?.in_progress ?? 0)}
+            sub={`รอ ${issueStats?.pending ?? 0} | ดำเนินการ ${issueStats?.in_progress ?? 0}`}
+            note={`แก้ไขแล้ว ${issueStats?.resolved ?? 0}`}
+            icon={AlertTriangle}
+            accent="red"
+            onClick={() => navigate("/issues")}
+          />
+          <MetricPanel
+            label="เมนูด่วน"
+            value="ดูระบบทั้งหมด"
+            sub="รวมข้อมูลจากทุกฟังก์ชัน"
+            note="คลิกเพื่อดูรายละเอียดเพิ่มเติม"
+            icon={Clock}
+            accent="purple"
+            onClick={() => navigate("/issues")}
+          />
+        </div>
       </div>
 
       {/* Charts Row */}
