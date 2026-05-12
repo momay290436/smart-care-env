@@ -1444,6 +1444,54 @@ export type Database = {
         }
         Relationships: []
       }
+      water_disinfectant_logs: {
+        Row: {
+          check_date: string
+          check_time: string
+          created_at: string
+          disinfectant_name: string
+          id: string
+          inspector_id: string
+          inspector_name: string
+          notes: string | null
+          outlet_concentration: number
+          outlet_ph: number
+          source_concentration: number
+          source_ph: number
+          status: string
+        }
+        Insert: {
+          check_date?: string
+          check_time?: string
+          created_at?: string
+          disinfectant_name?: string
+          id?: string
+          inspector_id: string
+          inspector_name?: string
+          notes?: string | null
+          outlet_concentration?: number
+          outlet_ph?: number
+          source_concentration?: number
+          source_ph?: number
+          status?: string
+        }
+        Update: {
+          check_date?: string
+          check_time?: string
+          created_at?: string
+          disinfectant_name?: string
+          id?: string
+          inspector_id?: string
+          inspector_name?: string
+          notes?: string | null
+          outlet_concentration?: number
+          outlet_ph?: number
+          source_concentration?: number
+          source_ph?: number
+          status?: string
+        }
+        Relationships: []
+      }
       water_quality_batch_items: {
         Row: {
           batch_id: string
