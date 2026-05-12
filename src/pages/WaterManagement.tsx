@@ -88,6 +88,22 @@ export default function WaterManagement() {
     },
   });
 
+  const safeInsertDisinfectant = async (payload: any) => {
+    const attemptInsert = async () => {
+      const { error } = await supabase.from("water_disinfectant_logs").insert(payload);
+      return error;
+    };
+
+    let error = await attemptInsert();
+    if (error?.message?.includes("Could not find the table") || error?.message?.includes("schema cache")) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await supabase.from("water_disinfectant_logs").select("id").limit(1);
+      error = await attemptInsert();
+    }
+
+    return error;
+  };
+
   const avgChlorine = useMemo(() => {
     const recent = qualityLogs.filter((l: any) => l.chlorine_value != null).slice(0, 20);
     if (recent.length === 0) return null;
@@ -306,7 +322,7 @@ export default function WaterManagement() {
       const passSource = sourceConcentration >= 0.2 && sourceConcentration <= 0.5 && sourcePh >= 6.5 && sourcePh <= 8.5;
       const passOutlet = outletConcentration >= 0.2 && outletConcentration <= 0.5 && outletPh >= 6.5 && outletPh <= 8.5;
       const status = passSource && passOutlet ? "pass" : "fail";
-      const { error } = await supabase.from("water_disinfectant_logs").insert({
+      const error = await safeInsertDisinfectant({
         check_date: checkDate,
         check_time: checkTime,
         disinfectant_name: "คลอรีน",
@@ -397,50 +413,55 @@ export default function WaterManagement() {
       </PageHeader>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-4">
-        <Card className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 rounded-2xl shadow-xl border-0 cursor-pointer hover:shadow-2xl transition-all active:scale-[0.97] ring-2 ring-blue-300/50 animate-pulse-subtle" onClick={() => setShowMeterDialog(true)}>
-          <CardContent className="p-5 md:p-6 flex items-center gap-4">
-            <div className="w-16 h-16 md:w-14 md:h-14 rounded-2xl bg-white/25 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner">
-              <Plus className="h-8 w-8 md:h-7 md:w-7 text-white" />
+        <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 rounded-3xl shadow-2xl border-0 border-b-4 border-b-blue-800 cursor-pointer hover:shadow-3xl transition-all active:scale-95 ring-2 ring-blue-300/50 animate-pulse-subtle" onClick={() => setShowMeterDialog(true)}>
+          <CardContent className="p-6 md:p-8 flex items-center gap-5">
+            <div className="w-20 h-20 md:w-16 md:h-16 rounded-3xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
+              <Plus className="h-9 w-9 md:h-8 md:w-8 text-white font-bold" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-lg md:text-xl font-extrabold text-white">📝 บันทึกมิเตอร์น้ำออก</p>
-              <p className="text-sm md:text-base text-white/80 truncate">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
+              <p className="text-xl md:text-2xl font-black text-white drop-shadow-md">📝 บันทึกมิเตอร์น้ำออก</p>
+              <p className="text-sm md:text-base text-white/90 truncate drop-shadow-sm">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 rounded-2xl shadow-xl border-0 cursor-pointer hover:shadow-2xl transition-all active:scale-[0.97] ring-2 ring-amber-300/50 animate-pulse-subtle" onClick={() => setShowDisinfectantDialog(true)}>
-          <CardContent className="p-5 md:p-6 flex items-center gap-4">
-            <div className="w-16 h-16 md:w-14 md:h-14 rounded-2xl bg-white/25 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner">
-              <Plus className="h-8 w-8 md:h-7 md:w-7 text-black" />
+        <Card className="bg-gradient-to-br from-amber-600 via-amber-400 to-yellow-500 rounded-3xl shadow-2xl border-0 border-b-4 border-b-amber-800 cursor-pointer hover:shadow-3xl transition-all active:scale-95 ring-2 ring-amber-300/50 animate-pulse-subtle" onClick={() => setShowDisinfectantDialog(true)}>
+          <CardContent className="p-6 md:p-8 flex items-center gap-5">
+            <div className="w-20 h-20 md:w-16 md:h-16 rounded-3xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
+              <Plus className="h-9 w-9 md:h-8 md:w-8 text-white font-bold" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-lg md:text-xl font-extrabold text-black">🧪 บันทึกปริมาณสารเคมีกำจัดเชื้อโรค</p>
-              <p className="text-sm md:text-base text-black/80 truncate">กดเพื่อบันทึกผลตรวจสารฆ่าเชื้อในน้ำประปา</p>
+              <p className="text-xl md:text-2xl font-black text-white drop-shadow-md">🧪 บันทึกปริมาณสารเคมีกำจัดเชื้อโรค</p>
+              <p className="text-sm md:text-base text-white/90 truncate drop-shadow-sm">กดเพื่อบันทึกผลตรวจสารฆ่าเชื้อในน้ำประปา</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Top KPI Cards */}
-      <div className="grid grid-cols-3 gap-2 md:gap-3">
-        <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-blue-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <Droplets className="h-5 w-5 md:h-6 md:w-6 text-blue-500 mx-auto mb-1" />
-            <p className="text-xl md:text-2xl font-extrabold text-blue-600">{waterLevel}%</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">ระดับน้ำสำรอง</p>
+      <div className="grid grid-cols-3 gap-3 md:gap-4">
+        <Card className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl shadow-2xl border-0 border-t-4 border-t-blue-600 hover:shadow-3xl transition-shadow">
+          <CardContent className="p-4 md:p-5 text-center">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+              <Droplets className="h-6 w-6 md:h-7 md:w-7 text-white" />
+            </div>
+            <p className="text-2xl md:text-3xl font-black text-blue-700">{waterLevel}%</p>
+            <p className="text-[10px] md:text-xs text-blue-600 font-semibold">ระดับน้ำสำรอง</p>
           </CardContent>
         </Card>
-        <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-teal-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <Gauge className="h-5 w-5 md:h-6 md:w-6 text-teal-500 mx-auto mb-1" />
-            <p className="text-xl md:text-2xl font-extrabold text-teal-600">{avgChlorine ?? "-"}</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">คลอรีน (mg/l)</p>
-            <p className="text-[9px] md:text-[10px] text-muted-foreground">เป้าหมาย 0.2-0.5</p>
+        <Card className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl shadow-2xl border-0 border-t-4 border-t-teal-600 hover:shadow-3xl transition-shadow">
+          <CardContent className="p-4 md:p-5 text-center">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-teal-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+              <Gauge className="h-6 w-6 md:h-7 md:w-7 text-white" />
+            </div>
+            <p className="text-2xl md:text-3xl font-black text-teal-700">{avgChlorine ?? "-"}</p>
+            <p className="text-[10px] md:text-xs text-teal-600 font-semibold">คลอรีน (mg/l)</p>
+            <p className="text-[9px] md:text-[10px] text-teal-500 font-medium">เป้าหมาย 0.2-0.5</p>
           </CardContent>
         </Card>
-        <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-emerald-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <AlertTriangle className="h-5 w-5 md:h-6 md:w-6 text-emerald-500 mx-auto mb-1" />
+        <Card className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl shadow-2xl border-0 border-t-4 border-t-emerald-600 hover:shadow-3xl transition-shadow">
+          <CardContent className="p-4 md:p-5 text-center">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+              <AlertTriangle className="h-6 w-6 md:h-7 md:w-7 text-white" />
             <p className="text-xl md:text-2xl font-extrabold text-emerald-600">{normalPoints.normal}/{normalPoints.total}</p>
             <p className="text-[10px] md:text-xs text-muted-foreground">จุดน้ำไหลปกติ</p>
           </CardContent>
@@ -475,11 +496,11 @@ export default function WaterManagement() {
         <TabsContent value="meter" className="mt-4">
           <div className="space-y-4">
             {/* Date Range Filter */}
-            <Card className="bg-white rounded-3xl shadow-elevated border border-slate-200">
-              <CardContent className="p-4">
-                <div className="grid gap-3 xl:grid-cols-[1.2fr_auto] xl:items-end">
-                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-                    <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+            <Card className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl shadow-2xl border border-slate-200/80 ring-1 ring-slate-200/70">
+              <CardContent className="p-5 md:p-6">
+                <div className="grid gap-4 xl:grid-cols-[1.2fr_auto] xl:items-end">
+                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+                    <div className="rounded-[32px] bg-white shadow-sm border border-slate-200 p-4">
                       <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">กรองวันที่</p>
                       <div className="mt-3 flex flex-col gap-2">
                         <Popover>
@@ -505,15 +526,15 @@ export default function WaterManagement() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+                    <div className="rounded-[32px] bg-white shadow-sm border border-slate-200 p-4">
                       <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">สรุปข้อมูล</p>
-                      <p className="mt-3 text-3xl font-extrabold text-cyan-700">{meterSummary.totalUsage.toLocaleString()}</p>
+                      <p className="mt-3 text-3xl font-black text-cyan-700">{meterSummary.totalUsage.toLocaleString()}</p>
                       <p className="mt-1 text-sm text-slate-600">รวมลบ.ม.</p>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+                    <div className="rounded-[32px] bg-white shadow-sm border border-slate-200 p-4">
                       <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">เฉลี่ยต่อวัน</p>
-                      <p className="mt-3 text-3xl font-extrabold text-slate-900">{meterSummary.averageUsage.toLocaleString()}</p>
+                      <p className="mt-3 text-3xl font-black text-slate-900">{meterSummary.averageUsage.toLocaleString()}</p>
                       <p className="mt-1 text-sm text-slate-600">ลบ.ม./วัน</p>
                     </div>
                   </div>
