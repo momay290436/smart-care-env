@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
-import { format, subDays, startOfDay } from "date-fns";
+import { format, subDays, startOfDay, endOfDay, startOfMonth } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -60,11 +60,8 @@ export default function WaterManagement() {
   const [meterNotesOther, setMeterNotesOther] = useState("");
   const [formData, setFormData] = useState({ check_point: "", ph_value: "", chlorine_value: "", turbidity_value: "", notes: "" });
   const [disinfectantForm, setDisinfectantForm] = useState({ disinfectant_name: "คลอรีน", source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
-  const [meterStartDate, setMeterStartDate] = useState<Date | undefined>();
-  const [meterEndDate, setMeterEndDate] = useState<Date | undefined>();
-  const [disinfectantStartDate, setDisinfectantStartDate] = useState<Date | undefined>();
-  const [disinfectantEndDate, setDisinfectantEndDate] = useState<Date | undefined>();
-  const [disinfectantTableMissing, setDisinfectantTableMissing] = useState(false);
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
   const [meterContentTab, setMeterContentTab] = useState<"meter" | "disinfectant">("meter");
 
   const { data: qualityLogs = [] } = useQuery({
@@ -86,19 +83,9 @@ export default function WaterManagement() {
   const { data: disinfectantLogs = [] } = useQuery({
     queryKey: ["water-disinfectant-logs"],
     queryFn: async () => {
-      try {
-        const { data } = await supabase.from("water_disinfectant_logs").select("*").order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
-        return data || [];
-      } catch (error: any) {
-        const message = error?.message || "เกิดข้อผิดพลาดขณะโหลดข้อมูล";
-        if (message.includes("Could not find the table") || message.includes("schema cache")) {
-          setDisinfectantTableMissing(true);
-          return [];
-        }
-        throw error;
-      }
+      const { data } = await supabase.from("water_disinfectant_logs").select("*").order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
+      return data || [];
     },
-    retry: false,
   });
 
   const avgChlorine = useMemo(() => {
@@ -115,23 +102,29 @@ export default function WaterManagement() {
     return { normal, total: all.length };
   }, [qualityLogs]);
 
-  // Water usage chart (7 days)
+  // Water usage chart with dynamic date range
   const usageChart = useMemo(() => {
+    const startDate = filterStartDate ?? startOfMonth(new Date());
+    const endDate = filterEndDate ?? new Date();
+    const rangeStart = startOfDay(startDate);
+    const rangeEnd = endOfDay(endDate);
     const days: Record<string, number> = {};
-    for (let i = 6; i >= 0; i--) {
-      const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-      days[d] = 0;
+    for (let time = rangeStart.getTime(); time <= rangeEnd.getTime(); time += 86400000) {
+      const date = format(new Date(time), "yyyy-MM-dd");
+      days[date] = 0;
     }
     meterRecords.forEach((r: any) => {
-      if (days[r.record_date] !== undefined) {
-        days[r.record_date] += Number(r.usage_amount || 0);
+      const recordDate = r.record_date;
+      const recordTime = new Date(recordDate);
+      if (recordTime >= rangeStart && recordTime <= rangeEnd && days[recordDate] !== undefined) {
+        days[recordDate] += Number(r.usage_amount || 0);
       }
     });
     return Object.entries(days).map(([date, usage]) => ({
       date: format(new Date(date), "d MMM", { locale: th }),
       usage: Number(usage.toFixed(0)),
     }));
-  }, [meterRecords]);
+  }, [meterRecords, filterStartDate, filterEndDate]);
 
   // Grouped meter records for inline table
   const groupedMeter = useMemo(() => {
@@ -145,11 +138,11 @@ export default function WaterManagement() {
 
   const filteredDisinfectantLogs = useMemo(() => {
     return disinfectantLogs.filter((r: any) => {
-      if (disinfectantStartDate && new Date(r.check_date) < startOfDay(disinfectantStartDate)) return false;
-      if (disinfectantEndDate && new Date(r.check_date) > new Date(startOfDay(disinfectantEndDate).getTime() + 86400000 - 1)) return false;
+      if (filterStartDate && new Date(r.check_date) < startOfDay(filterStartDate)) return false;
+      if (filterEndDate && new Date(r.check_date) > new Date(startOfDay(filterEndDate).getTime() + 86400000 - 1)) return false;
       return true;
     });
-  }, [disinfectantLogs, disinfectantStartDate, disinfectantEndDate]);
+  }, [disinfectantLogs, filterStartDate, filterEndDate]);
 
   const groupedDisinfectantLogs = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -163,11 +156,11 @@ export default function WaterManagement() {
   // Filter meter records by date range
   const filteredMeterRecords = useMemo(() => {
     return meterRecords.filter((r: any) => {
-      if (meterStartDate && new Date(r.record_date) < startOfDay(meterStartDate)) return false;
-      if (meterEndDate && new Date(r.record_date) > new Date(startOfDay(meterEndDate).getTime() + 86400000 - 1)) return false;
+      if (filterStartDate && new Date(r.record_date) < startOfDay(filterStartDate)) return false;
+      if (filterEndDate && new Date(r.record_date) > new Date(startOfDay(filterEndDate).getTime() + 86400000 - 1)) return false;
       return true;
     });
-  }, [meterRecords, meterStartDate, meterEndDate]);
+  }, [meterRecords, filterStartDate, filterEndDate]);
 
   // Grouped filtered meter records
   const groupedFilteredMeter = useMemo(() => {
@@ -335,12 +328,7 @@ export default function WaterManagement() {
       setDisinfectantForm({ disinfectant_name: "คลอรีน", source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
     },
     onError: (e: any) => {
-      if (e?.message?.includes("Could not find the table") || e?.message?.includes("schema cache")) {
-        setDisinfectantTableMissing(true);
-        toast.error("ไม่สามารถบันทึกสารเคมีได้ เนื่องจากตารางข้อมูลยังไม่ถูกสร้างในระบบ");
-      } else {
-        toast.error(e.message);
-      }
+      toast.error(e.message || "เกิดข้อผิดพลาดขณะบันทึกข้อมูล");
     },
   });
 
@@ -420,13 +408,7 @@ export default function WaterManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 rounded-2xl shadow-xl border-0 cursor-pointer hover:shadow-2xl transition-all active:scale-[0.97] ring-2 ring-amber-300/50 animate-pulse-subtle" onClick={() => {
-          if (disinfectantTableMissing) {
-            toast.error("ฟังก์ชันบันทึกสารเคมียังไม่พร้อมใช้งาน เนื่องจากข้อมูลยังไม่ถูกสร้างในระบบ");
-            return;
-          }
-          setShowDisinfectantDialog(true);
-        }}>
+        <Card className="bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 rounded-2xl shadow-xl border-0 cursor-pointer hover:shadow-2xl transition-all active:scale-[0.97] ring-2 ring-amber-300/50 animate-pulse-subtle" onClick={() => setShowDisinfectantDialog(true)}>
           <CardContent className="p-5 md:p-6 flex items-center gap-4">
             <div className="w-16 h-16 md:w-14 md:h-14 rounded-2xl bg-white/25 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner">
               <Plus className="h-8 w-8 md:h-7 md:w-7 text-black" />
@@ -498,52 +480,26 @@ export default function WaterManagement() {
                 <div className="grid gap-3 xl:grid-cols-[1.2fr_auto] xl:items-end">
                   <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
                     <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
-                      <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">กรองวันที่มิเตอร์</p>
+                      <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">กรองวันที่</p>
                       <div className="mt-3 flex flex-col gap-2">
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className={cn("text-sm h-10 rounded-2xl justify-start", !meterStartDate && "text-slate-400")}> 
-                              {meterStartDate ? format(meterStartDate, "d MMM yy", { locale: th }) : "วันเริ่มต้น"}
+                            <Button variant="outline" size="sm" className={cn("text-sm h-10 rounded-2xl justify-start", !filterStartDate && "text-slate-400")}> 
+                              {filterStartDate ? format(filterStartDate, "d MMM yy", { locale: th }) : "วันเริ่มต้น"}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={meterStartDate} onSelect={setMeterStartDate} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                            <Calendar mode="single" selected={filterStartDate} onSelect={setFilterStartDate} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
                           </PopoverContent>
                         </Popover>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className={cn("text-sm h-10 rounded-2xl justify-start", !meterEndDate && "text-slate-400")}> 
-                              {meterEndDate ? format(meterEndDate, "d MMM yy", { locale: th }) : "วันสิ้นสุด"}
+                            <Button variant="outline" size="sm" className={cn("text-sm h-10 rounded-2xl justify-start", !filterEndDate && "text-slate-400")}> 
+                              {filterEndDate ? format(filterEndDate, "d MMM yy", { locale: th }) : "วันสิ้นสุด"}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={meterEndDate} onSelect={setMeterEndDate} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
-                      <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">กรองวันที่สารเคมี</p>
-                      <div className="mt-3 flex flex-col gap-2">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className={cn("text-sm h-10 rounded-2xl justify-start", !disinfectantStartDate && "text-slate-400")}> 
-                              {disinfectantStartDate ? format(disinfectantStartDate, "d MMM yy", { locale: th }) : "วันเริ่มต้น"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={disinfectantStartDate} onSelect={setDisinfectantStartDate} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
-                          </PopoverContent>
-                        </Popover>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className={cn("text-sm h-10 rounded-2xl justify-start", !disinfectantEndDate && "text-slate-400")}> 
-                              {disinfectantEndDate ? format(disinfectantEndDate, "d MMM yy", { locale: th }) : "วันสิ้นสุด"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={disinfectantEndDate} onSelect={setDisinfectantEndDate} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                            <Calendar mode="single" selected={filterEndDate} onSelect={setFilterEndDate} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
                           </PopoverContent>
                         </Popover>
                       </div>
@@ -572,6 +528,36 @@ export default function WaterManagement() {
                 </div>
               </CardContent>
             </Card>
+
+            {meterContentTab === "meter" && usageChart.length > 0 && (
+              <Card className="bg-white rounded-3xl shadow-elevated border border-slate-200">
+                <CardContent className="p-4">
+                  <div>
+                    <p className="mb-4 text-sm font-semibold text-slate-900">📊 กราฟการใช้น้ำประปา</p>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={usageChart}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: "12px" }} />
+                        <YAxis stroke="#94a3b8" style={{ fontSize: "12px" }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "16px" }}
+                          formatter={(value) => `${value.toLocaleString()} ลบ.ม.`}
+                          labelFormatter={(label) => `วัน: ${label}`}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="usage" 
+                          stroke="#06b6d4" 
+                          strokeWidth={3}
+                          dot={{ fill: "#06b6d4", r: 5 }}
+                          activeDot={{ r: 8 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card className="bg-white rounded-3xl shadow-elevated border border-slate-200">
               <CardContent className="p-4">
@@ -602,31 +588,26 @@ export default function WaterManagement() {
                       <tbody className="bg-white">
                         {groupedFilteredMeter.map(([date, dateRecords]) => {
                           const sortedRecords = [...dateRecords].sort((a: any, b: any) => a.record_time.localeCompare(b.record_time));
-                          const dailyTotal = sortedRecords.reduce((sum: number, r: any) => sum + Number(r.usage_amount || 0), 0);
                           return (
-                            <Fragment key={date}>
-                              {sortedRecords.map((r: any, i: number) => (
-                                <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                                  {i === 0 ? (
-                                    <td className="row-span-2 px-4 py-3 text-xs font-semibold text-slate-700" rowSpan={sortedRecords.length + 1}>
-                                      {format(new Date(date), "d MMM yy", { locale: th })}
-                                    </td>
-                                  ) : null}
-                                  <td className="px-4 py-3 text-center text-xs text-slate-600">{r.record_time?.substring(0, 5)}</td>
-                                  <td className="px-4 py-3 text-right text-xs font-semibold text-slate-900">{Number(r.meter_reading).toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right text-xs text-slate-700">{Number(r.usage_amount || 0).toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right text-xs text-cyan-700 font-bold">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
-                                  <td className="px-4 py-3 text-center text-xs text-slate-600">{r.recorder_name || "-"}</td>
-                                  <td className="px-4 py-3 text-xs text-slate-600">{r.notes || "-"}</td>
-                                </tr>
-                              ))}
-                              <tr className="bg-slate-100">
-                                <td className="px-4 py-3 text-right text-xs font-semibold text-slate-700" colSpan={2}>ยอดรวมวันที่</td>
-                                <td className="px-4 py-3 text-right text-xs font-bold text-slate-900">{dailyTotal.toLocaleString()}</td>
-                                <td className="px-4 py-3 text-right text-xs font-semibold text-cyan-700" colSpan={2}>{sortedRecords[0]?.daily_total != null ? Number(sortedRecords[0].daily_total).toLocaleString() : "-"}</td>
-                                <td className="px-4 py-3" />
+                            sortedRecords.map((r: any, i: number) => (
+                              <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                                {i === 0 ? (
+                                  <td className="px-4 py-3 text-xs font-semibold text-slate-700">
+                                    {format(new Date(date), "d MMM yy", { locale: th })}
+                                  </td>
+                                ) : (
+                                  <td className="px-4 py-3 text-xs font-semibold text-slate-700">
+                                    {format(new Date(date), "d MMM yy", { locale: th })}
+                                  </td>
+                                )}
+                                <td className="px-4 py-3 text-center text-xs text-slate-600">{r.record_time?.substring(0, 5)}</td>
+                                <td className="px-4 py-3 text-right text-xs font-semibold text-slate-900">{Number(r.meter_reading).toLocaleString()}</td>
+                                <td className="px-4 py-3 text-right text-xs text-slate-700">{Number(r.usage_amount || 0).toLocaleString()}</td>
+                                <td className="px-4 py-3 text-right text-xs text-cyan-700 font-bold">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
+                                <td className="px-4 py-3 text-center text-xs text-slate-600">{r.recorder_name || "-"}</td>
+                                <td className="px-4 py-3 text-xs text-slate-600">{r.notes || "-"}</td>
                               </tr>
-                            </Fragment>
+                            ))
                           );
                         })}
                         {filteredMeterRecords.length === 0 && (
@@ -650,32 +631,23 @@ export default function WaterManagement() {
                         </tr>
                       </thead>
                       <tbody className="bg-white">
-                        {groupedDisinfectantLogs.map(([date, dateRecords]) => (
-                          <Fragment key={date}>
-                            {dateRecords.sort((a: any, b: any) => a.check_time.localeCompare(b.check_time)).map((r: any, i: number) => (
-                              <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                                {i === 0 ? (
-                                  <td className="row-span-2 px-4 py-3 text-xs font-semibold text-slate-700" rowSpan={dateRecords.length + 1}>
-                                    {format(new Date(date), "d MMM yy", { locale: th })}
-                                  </td>
-                                ) : null}
-                                <td className="px-4 py-3 text-center text-xs text-slate-600">{r.check_time?.substring(0, 5)}</td>
-                                <td className="px-4 py-3 text-xs font-semibold text-slate-900">{r.disinfectant_name || "-"}</td>
-                                <td className="px-4 py-3 text-right text-xs text-slate-700">{r.source_concentration ?? "-"}</td>
-                                <td className="px-4 py-3 text-right text-xs text-slate-700">{r.source_ph ?? "-"}</td>
-                                <td className="px-4 py-3 text-right text-xs text-slate-700">{r.outlet_concentration ?? "-"}</td>
-                                <td className="px-4 py-3 text-right text-xs text-slate-700">{r.outlet_ph ?? "-"}</td>
-                                <td className="px-4 py-3 text-center text-xs text-slate-600">{r.inspector_name || "-"}</td>
-                                <td className="px-4 py-3 text-xs text-slate-600">{r.notes || "-"}</td>
-                              </tr>
-                            ))}
-                            <tr className="bg-slate-100">
-                              <td className="px-4 py-3 text-right text-xs font-semibold text-slate-700" colSpan={4}>ยอดรวมวันที่</td>
-                              <td className="px-4 py-3 text-right text-xs font-bold text-amber-600" colSpan={3}>{dateRecords.length} รายการ</td>
-                              <td className="px-4 py-3" />
+                        {groupedDisinfectantLogs.map(([date, dateRecords]) =>
+                          dateRecords.sort((a: any, b: any) => a.check_time.localeCompare(b.check_time)).map((r: any, i: number) => (
+                            <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                              <td className="px-4 py-3 text-xs font-semibold text-slate-700">
+                                {format(new Date(date), "d MMM yy", { locale: th })}
+                              </td>
+                              <td className="px-4 py-3 text-center text-xs text-slate-600">{r.check_time?.substring(0, 5)}</td>
+                              <td className="px-4 py-3 text-xs font-semibold text-slate-900">{r.disinfectant_name || "-"}</td>
+                              <td className="px-4 py-3 text-right text-xs text-slate-700">{r.source_concentration ?? "-"}</td>
+                              <td className="px-4 py-3 text-right text-xs text-slate-700">{r.source_ph ?? "-"}</td>
+                              <td className="px-4 py-3 text-right text-xs text-slate-700">{r.outlet_concentration ?? "-"}</td>
+                              <td className="px-4 py-3 text-right text-xs text-slate-700">{r.outlet_ph ?? "-"}</td>
+                              <td className="px-4 py-3 text-center text-xs text-slate-600">{r.inspector_name || "-"}</td>
+                              <td className="px-4 py-3 text-xs text-slate-600">{r.notes || "-"}</td>
                             </tr>
-                          </Fragment>
-                        ))}
+                          ))
+                        )}
                         {filteredDisinfectantLogs.length === 0 && (
                           <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">ยังไม่มีข้อมูล</td></tr>
                         )}
@@ -810,12 +782,7 @@ export default function WaterManagement() {
               <Label className="font-semibold">หมายเหตุ</Label>
               <Textarea value={disinfectantForm.notes} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, notes: e.target.value })} placeholder="บันทึกข้อมูลเพิ่มเติม..." rows={2} className="rounded-2xl" />
             </div>
-            {disinfectantTableMissing && (
-              <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                ระบบไม่สามารถบันทึกสารเคมีกำจัดเชื้อโรคได้ในขณะนี้ เนื่องจากตารางข้อมูลยังไม่ถูกสร้างในฐานข้อมูล กรุณาติดต่อผู้ดูแลระบบ
-              </div>
-            )}
-            <Button className="w-full h-12 rounded-2xl text-base font-bold bg-amber-500 text-black hover:bg-amber-600" onClick={() => addDisinfectantLog.mutate()} disabled={disinfectantTableMissing || addDisinfectantLog.isPending || !disinfectantForm.source_concentration || !disinfectantForm.source_ph || !disinfectantForm.outlet_concentration || !disinfectantForm.outlet_ph}>
+            <Button className="w-full h-12 rounded-2xl text-base font-bold bg-amber-500 text-black hover:bg-amber-600" onClick={() => addDisinfectantLog.mutate()} disabled={addDisinfectantLog.isPending || !disinfectantForm.source_concentration || !disinfectantForm.source_ph || !disinfectantForm.outlet_concentration || !disinfectantForm.outlet_ph}>
               {addDisinfectantLog.isPending ? "กำลังบันทึก..." : "บันทึกสารเคมี"}
             </Button>
           </div>
