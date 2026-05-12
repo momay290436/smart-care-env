@@ -336,69 +336,64 @@ export default function FireCheck() {
         </CardContent>
       </Card>
 
-      {/* History */}
-      <div className="space-y-3">
-        {checks?.filter((c: any) => {
-          const details: InspectionDetails | null = c.inspection_details;
-          const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
-          if (filterResult === "ok" && !allOk) return false;
-          if (filterResult === "fail" && allOk) return false;
-          const created = new Date(c.checked_at);
-          const now = new Date();
-          if (filterPeriod === "day" && created < startOfDay(now)) return false;
-          if (filterPeriod === "week" && created < startOfWeek(now, { weekStartsOn: 1 })) return false;
-          if (filterPeriod === "month" && created < startOfMonth(now)) return false;
-          if (filterPeriod === "custom" && customFrom && customTo) {
-            if (created < startOfDay(customFrom) || created > new Date(startOfDay(customTo).getTime() + 86400000 - 1)) return false;
-          }
-          return true;
-        }).map((c: any, idx: number) => {
-          const details: InspectionDetails | null = c.inspection_details;
-          const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
-          const failCount = details ? Object.values(details).filter(v => !v).length : 0;
-          const failItems = details ? inspectionItems.filter(item => !details[item.key]) : [];
-          return (
-            <Card key={c.id} className={`border border-slate-200 shadow-lg rounded-2xl animate-slide-up border-l-4 bg-white cursor-pointer hover:shadow-xl transition-all group ${allOk ? "border-l-primary" : "border-l-destructive"}`} style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'both' }} onClick={() => setSelectedCheck(c)}>
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-bold leading-tight">{c.location_name || c.location}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(c.checked_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
-                    </p>
-                    {c.inspector_name && <p className="text-xs text-muted-foreground">ผู้ตรวจ: {c.inspector_name}</p>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={allOk ? "default" : "destructive"} className="shrink-0 mt-0.5 rounded-xl">
-                      {allOk ? "ปกติ" : `${failCount} รายการ`}
-                    </Badge>
-                    {profile?.role === "admin" && (
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/60 hover:text-destructive rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); if (confirm("ยืนยันลบ?")) deleteCheck.mutate(c.id); }}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                {!allOk && failItems.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {failItems.map((item) => (
-                      <Badge key={item.key} variant="outline" className="text-[11px] border-destructive/40 text-destructive bg-destructive/5 rounded-xl">{item.label}</Badge>
-                    ))}
-                  </div>
+      {/* History - Table */}
+      <Card className="border border-border/50 shadow-card rounded-3xl bg-white">
+        <CardContent className="p-4 md:p-6">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">ประวัติการตรวจถังดับเพลิง</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-blue-200 bg-blue-50/50">
+                  <th className="text-left py-3 px-3 text-xs font-bold text-blue-700">วันที่</th>
+                  <th className="text-left py-3 px-3 text-xs font-bold text-blue-700">ตำแหน่ง</th>
+                  <th className="text-center py-3 px-3 text-xs font-bold text-blue-700">ผลการตรวจ</th>
+                  <th className="text-left py-3 px-3 text-xs font-bold text-blue-700">ผู้ตรวจ</th>
+                  <th className="text-left py-3 px-3 text-xs font-bold text-blue-700">หมายเหตุ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {checks?.filter((c: any) => {
+                  const details: InspectionDetails | null = c.inspection_details;
+                  const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
+                  if (filterResult === "ok" && !allOk) return false;
+                  if (filterResult === "fail" && allOk) return false;
+                  const created = new Date(c.checked_at);
+                  const now = new Date();
+                  if (filterPeriod === "day" && created < startOfDay(now)) return false;
+                  if (filterPeriod === "week" && created < startOfWeek(now, { weekStartsOn: 1 })) return false;
+                  if (filterPeriod === "month" && created < startOfMonth(now)) return false;
+                  if (filterPeriod === "custom" && customFrom && customTo) {
+                    if (created < startOfDay(customFrom) || created > new Date(startOfDay(customTo).getTime() + 86400000 - 1)) return false;
+                  }
+                  return true;
+                }).map((c: any, i: number) => {
+                  const details: InspectionDetails | null = c.inspection_details;
+                  const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
+                  const failCount = details ? Object.values(details).filter(v => !v).length : 0;
+                  return (
+                    <tr key={c.id} className={i % 2 === 0 ? "bg-white hover:bg-blue-50/30" : "bg-blue-50/20 hover:bg-blue-50/50"} style={{ cursor: 'pointer' }} onClick={() => setSelectedCheck(c)}>
+                      <td className="py-3 px-3 text-xs font-semibold">{format(new Date(c.checked_at), "d/M/yy HH:mm", { locale: th })}</td>
+                      <td className="py-3 px-3 text-xs font-medium">{c.location_name || c.location}</td>
+                      <td className="py-3 px-3 text-center">
+                        <Badge variant={allOk ? "default" : "destructive"} className="rounded-lg text-[11px]">
+                          {allOk ? "✅ ปกติ" : `❌ ${failCount} รายการ`}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-3 text-xs">{c.inspector_name || "-"}</td>
+                      <td className="py-3 px-3 text-xs text-muted-foreground">{c.notes ? c.notes.substring(0, 30) + (c.notes.length > 30 ? "..." : "") : "-"}</td>
+                    </tr>
+                  );
+                })}
+                {(!checks || checks.length === 0) && (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีบันทึกการตรวจ</td>
+                  </tr>
                 )}
-                {c.notes && <p className="text-xs text-muted-foreground border-t pt-2">{c.notes}</p>}
-              </CardContent>
-            </Card>
-          );
-        })}
-        {(!checks || checks.length === 0) && (
-          <Card className="border border-slate-200 shadow-lg rounded-2xl bg-white">
-            <CardContent className="flex flex-col items-center gap-2 py-10">
-              <p className="text-sm text-muted-foreground">ยังไม่มีบันทึกการตรวจ</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Detail Dialog */}
       <Dialog open={!!selectedCheck} onOpenChange={() => setSelectedCheck(null)}>

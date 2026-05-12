@@ -97,24 +97,27 @@ export default function WaterPathogenTab() {
     <div className="space-y-4">
       {/* Stat Cards */}
       <div className="grid grid-cols-3 gap-2 md:gap-3">
-        <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-blue-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <p className="text-xl md:text-2xl font-extrabold text-blue-600">{stats.total}</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">จุดตรวจเดือนนี้</p>
+        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl shadow-lg hover:shadow-xl border-l-4 border-l-blue-500 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-8 -mt-8 backdrop-blur-sm" />
+          <CardContent className="p-4 md:p-5 text-center relative z-10">
+            <p className="text-2xl md:text-3xl font-extrabold text-blue-700">{stats.total}</p>
+            <p className="text-[10px] md:text-xs text-slate-600 font-medium mt-1.5">จุดตรวจเดือนนี้</p>
           </CardContent>
         </Card>
-        <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-emerald-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <CheckCircle className="h-4 w-4 text-emerald-500 mx-auto mb-1" />
-            <p className="text-xl md:text-2xl font-extrabold text-emerald-600">{stats.passed}</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">ผ่านมาตรฐาน</p>
+        <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl shadow-lg hover:shadow-xl border-l-4 border-l-emerald-500 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-8 -mt-8 backdrop-blur-sm" />
+          <CardContent className="p-4 md:p-5 text-center relative z-10">
+            <CheckCircle className="h-5 w-5 text-emerald-600 mx-auto mb-1.5" />
+            <p className="text-2xl md:text-3xl font-extrabold text-emerald-700">{stats.passed}</p>
+            <p className="text-[10px] md:text-xs text-slate-600 font-medium mt-1">ผ่านมาตรฐาน</p>
           </CardContent>
         </Card>
-        <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-red-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <XCircle className="h-4 w-4 text-red-500 mx-auto mb-1" />
-            <p className="text-xl md:text-2xl font-extrabold text-red-600">{stats.found}</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">พบเชื้อ</p>
+        <Card className="bg-gradient-to-br from-red-50 to-rose-50 rounded-3xl shadow-lg hover:shadow-xl border-l-4 border-l-red-500 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-8 -mt-8 backdrop-blur-sm" />
+          <CardContent className="p-4 md:p-5 text-center relative z-10">
+            <XCircle className="h-5 w-5 text-red-600 mx-auto mb-1.5" />
+            <p className="text-2xl md:text-3xl font-extrabold text-red-700">{stats.found}</p>
+            <p className="text-[10px] md:text-xs text-slate-600 font-medium mt-1">พบเชื้อ</p>
           </CardContent>
         </Card>
       </div>

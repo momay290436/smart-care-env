@@ -26,41 +26,45 @@ function KpiCard({ label, value, sub, icon: Icon, trend, trendLabel, onClick, in
   label: string; value: string | number; sub?: string; icon?: any; trend?: "up" | "down" | "neutral";
   trendLabel?: string; onClick?: () => void; index?: number; accent?: string;
 }) {
-  const accentMap: Record<string, string> = {
-    sky: "border-t-sky-500 text-sky-600",
-    teal: "border-t-teal-500 text-teal-600",
-    red: "border-t-red-500 text-red-600",
-    rose: "border-t-rose-500 text-rose-600",
-    cyan: "border-t-cyan-500 text-cyan-600",
-    amber: "border-t-amber-500 text-amber-600",
-    purple: "border-t-purple-500 text-purple-600",
-    emerald: "border-t-emerald-500 text-emerald-600",
+  const accentMap: Record<string, { bg: string; border: string; text: string; icon: string }> = {
+    sky: { bg: "bg-gradient-to-br from-sky-50 to-blue-50", border: "border-l-4 border-l-sky-500", text: "text-sky-700", icon: "text-sky-500" },
+    teal: { bg: "bg-gradient-to-br from-teal-50 to-cyan-50", border: "border-l-4 border-l-teal-500", text: "text-teal-700", icon: "text-teal-500" },
+    red: { bg: "bg-gradient-to-br from-red-50 to-rose-50", border: "border-l-4 border-l-red-500", text: "text-red-700", icon: "text-red-500" },
+    rose: { bg: "bg-gradient-to-br from-rose-50 to-pink-50", border: "border-l-4 border-l-rose-500", text: "text-rose-700", icon: "text-rose-500" },
+    cyan: { bg: "bg-gradient-to-br from-cyan-50 to-blue-50", border: "border-l-4 border-l-cyan-500", text: "text-cyan-700", icon: "text-cyan-500" },
+    amber: { bg: "bg-gradient-to-br from-amber-50 to-yellow-50", border: "border-l-4 border-l-amber-500", text: "text-amber-700", icon: "text-amber-500" },
+    purple: { bg: "bg-gradient-to-br from-purple-50 to-indigo-50", border: "border-l-4 border-l-purple-500", text: "text-purple-700", icon: "text-purple-500" },
+    emerald: { bg: "bg-gradient-to-br from-emerald-50 to-green-50", border: "border-l-4 border-l-emerald-500", text: "text-emerald-700", icon: "text-emerald-500" },
   };
   const colors = accentMap[accent] || accentMap.sky;
-  const [borderClass, textClass] = colors.split(" ");
 
   return (
     <Card
-      className={`bg-white border-t-4 ${borderClass} shadow-card hover:shadow-elevated rounded-2xl transition-all duration-300 animate-slide-up ${onClick ? "cursor-pointer hover:-translate-y-1 active:scale-[0.97]" : ""}`}
+      className={`${colors.bg} ${colors.border} shadow-lg hover:shadow-2xl rounded-3xl transition-all duration-300 animate-slide-up overflow-hidden border-0 ${onClick ? "cursor-pointer hover:-translate-y-2 active:scale-[0.96]" : ""}`}
       style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}
       onClick={onClick}
     >
-      <CardContent className="p-5 min-h-[130px] flex flex-col justify-center">
-        <div className="flex items-start justify-between">
+      <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mr-12 -mt-12 backdrop-blur-sm" />
+      <CardContent className="p-6 min-h-[140px] flex flex-col justify-center relative z-10">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
-            <p className="text-sm font-semibold text-slate-500">{label}</p>
-            <p className={`text-3xl font-extrabold mt-1 ${textClass}`}>{value}</p>
-            {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
+            <p className="text-sm font-semibold text-slate-600 uppercase tracking-wide">{label}</p>
+            <p className={`text-4xl font-extrabold mt-2 ${colors.text}`}>{value}</p>
+            {sub && <p className="text-xs text-slate-600 mt-2 font-medium opacity-75">{sub}</p>}
             {trend && trendLabel && (
-              <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${trend === "up" ? "text-emerald-600" : trend === "down" ? "text-red-500" : "text-muted-foreground"}`}>
-                {trend === "up" ? <TrendingUp className="h-3 w-3" /> : trend === "down" ? <TrendingDown className="h-3 w-3" /> : null}
+              <div className={`flex items-center gap-1 mt-3 text-xs font-semibold ${trend === "up" ? "text-emerald-600" : trend === "down" ? "text-red-600" : "text-slate-600"}`}>
+                {trend === "up" ? <TrendingUp className="h-3.5 w-3.5" /> : trend === "down" ? <TrendingDown className="h-3.5 w-3.5" /> : null}
                 {trendLabel}
               </div>
             )}
           </div>
-          <div className="flex flex-col items-end gap-2">
-            {Icon && <Icon className={`h-6 w-6 ${textClass} opacity-40`} />}
-            {onClick && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          <div className="flex flex-col items-center justify-center">
+            {Icon && (
+              <div className={`p-3 rounded-2xl ${colors.bg} backdrop-blur-sm`}>
+                <Icon className={`h-7 w-7 ${colors.icon} opacity-70`} />
+              </div>
+            )}
+            {onClick && <ChevronRight className="h-4 w-4 text-slate-400 mt-2" />}
           </div>
         </div>
       </CardContent>
@@ -134,10 +138,20 @@ export default function Dashboard() {
   const { data: fireChecks } = useQuery({
     queryKey: ["fire-checks-summary"],
     queryFn: async () => {
-      const { data } = await supabase.from("fire_extinguisher_checks").select("pressure_ok, condition_ok").order("checked_at", { ascending: false }).limit(20);
-      if (!data) return { ok: 0, total: 0, rate: 0 };
-      const ok = data.filter((c) => c.pressure_ok && c.condition_ok).length;
-      return { ok, total: data.length, rate: data.length > 0 ? Math.round((ok / data.length) * 100) : 0 };
+      const { data } = await supabase.from("fire_extinguisher_checks").select("location, pressure_ok, condition_ok, checked_at").order("checked_at", { ascending: false });
+      if (!data || data.length === 0) return { ok: 0, total: 0, rate: 0 };
+      
+      // Get the latest check for each location
+      const latestByLocation: Record<string, any> = {};
+      data.forEach((c) => {
+        if (!latestByLocation[c.location]) {
+          latestByLocation[c.location] = c;
+        }
+      });
+      
+      const checks = Object.values(latestByLocation);
+      const ok = checks.filter((c: any) => c.pressure_ok && c.condition_ok).length;
+      return { ok, total: checks.length, rate: checks.length > 0 ? Math.round((ok / checks.length) * 100) : 0 };
     },
   });
 

@@ -272,40 +272,45 @@ export default function WaterManagement() {
       </PageHeader>
 
       {/* Water Meter Button - TOP on mobile */}
-      <Card className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 rounded-2xl shadow-xl border-0 cursor-pointer hover:shadow-2xl transition-all active:scale-[0.97] ring-2 ring-blue-300/50 animate-pulse-subtle" onClick={() => setShowMeterDialog(true)}>
-        <CardContent className="p-5 md:p-6 flex items-center gap-4">
-          <div className="w-16 h-16 md:w-14 md:h-14 rounded-2xl bg-white/25 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner">
-            <Plus className="h-8 w-8 md:h-7 md:w-7 text-white" />
+      <Card className="bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-500 rounded-3xl shadow-2xl hover:shadow-3xl border-0 cursor-pointer transition-all active:scale-[0.96] ring-1 ring-blue-400/50 animate-pulse-subtle overflow-hidden" onClick={() => setShowMeterDialog(true)}>
+        <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 backdrop-blur-sm" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mb-16 backdrop-blur-sm" />
+        <CardContent className="p-6 md:p-8 flex items-center gap-5 relative z-10">
+          <div className="w-16 h-16 md:w-18 md:h-18 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg hover:bg-white/30 transition-all">
+            <Plus className="h-8 w-8 md:h-9 md:w-9 text-white font-bold" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-lg md:text-xl font-extrabold text-white">📝 บันทึกมิเตอร์น้ำออก</p>
-            <p className="text-sm md:text-base text-white/80 truncate">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
+            <p className="text-lg md:text-xl font-extrabold text-white drop-shadow-sm">📝 บันทึกมิเตอร์น้ำออก</p>
+            <p className="text-sm md:text-base text-white/90 truncate drop-shadow-sm font-medium">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
           </div>
         </CardContent>
       </Card>
 
       {/* Top KPI Cards */}
       <div className="grid grid-cols-3 gap-2 md:gap-3">
-        <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-blue-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <Droplets className="h-5 w-5 md:h-6 md:w-6 text-blue-500 mx-auto mb-1" />
-            <p className="text-xl md:text-2xl font-extrabold text-blue-600">{waterLevel}%</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">ระดับน้ำสำรอง</p>
+        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl shadow-lg hover:shadow-xl border-l-4 border-l-blue-500 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/15 rounded-full -mr-8 -mt-8" />
+          <CardContent className="p-3 md:p-5 text-center relative z-10">
+            <Droplets className="h-6 w-6 md:h-7 md:w-7 text-blue-600 mx-auto mb-1.5" />
+            <p className="text-2xl md:text-3xl font-extrabold text-blue-700">{waterLevel}%</p>
+            <p className="text-[10px] md:text-xs text-slate-600 font-medium mt-1">ระดับน้ำสำรอง</p>
           </CardContent>
         </Card>
-        <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-teal-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <Gauge className="h-5 w-5 md:h-6 md:w-6 text-teal-500 mx-auto mb-1" />
-            <p className="text-xl md:text-2xl font-extrabold text-teal-600">{avgChlorine ?? "-"}</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">คลอรีน (mg/l)</p>
-            <p className="text-[9px] md:text-[10px] text-muted-foreground">เป้าหมาย 0.2-0.5</p>
+        <Card className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-3xl shadow-lg hover:shadow-xl border-l-4 border-l-teal-500 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/15 rounded-full -mr-8 -mt-8" />
+          <CardContent className="p-3 md:p-5 text-center relative z-10">
+            <Gauge className="h-6 w-6 md:h-7 md:w-7 text-teal-600 mx-auto mb-1.5" />
+            <p className="text-2xl md:text-3xl font-extrabold text-teal-700">{avgChlorine ?? "-"}</p>
+            <p className="text-[10px] md:text-xs text-slate-600 font-medium">คลอรีน (mg/l)</p>
+            <p className="text-[9px] md:text-[10px] text-slate-600 font-medium">เป้าหมาย 0.2-0.5</p>
           </CardContent>
         </Card>
-        <Card className="bg-white rounded-2xl shadow-elevated border-0 border-t-4 border-t-emerald-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <AlertTriangle className="h-5 w-5 md:h-6 md:w-6 text-emerald-500 mx-auto mb-1" />
-            <p className="text-xl md:text-2xl font-extrabold text-emerald-600">{normalPoints.normal}/{normalPoints.total}</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">จุดน้ำไหลปกติ</p>
+        <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl shadow-lg hover:shadow-xl border-l-4 border-l-emerald-500 transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/15 rounded-full -mr-8 -mt-8" />
+          <CardContent className="p-3 md:p-5 text-center relative z-10">
+            <AlertTriangle className="h-6 w-6 md:h-7 md:w-7 text-emerald-600 mx-auto mb-1.5" />
+            <p className="text-2xl md:text-3xl font-extrabold text-emerald-700">{normalPoints.normal}/{normalPoints.total}</p>
+            <p className="text-[10px] md:text-xs text-slate-600 font-medium mt-1">จุดน้ำไหลปกติ</p>
           </CardContent>
         </Card>
       </div>

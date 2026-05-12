@@ -24,8 +24,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-50 bg-primary px-3 md:px-5 py-2.5 md:py-3.5 shadow-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2">
+      <header className="sticky top-0 z-50 bg-primary px-3 md:px-6 lg:px-8 py-2.5 md:py-4 shadow-md">
+        <div className="mx-auto flex w-full max-w-full lg:max-w-7xl items-center justify-between gap-2">
           <div
             className={`flex items-center gap-3 transition-opacity ${isSimplified ? "" : "cursor-pointer hover:opacity-80"}`}
             onClick={() => { if (!isSimplified) navigate("/"); }}
@@ -73,7 +73,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-3 md:px-4 pb-20 pt-4 md:pt-6 md:pb-8">
+      <main className="mx-auto w-full max-w-full lg:max-w-7xl flex-1 px-3 md:px-6 lg:px-8 pb-20 pt-4 md:pt-6 md:pb-8">
         <div className="flex justify-end mb-1">
           <span className="text-[10px] text-muted-foreground/60 font-medium tracking-wide">Create by Momay Maneewan</span>
         </div>
