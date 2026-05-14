@@ -84,6 +84,55 @@ function getSheetName(waterType: string) {
   return waterType;
 }
 
+function parseNumber(value: any) {
+  if (value === null || value === undefined) return NaN;
+  const str = `${value}`.replace(/,/g, "").trim();
+  return Number(str);
+}
+
+function isResultMissing(result: any) {
+  return result === null || result === undefined || `${result}`.trim() === "";
+}
+
+function isResultAboveStandard(result: any, standard: string | null) {
+  const value = `${result}`.trim();
+  if (!value || !standard) return false;
+  const parsedResult = parseNumber(value);
+  const std = standard.toString().trim();
+
+  const rangeMatch = std.match(/^([0-9.,]+)\s*[-–]\s*([0-9.,]+)$/);
+  if (rangeMatch) {
+    const min = parseNumber(rangeMatch[1]);
+    const max = parseNumber(rangeMatch[2]);
+    if (!Number.isNaN(min) && !Number.isNaN(max)) {
+      return parsedResult < min || parsedResult > max;
+    }
+  }
+
+  const maxMatch = std.match(/ไม่\s*เกิน\s*([0-9.,]+)/);
+  if (maxMatch) {
+    const max = parseNumber(maxMatch[1]);
+    if (!Number.isNaN(max)) {
+      return parsedResult > max;
+    }
+  }
+
+  const lessThanMatch = std.match(/<\s*([0-9.,]+)/);
+  if (lessThanMatch) {
+    const max = parseNumber(lessThanMatch[1]);
+    if (!Number.isNaN(max)) {
+      return parsedResult >= max;
+    }
+  }
+
+  const noDetectMatch = /ตรวจไม่พบ|ไม่พบ|ต้องตรวจไม่พบ/i.test(std);
+  if (noDetectMatch) {
+    return !/ตรวจไม่พบ|ไม่พบ/i.test(value);
+  }
+
+  return false;
+}
+
 export default function WaterQualityBatchForm() {
   const { user, profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -378,6 +427,13 @@ export default function WaterQualityBatchForm() {
                 <p><span className="font-semibold">วันที่:</span> {format(new Date(selectedBatch.test_date), "d MMMM yyyy", { locale: th })}</p>
                 <p><span className="font-semibold">ผู้บันทึก:</span> {selectedBatch.recorder_name}</p>
               </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-600">
+                <p className="font-semibold">การแจ้งเตือน:</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <span className="rounded-full bg-red-100 px-3 py-1 text-red-900">ผลตรวจเกินมาตรฐาน</span>
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">ยังไม่มีผลตรวจ</span>
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -389,14 +445,32 @@ export default function WaterQualityBatchForm() {
                     </tr>
                   </thead>
                   <tbody>
-                    {batchItems.map((item: any, i: number) => (
-                      <tr key={item.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
-                        <td className="py-1.5 px-2 text-xs">{i + 1}</td>
-                        <td className="py-1.5 px-2 text-xs font-medium">{item.parameter_name}</td>
-                        <td className="py-1.5 px-2 text-center text-xs font-mono">{item.test_result || "-"}</td>
-                        <td className="py-1.5 px-2 text-center text-xs text-muted-foreground">{item.standard_value} {item.unit}</td>
-                      </tr>
-                    ))}
+                    {batchItems.map((item: any, i: number) => {
+                      const missing = isResultMissing(item.test_result);
+                      const above = !missing && isResultAboveStandard(item.test_result, item.standard_value);
+                      return (
+                        <tr
+                          key={item.id}
+                          className={cn(
+                            above ? "bg-red-50" : missing ? "bg-amber-50" : i % 2 === 0 ? "bg-white" : "bg-slate-50/60"
+                          )}
+                        >
+                          <td className="py-1.5 px-2 text-xs">{i + 1}</td>
+                          <td className="py-1.5 px-2 text-xs font-medium">{item.parameter_name}</td>
+                          <td
+                            className={cn(
+                              "py-1.5 px-2 text-center text-xs font-mono rounded-lg",
+                              missing && "bg-amber-100 text-amber-900",
+                              above && "bg-red-100 text-red-900",
+                              !missing && !above && "text-slate-700"
+                            )}
+                          >
+                            {missing ? "-" : item.test_result}
+                          </td>
+                          <td className="py-1.5 px-2 text-center text-xs text-muted-foreground">{item.standard_value} {item.unit}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
