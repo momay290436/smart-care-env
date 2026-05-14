@@ -148,13 +148,13 @@ export default function InfectiousWasteTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex gap-2 items-center flex-wrap">
-          <Input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="w-40 h-10 rounded-2xl" />
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={showAllRecords} onChange={e => setShowAllRecords(e.target.checked)} className="w-4 h-4 rounded" />
+      <div className="flex gap-2 items-center flex-wrap">
+          <Input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="w-40 h-10 rounded-2xl border border-slate-200 bg-slate-50 text-slate-900" />
+          <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <input type="checkbox" checked={showAllRecords} onChange={e => setShowAllRecords(e.target.checked)} className="w-4 h-4 rounded border border-slate-300" />
             ดูข้อมูลทั้งหมด
           </label>
-          <Button size="sm" variant="outline" className="rounded-2xl h-10 gap-1" onClick={handleExport}>
+          <Button size="sm" variant="outline" className="rounded-2xl h-10 gap-1 border border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100" onClick={handleExport}>
             <Download className="h-4 w-4" /> Export
           </Button>
         </div>
