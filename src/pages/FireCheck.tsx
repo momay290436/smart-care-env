@@ -337,18 +337,24 @@ export default function FireCheck() {
       </Card>
 
       {/* History - Table */}
-      <Card className="border border-border/50 shadow-card rounded-3xl bg-white">
+      <Card className="bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden">
         <CardContent className="p-4 md:p-6">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">ประวัติการตรวจถังดับเพลิง</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">ประวัติการตรวจถังดับเพลิง</h3>
+              <p className="text-sm text-slate-500">แสดงข้อมูลแบบตาราง อ่านง่าย คล้ายกับประวัติบันทึกมิเตอร์</p>
+            </div>
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs uppercase tracking-[0.08em]">{checks?.length ?? 0} รายการ</Badge>
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b-2 border-blue-200 bg-blue-50/50">
-                  <th className="text-left py-3 px-3 text-xs font-bold text-blue-700">วันที่</th>
-                  <th className="text-left py-3 px-3 text-xs font-bold text-blue-700">ตำแหน่ง</th>
-                  <th className="text-center py-3 px-3 text-xs font-bold text-blue-700">ผลการตรวจ</th>
-                  <th className="text-left py-3 px-3 text-xs font-bold text-blue-700">ผู้ตรวจ</th>
-                  <th className="text-left py-3 px-3 text-xs font-bold text-blue-700">หมายเหตุ</th>
+                <tr className="border-b-2 border-slate-200 bg-slate-50">
+                  <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">วันที่ / เวลา</th>
+                  <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">ตำแหน่ง</th>
+                  <th className="text-center py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">ผลการตรวจ</th>
+                  <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">ผู้ตรวจ</th>
+                  <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">หมายเหตุ</th>
                 </tr>
               </thead>
               <tbody>
@@ -371,22 +377,22 @@ export default function FireCheck() {
                   const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
                   const failCount = details ? Object.values(details).filter(v => !v).length : 0;
                   return (
-                    <tr key={c.id} className={i % 2 === 0 ? "bg-white hover:bg-blue-50/30" : "bg-blue-50/20 hover:bg-blue-50/50"} style={{ cursor: 'pointer' }} onClick={() => setSelectedCheck(c)}>
-                      <td className="py-3 px-3 text-xs font-semibold">{format(new Date(c.checked_at), "d/M/yy HH:mm", { locale: th })}</td>
-                      <td className="py-3 px-3 text-xs font-medium">{c.location_name || c.location}</td>
+                    <tr key={c.id} className={`${i % 2 === 0 ? "bg-white" : "bg-slate-50"} hover:bg-slate-100 transition-colors cursor-pointer`} onClick={() => setSelectedCheck(c)}>
+                      <td className="py-3 px-3 text-xs text-slate-700 font-medium whitespace-nowrap">{format(new Date(c.checked_at), "d MMM yy HH:mm", { locale: th })}</td>
+                      <td className="py-3 px-3 text-sm font-semibold text-slate-900">{c.location_name || c.location}</td>
                       <td className="py-3 px-3 text-center">
-                        <Badge variant={allOk ? "default" : "destructive"} className="rounded-lg text-[11px]">
-                          {allOk ? "✅ ปกติ" : `❌ ${failCount} รายการ`}
+                        <Badge variant={allOk ? "default" : "destructive"} className="rounded-full px-3 py-1 text-[11px] font-semibold">
+                          {allOk ? "ปกติ" : `พบปัญหา ${failCount}`}
                         </Badge>
                       </td>
-                      <td className="py-3 px-3 text-xs">{c.inspector_name || "-"}</td>
-                      <td className="py-3 px-3 text-xs text-muted-foreground">{c.notes ? c.notes.substring(0, 30) + (c.notes.length > 30 ? "..." : "") : "-"}</td>
+                      <td className="py-3 px-3 text-sm text-slate-700">{c.inspector_name || "-"}</td>
+                      <td className="py-3 px-3 text-sm text-slate-600">{c.notes ? c.notes.substring(0, 60) + (c.notes.length > 60 ? "..." : "") : "-"}</td>
                     </tr>
                   );
                 })}
                 {(!checks || checks.length === 0) && (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีบันทึกการตรวจ</td>
+                    <td colSpan={5} className="py-10 text-center text-sm text-slate-500">ยังไม่มีบันทึกการตรวจ</td>
                   </tr>
                 )}
               </tbody>

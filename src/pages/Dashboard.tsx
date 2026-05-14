@@ -38,35 +38,6 @@ function MetricPanel({ label, value, sub, note, icon: Icon, onClick, accent = "s
   const colors = accentMap[accent] || accentMap.sky;
 
   return (
-<<<<<<< HEAD
-    <Card
-      className={`${colors.bg} ${colors.border} shadow-lg hover:shadow-2xl rounded-3xl transition-all duration-300 animate-slide-up overflow-hidden border-0 ${onClick ? "cursor-pointer hover:-translate-y-2 active:scale-[0.96]" : ""}`}
-      style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}
-      onClick={onClick}
-    >
-      <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mr-12 -mt-12 backdrop-blur-sm" />
-      <CardContent className="p-6 min-h-[140px] flex flex-col justify-center relative z-10">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-slate-600 uppercase tracking-wide">{label}</p>
-            <p className={`text-4xl font-extrabold mt-2 ${colors.text}`}>{value}</p>
-            {sub && <p className="text-xs text-slate-600 mt-2 font-medium opacity-75">{sub}</p>}
-            {trend && trendLabel && (
-              <div className={`flex items-center gap-1 mt-3 text-xs font-semibold ${trend === "up" ? "text-emerald-600" : trend === "down" ? "text-red-600" : "text-slate-600"}`}>
-                {trend === "up" ? <TrendingUp className="h-3.5 w-3.5" /> : trend === "down" ? <TrendingDown className="h-3.5 w-3.5" /> : null}
-                {trendLabel}
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col items-center justify-center">
-            {Icon && (
-              <div className={`p-3 rounded-2xl ${colors.bg} backdrop-blur-sm`}>
-                <Icon className={`h-7 w-7 ${colors.icon} opacity-70`} />
-              </div>
-            )}
-            {onClick && <ChevronRight className="h-4 w-4 text-slate-400 mt-2" />}
-          </div>
-=======
     <div
       className={`rounded-3xl border ${colors.border} ${colors.bg} p-5 transition hover:shadow-md ${onClick ? "cursor-pointer" : ""}`}
       onClick={onClick}
@@ -77,7 +48,6 @@ function MetricPanel({ label, value, sub, note, icon: Icon, onClick, accent = "s
           <p className={`mt-3 text-4xl font-extrabold tracking-tight ${colors.text}`}>{value}</p>
           {sub && <p className="mt-3 text-sm text-slate-600">{sub}</p>}
           {note && <p className="mt-2 text-xs text-slate-500">{note}</p>}
->>>>>>> 7ae2e01dcbc80077dbfadb160488f6c9b512c270
         </div>
         {Icon && <Icon className={`h-7 w-7 ${colors.icon} opacity-80`} />}
       </div>

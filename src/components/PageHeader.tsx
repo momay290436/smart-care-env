@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-=======
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Home } from "lucide-react";
-
->>>>>>> 7ae2e01dcbc80077dbfadb160488f6c9b512c270
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
@@ -30,7 +23,6 @@ export default function PageHeader({ title, subtitle, children }: PageHeaderProp
           </div>
         )}
       </div>
-<<<<<<< HEAD
 
       {/* Desktop: side-by-side */}
       <div className="relative hidden md:flex items-center justify-between gap-4">
@@ -40,8 +32,6 @@ export default function PageHeader({ title, subtitle, children }: PageHeaderProp
         </div>
         {children && <div className="flex items-center gap-2 flex-shrink-0">{children}</div>}
       </div>
-=======
->>>>>>> 7ae2e01dcbc80077dbfadb160488f6c9b512c270
     </div>
   );
 }
