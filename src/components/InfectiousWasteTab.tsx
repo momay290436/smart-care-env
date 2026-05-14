@@ -20,7 +20,7 @@ import * as XLSX from "xlsx";
 
 const HEALTH_CENTERS = [
   "รพ.สต.โป่งปูเฟือง", "รพ.สต.โป่งกลางน้ำ", "รพ.สต.ทุ่งพร้าว", "รพ.สต.ห้วยไคร้",
-  "รพ.สต.วาวี", "รพ.สต.บ้านดอยช้าง", "รพ.สต.แม่สรวย", "รพ.สต.เจดีย์หลวง",
+  "รพ.สต.วาวี", "รพ.สต.บ้านดอยช้าง", "รพ.สต.แม่สรวย", "โรงพยาบาลแม่สรวย", "รพ.สต.เจดีย์หลวง",
   "รพ.สต.ศรีถ้อย", "รพ.สต.ห้วยน้ำขุ่น", "รพ.สต.ท่าก๊อ", "รพ.สต.ป่าแดด",
 ];
 
@@ -187,15 +187,15 @@ export default function InfectiousWasteTab() {
 
       {/* Add form dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-lg rounded-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl rounded-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>บันทึกการจัดเก็บขยะติดเชื้อ</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <Label className="text-sm font-semibold">วันที่รับขยะ *</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full h-11 rounded-2xl justify-start", !collectionDate && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start", !collectionDate && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {collectionDate ? format(collectionDate, "d MMM yy", { locale: th }) : "เลือก"}
                     </Button>
@@ -207,7 +207,7 @@ export default function InfectiousWasteTab() {
                 <Label className="text-sm font-semibold">วันที่ส่งต่อ ม.แม่ฟ้าหลวง</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full h-11 rounded-2xl justify-start", !transferDate && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start", !transferDate && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {transferDate ? format(transferDate, "d MMM yy", { locale: th }) : "เลือก"}
                     </Button>
@@ -226,27 +226,27 @@ export default function InfectiousWasteTab() {
                       {rows.length > 1 && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeRow(i)}><Trash2 className="h-3.5 w-3.5" /></Button>}
                     </div>
                     <Select value={row.health_center_name} onValueChange={(v) => updateRow(i, "health_center_name", v)}>
-                      <SelectTrigger className="h-10 rounded-xl text-sm"><SelectValue placeholder="เลือก รพ.สต." /></SelectTrigger>
+                      <SelectTrigger className="h-12 rounded-xl text-sm"><SelectValue placeholder="เลือก รพ.สต. / โรงพยาบาล" /></SelectTrigger>
                       <SelectContent>{HEALTH_CENTERS.map(hc => <SelectItem key={hc} value={hc}>{hc}</SelectItem>)}</SelectContent>
                     </Select>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
                       <div>
-                        <Label className="text-[10px]">มีคม (กก.)</Label>
-                        <Input type="number" step="0.1" min="0" value={row.sharp_waste_kg} onChange={e => updateRow(i, "sharp_waste_kg", e.target.value)} className="h-9 rounded-xl text-sm" />
+                        <Label className="text-xs font-semibold">มีคม (กก.)</Label>
+                        <Input type="number" step="0.1" min="0" value={row.sharp_waste_kg} onChange={e => updateRow(i, "sharp_waste_kg", e.target.value)} className="h-12 rounded-xl text-sm" />
                       </div>
                       <div>
-                        <Label className="text-[10px]">ไม่มีคม (กก.)</Label>
-                        <Input type="number" step="0.1" min="0" value={row.non_sharp_waste_kg} onChange={e => updateRow(i, "non_sharp_waste_kg", e.target.value)} className="h-9 rounded-xl text-sm" />
+                        <Label className="text-xs font-semibold">ไม่มีคม (กก.)</Label>
+                        <Input type="number" step="0.1" min="0" value={row.non_sharp_waste_kg} onChange={e => updateRow(i, "non_sharp_waste_kg", e.target.value)} className="h-12 rounded-xl text-sm" />
                       </div>
                       <div>
-                        <Label className="text-[10px]">ผู้นำส่ง</Label>
-                        <Input value={row.delivered_by} onChange={e => updateRow(i, "delivered_by", e.target.value)} className="h-9 rounded-xl text-sm" placeholder="ชื่อ" />
+                        <Label className="text-xs font-semibold">ผู้นำส่ง</Label>
+                        <Input value={row.delivered_by} onChange={e => updateRow(i, "delivered_by", e.target.value)} className="h-12 rounded-xl text-sm" placeholder="ชื่อ" />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               ))}
-              <Button variant="outline" className="w-full rounded-2xl h-10 text-sm" onClick={addRow}><Plus className="h-4 w-4 mr-1" /> เพิ่มรายการ</Button>
+              <Button variant="outline" className="w-full rounded-2xl h-12 text-sm" onClick={addRow}><Plus className="h-4 w-4 mr-1" /> เพิ่มรายการ</Button>
             </div>
 
             <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
