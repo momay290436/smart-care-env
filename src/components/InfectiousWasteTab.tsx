@@ -51,10 +51,11 @@ export default function InfectiousWasteTab() {
   });
 
   const filteredRecords = useMemo(() => {
+    if (!filterMonth) return records;
     return records.filter((r: any) => {
       const dateToCheck = r.collection_date || r.transfer_date || r.created_at;
       if (!dateToCheck) return true;
-      return dateToCheck.startsWith(filterMonth);
+      return String(dateToCheck).startsWith(filterMonth);
     });
   }, [records, filterMonth]);
 
