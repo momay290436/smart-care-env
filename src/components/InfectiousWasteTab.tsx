@@ -41,6 +41,7 @@ export default function InfectiousWasteTab() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<any>(null);
   const [filterMonth, setFilterMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [showAllRecords, setShowAllRecords] = useState(false);
 
   const { data: records = [] } = useQuery({
     queryKey: ["infectious-waste"],
@@ -51,14 +52,15 @@ export default function InfectiousWasteTab() {
   });
 
   const filteredRecords = useMemo(() => {
+    if (showAllRecords) return records;
     if (!filterMonth) return records;
     return records.filter((r: any) => {
       const dateToCheck = r.collection_date || r.transfer_date || r.created_at;
-      if (!dateToCheck) return true;
+      if (!dateToCheck) return false;
       const dateStr = String(dateToCheck).substring(0, 7);
       return dateStr === filterMonth;
     });
-  }, [records, filterMonth]);
+  }, [records, filterMonth, showAllRecords]);
 
   const addRow = () => setRows([...rows, { health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "" }]);
   const removeRow = (i: number) => setRows(rows.filter((_, idx) => idx !== i));
@@ -73,8 +75,9 @@ export default function InfectiousWasteTab() {
       if (!user) throw new Error("ไม่สามารถบันทึกได้");
       const validRows = rows.filter(r => r.health_center_name?.trim());
       if (validRows.length === 0) throw new Error("กรุณากรอกชื่อหน่วยงานอย่างน้อย 1 รายการ");
+      if (!collectionDate) throw new Error("กรุณาเลือกวันที่รับขยะ");
       const inserts = validRows.map(r => ({
-        collection_date: collectionDate ? format(collectionDate, "yyyy-MM-dd") : null,
+        collection_date: format(collectionDate, "yyyy-MM-dd"),
         transfer_date: transferDate ? format(transferDate, "yyyy-MM-dd") : null,
         health_center_name: r.health_center_name?.trim() || null,
         sharp_waste_kg: r.sharp_waste_kg ? parseFloat(r.sharp_waste_kg) : null,
@@ -145,8 +148,12 @@ export default function InfectiousWasteTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <Input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="w-40 h-10 rounded-2xl" />
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={showAllRecords} onChange={e => setShowAllRecords(e.target.checked)} className="w-4 h-4 rounded" />
+            ดูข้อมูลทั้งหมด
+          </label>
           <Button size="sm" variant="outline" className="rounded-2xl h-10 gap-1" onClick={handleExport}>
             <Download className="h-4 w-4" /> Export
           </Button>
@@ -198,7 +205,7 @@ export default function InfectiousWasteTab() {
           <div className="space-y-5">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <Label className="text-sm font-semibold">วันที่รับขยะ</Label>
+                <Label className="text-sm font-semibold">วันที่รับขยะ *</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start", !collectionDate && "text-muted-foreground")}>
