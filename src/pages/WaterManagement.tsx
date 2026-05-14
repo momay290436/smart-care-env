@@ -67,7 +67,7 @@ export default function WaterManagement() {
   const { data: qualityLogs = [] } = useQuery({
     queryKey: ["water-quality-logs"],
     queryFn: async () => {
-      const { data } = await supabase.from("water_quality_logs").select("*").order("created_at", { ascending: false }).limit(100);
+      const { data } = await supabase.from("water_quality_logs").select("*").is("disinfectant_name", null).order("created_at", { ascending: false }).limit(100);
       return data || [];
     },
   });
@@ -83,14 +83,14 @@ export default function WaterManagement() {
   const { data: disinfectantLogs = [] } = useQuery({
     queryKey: ["water-disinfectant-logs"],
     queryFn: async () => {
-      const { data } = await supabase.from("water_disinfectant_logs").select("*").order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
+      const { data } = await supabase.from("water_quality_logs").select("*").not("disinfectant_name", "is", null).order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
       return data || [];
     },
   });
 
   const safeInsertDisinfectant = async (payload: any) => {
     const attemptInsert = async () => {
-      const { error } = await supabase.from("water_disinfectant_logs").insert(payload);
+      const { error } = await supabase.from("water_quality_logs").insert(payload);
       return error;
     };
 
@@ -324,13 +324,14 @@ export default function WaterManagement() {
       const status = passSource && passOutlet ? "pass" : "fail";
       const error = await safeInsertDisinfectant({
         check_date: checkDate,
+        check_point: "สารเคมีกำจัดเชื้อโรค",
         check_time: checkTime,
         disinfectant_name: "คลอรีน",
         source_concentration: sourceConcentration,
         source_ph: sourcePh,
         outlet_concentration: outletConcentration,
         outlet_ph: outletPh,
-        inspector_id: user.id,
+        recorded_by: user.id,
         inspector_name: profile?.full_name || "",
         notes: disinfectantForm.notes || null,
         status,

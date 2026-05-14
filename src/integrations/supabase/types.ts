@@ -1573,36 +1573,57 @@ export type Database = {
         Row: {
           check_date: string
           check_point: string
+          check_time: string | null
           chlorine_value: number | null
           created_at: string
+          disinfectant_name: string | null
           id: string
+          inspector_name: string | null
           notes: string | null
+          outlet_concentration: number | null
+          outlet_ph: number | null
           ph_value: number | null
           recorded_by: string
+          source_concentration: number | null
+          source_ph: number | null
           status: string
           turbidity_value: number | null
         }
         Insert: {
           check_date?: string
           check_point?: string
+          check_time?: string | null
           chlorine_value?: number | null
           created_at?: string
+          disinfectant_name?: string | null
           id?: string
+          inspector_name?: string | null
           notes?: string | null
+          outlet_concentration?: number | null
+          outlet_ph?: number | null
           ph_value?: number | null
           recorded_by: string
+          source_concentration?: number | null
+          source_ph?: number | null
           status?: string
           turbidity_value?: number | null
         }
         Update: {
           check_date?: string
           check_point?: string
+          check_time?: string | null
           chlorine_value?: number | null
           created_at?: string
+          disinfectant_name?: string | null
           id?: string
+          inspector_name?: string | null
           notes?: string | null
+          outlet_concentration?: number | null
+          outlet_ph?: number | null
           ph_value?: number | null
           recorded_by?: string
+          source_concentration?: number | null
+          source_ph?: number | null
           status?: string
           turbidity_value?: number | null
         }
