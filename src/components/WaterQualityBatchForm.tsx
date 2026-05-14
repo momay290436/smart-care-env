@@ -114,6 +114,16 @@ function getSheetName(waterType: string) {
   return waterType;
 }
 
+function parseReportPeriod(period: string) {
+  const [monthStr, yearStr] = (period || "").split("/").map((v) => v.trim());
+  const month = Number(monthStr) || 0;
+  let year = Number(yearStr) || 0;
+  if (year > 0 && year < 100) {
+    year += 2500;
+  }
+  return { year, month };
+}
+
 function parseNumber(value: any) {
   if (value === null || value === undefined) return NaN;
   const str = `${value}`.replace(/,/g, "").trim();
@@ -264,7 +274,7 @@ export default function WaterQualityBatchForm() {
         ws.getCell("A2").value = "ยังไม่มีข้อมูล";
         continue;
       }
-      const paramList = getParamsForType(wt);
+      const paramList = flattenParams(getParamsForType(wt));
       // Fetch all items for these batches
       const batchIds = wtBatches.map((b: any) => b.id);
       let allItems: any[] = [];
@@ -273,6 +283,12 @@ export default function WaterQualityBatchForm() {
         allItems = data || [];
       }
       const ws = workbook.addWorksheet(sheetName);
+      wtBatches.sort((a: any, b: any) => {
+        const aPeriod = parseReportPeriod(a.report_period);
+        const bPeriod = parseReportPeriod(b.report_period);
+        if (aPeriod.year !== bPeriod.year) return aPeriod.year - bPeriod.year;
+        return aPeriod.month - bPeriod.month;
+      });
       // Title row
       const titleText = wt === "wastewater" ? "ผลการตรวจวิเคราะห์คุณภาพน้ำทิ้ง" : wt === "tap_water" ? "ผลการตรวจวิเคราะห์คุณภาพน้ำประปา" : "ผลการตรวจวิเคราะห์กากตะกอน";
       ws.mergeCells(1, 1, 1, 3 + wtBatches.length + 2);
@@ -299,7 +315,7 @@ export default function WaterQualityBatchForm() {
       paramList.forEach((param, pIdx) => {
         const row = ws.getRow(3 + pIdx);
         row.getCell(1).value = pIdx + 1;
-        row.getCell(2).value = param.name;
+        row.getCell(2).value = param.displayName || param.name;
         wtBatches.forEach((batch: any, bIdx: number) => {
           const item = allItems.find((it: any) => it.batch_id === batch.id && it.parameter_name === param.name);
           row.getCell(3 + bIdx).value = item?.test_result || "";
