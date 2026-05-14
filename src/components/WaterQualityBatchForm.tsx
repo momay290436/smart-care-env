@@ -66,8 +66,24 @@ const TAP_WATER_PARAMS = [
 ];
 
 const SLUDGE_PARAMS = [
-  { name: "ไข่หนอนพยาธิ", standard: "<1 ฟอง/กรัม (น้ำหนักแห้ง)", unit: "" },
-  { name: "E. coli", standard: "<1,000 MPN/กรัม (น้ำหนักแห้ง)", unit: "" },
+  {
+    name: "ไข่หนอนพยาธิ",
+    standard: "<1 ฟอง/กรัม (น้ำหนักแห้ง)",
+    unit: "",
+    subtests: [
+      { label: "น้ำทิ้ง", suffix: " (น้ำทิ้ง)" },
+      { label: "กากตะกอน", suffix: " (กากตะกอน)" },
+    ],
+  },
+  {
+    name: "E. coli",
+    standard: "<1,000 MPN/กรัม (น้ำหนักแห้ง)",
+    unit: "",
+    subtests: [
+      { label: "น้ำทิ้ง", suffix: " (น้ำทิ้ง)" },
+      { label: "กากตะกอน", suffix: " (กากตะกอน)" },
+    ],
+  },
 ];
 
 function getParamsForType(waterType: string) {
@@ -75,6 +91,20 @@ function getParamsForType(waterType: string) {
   if (waterType === "tap_water") return TAP_WATER_PARAMS;
   if (waterType === "sludge") return SLUDGE_PARAMS;
   return [];
+}
+
+function flattenParams(params: any[]) {
+  return params.flatMap((p) => {
+    if (p.subtests) {
+      return p.subtests.map((sub: any) => ({
+        name: `${p.name}${sub.suffix}`,
+        displayName: `${p.name} - ${sub.label}`,
+        standard: p.standard,
+        unit: p.unit,
+      }));
+    }
+    return [{ name: p.name, displayName: p.name, standard: p.standard, unit: p.unit }];
+  });
 }
 
 function getSheetName(waterType: string) {
@@ -161,7 +191,7 @@ export default function WaterQualityBatchForm() {
     return batches.filter((b: any) => b.water_type === filterType);
   }, [batches, filterType]);
 
-  const params = getParamsForType(waterType);
+  const params = useMemo(() => flattenParams(getParamsForType(waterType)), [waterType]);
 
   const saveBatch = useMutation({
     mutationFn: async () => {
@@ -310,14 +340,17 @@ export default function WaterQualityBatchForm() {
         </Button>
       </div>
 
-      <div className="flex gap-2">
-        <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="h-10 w-36 rounded-2xl text-sm"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">ทุกประเภท</SelectItem>
-            {WATER_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">กรองข้อมูลตามประเภทแหล่งน้ำ</span>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="h-10 w-44 rounded-2xl text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกประเภท</SelectItem>
+              {WATER_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         <Badge variant="secondary" className="h-10 px-4 flex items-center rounded-2xl">{filteredBatches.length} รายการ</Badge>
       </div>
 
@@ -390,7 +423,7 @@ export default function WaterQualityBatchForm() {
                   <div key={p.name} className="flex items-center gap-2 p-2 rounded-xl bg-slate-50">
                     <span className="text-xs font-medium w-6 text-center text-muted-foreground">{i + 1}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate">{p.name}</p>
+                      <p className="text-xs font-semibold truncate">{p.displayName}</p>
                       <p className="text-[10px] text-muted-foreground">มาตรฐาน: {p.standard} {p.unit}</p>
                     </div>
                     <Input
@@ -486,10 +519,10 @@ export default function WaterQualityBatchForm() {
           {editBatch && (
             <div className="space-y-3">
               <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-                {getParamsForType(editBatch.water_type).map((p, i) => (
+                {flattenParams(getParamsForType(editBatch.water_type)).map((p, i) => (
                   <div key={p.name} className="flex items-center gap-2 p-2 rounded-xl bg-slate-50">
                     <span className="text-xs font-medium w-6 text-center text-muted-foreground">{i + 1}</span>
-                    <p className="flex-1 text-xs font-semibold truncate">{p.name}</p>
+                    <p className="flex-1 text-xs font-semibold truncate">{p.displayName}</p>
                     <Input
                       value={editValues[p.name] || ""}
                       onChange={(e) => setEditValues({ ...editValues, [p.name]: e.target.value })}
