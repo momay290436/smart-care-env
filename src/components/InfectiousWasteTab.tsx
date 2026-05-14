@@ -55,7 +55,8 @@ export default function InfectiousWasteTab() {
     return records.filter((r: any) => {
       const dateToCheck = r.collection_date || r.transfer_date || r.created_at;
       if (!dateToCheck) return true;
-      return String(dateToCheck).startsWith(filterMonth);
+      const dateStr = String(dateToCheck).substring(0, 7);
+      return dateStr === filterMonth;
     });
   }, [records, filterMonth]);
 
@@ -69,16 +70,16 @@ export default function InfectiousWasteTab() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !collectionDate) throw new Error("กรุณาเลือกวันที่");
-      const validRows = rows.filter(r => r.health_center_name);
-      if (validRows.length === 0) throw new Error("กรุณากรอกข้อมูลอย่างน้อย 1 รายการ");
+      if (!user) throw new Error("ไม่สามารถบันทึกได้");
+      const validRows = rows.filter(r => r.health_center_name?.trim());
+      if (validRows.length === 0) throw new Error("กรุณากรอกชื่อหน่วยงานอย่างน้อย 1 รายการ");
       const inserts = validRows.map(r => ({
-        collection_date: format(collectionDate, "yyyy-MM-dd"),
+        collection_date: collectionDate ? format(collectionDate, "yyyy-MM-dd") : null,
         transfer_date: transferDate ? format(transferDate, "yyyy-MM-dd") : null,
-        health_center_name: r.health_center_name,
-        sharp_waste_kg: parseFloat(r.sharp_waste_kg) || 0,
-        non_sharp_waste_kg: parseFloat(r.non_sharp_waste_kg) || 0,
-        delivered_by: r.delivered_by || null,
+        health_center_name: r.health_center_name?.trim() || null,
+        sharp_waste_kg: r.sharp_waste_kg ? parseFloat(r.sharp_waste_kg) : null,
+        non_sharp_waste_kg: r.non_sharp_waste_kg ? parseFloat(r.non_sharp_waste_kg) : null,
+        delivered_by: r.delivered_by?.trim() || null,
         recorded_by: user.id,
       }));
       const { error } = await supabase.from("infectious_waste_records").insert(inserts);
@@ -197,7 +198,7 @@ export default function InfectiousWasteTab() {
           <div className="space-y-5">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <Label className="text-sm font-semibold">วันที่รับขยะ *</Label>
+                <Label className="text-sm font-semibold">วันที่รับขยะ</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start", !collectionDate && "text-muted-foreground")}>
