@@ -45,13 +45,17 @@ export default function InfectiousWasteTab() {
   const { data: records = [] } = useQuery({
     queryKey: ["infectious-waste"],
     queryFn: async () => {
-      const { data } = await supabase.from("infectious_waste_records").select("*").order("collection_date", { ascending: false }).limit(500);
+      const { data } = await supabase.from("infectious_waste_records").select("*").order("created_at", { ascending: false }).limit(500);
       return data || [];
     },
   });
 
   const filteredRecords = useMemo(() => {
-    return records.filter((r: any) => r.collection_date?.startsWith(filterMonth));
+    return records.filter((r: any) => {
+      const dateToCheck = r.collection_date || r.transfer_date || r.created_at;
+      if (!dateToCheck) return true;
+      return dateToCheck.startsWith(filterMonth);
+    });
   }, [records, filterMonth]);
 
   const addRow = () => setRows([...rows, { health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "" }]);
