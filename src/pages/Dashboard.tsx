@@ -25,31 +25,38 @@ const CHART_COLORS = ["#0097a7", "#26a69a", "#42a5f5", "#ef5350", "#ffa726", "#a
 function MetricPanel({ label, value, sub, note, icon: Icon, onClick, accent = "sky" }: {
   label: string; value: string | number; sub?: string; note?: string; icon?: any; onClick?: () => void; accent?: string;
 }) {
-  const accentMap: Record<string, { bg: string; border: string; text: string; icon: string }> = {
-    sky: { bg: "bg-gradient-to-br from-sky-50 to-blue-50", border: "border-l-4 border-l-sky-500", text: "text-sky-700", icon: "text-sky-500" },
-    teal: { bg: "bg-gradient-to-br from-teal-50 to-cyan-50", border: "border-l-4 border-l-teal-500", text: "text-teal-700", icon: "text-teal-500" },
-    red: { bg: "bg-gradient-to-br from-red-50 to-rose-50", border: "border-l-4 border-l-red-500", text: "text-red-700", icon: "text-red-500" },
-    rose: { bg: "bg-gradient-to-br from-rose-50 to-pink-50", border: "border-l-4 border-l-rose-500", text: "text-rose-700", icon: "text-rose-500" },
-    cyan: { bg: "bg-gradient-to-br from-cyan-50 to-blue-50", border: "border-l-4 border-l-cyan-500", text: "text-cyan-700", icon: "text-cyan-500" },
-    amber: { bg: "bg-gradient-to-br from-amber-50 to-yellow-50", border: "border-l-4 border-l-amber-500", text: "text-amber-700", icon: "text-amber-500" },
-    purple: { bg: "bg-gradient-to-br from-purple-50 to-indigo-50", border: "border-l-4 border-l-purple-500", text: "text-purple-700", icon: "text-purple-500" },
-    emerald: { bg: "bg-gradient-to-br from-emerald-50 to-green-50", border: "border-l-4 border-l-emerald-500", text: "text-emerald-700", icon: "text-emerald-500" },
+  const accentMap: Record<string, { iconBg: string; iconColor: string; text: string }> = {
+    sky: { iconBg: "bg-blue-500", iconColor: "text-white", text: "text-slate-700" },
+    teal: { iconBg: "bg-teal-500", iconColor: "text-white", text: "text-slate-700" },
+    red: { iconBg: "bg-red-500", iconColor: "text-white", text: "text-slate-700" },
+    rose: { iconBg: "bg-rose-500", iconColor: "text-white", text: "text-slate-700" },
+    cyan: { iconBg: "bg-cyan-500", iconColor: "text-white", text: "text-slate-700" },
+    amber: { iconBg: "bg-amber-500", iconColor: "text-white", text: "text-slate-700" },
+    purple: { iconBg: "bg-purple-500", iconColor: "text-white", text: "text-slate-700" },
+    emerald: { iconBg: "bg-emerald-500", iconColor: "text-white", text: "text-slate-700" },
+    green: { iconBg: "bg-green-500", iconColor: "text-white", text: "text-slate-700" },
   };
   const colors = accentMap[accent] || accentMap.sky;
 
   return (
     <div
-      className={`rounded-3xl border ${colors.border} ${colors.bg} p-5 transition hover:shadow-md ${onClick ? "cursor-pointer" : ""}`}
+      className={`bg-white rounded-xl p-6 transition hover:shadow-lg border border-slate-100 ${onClick ? "cursor-pointer" : ""}`}
       onClick={onClick}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-[0.25em] font-semibold text-slate-500">{label}</p>
-          <p className={`mt-3 text-4xl font-extrabold tracking-tight ${colors.text}`}>{value}</p>
-          {sub && <p className="mt-3 text-sm text-slate-600">{sub}</p>}
-          {note && <p className="mt-2 text-xs text-slate-500">{note}</p>}
+      <div className="flex flex-col gap-4">
+        {Icon && (
+          <div className={`w-14 h-14 rounded-xl ${colors.iconBg} flex items-center justify-center`}>
+            <Icon className={`h-7 w-7 ${colors.iconColor}`} />
+          </div>
+        )}
+        <div>
+          <h3 className="text-base font-bold text-slate-800">{label}</h3>
+          <p className="text-sm text-slate-600 mt-2">{sub}</p>
+          {note && <p className="text-xs text-slate-500 mt-1">{note}</p>}
         </div>
-        {Icon && <Icon className={`h-7 w-7 ${colors.icon} opacity-80`} />}
+        <div className="mt-auto pt-2">
+          <p className="text-xs text-teal-500 font-medium">เพิ่มเติม →</p>
+        </div>
       </div>
     </div>
   );
@@ -278,7 +285,7 @@ export default function Dashboard() {
             onClick={() => navigate("/hazmat")}
           />
           <MetricPanel
-            label="ปัญหาค้างแขวน"
+            label="ปัญหาที่ต้องจัดการ"
             value={(issueStats?.pending ?? 0) + (issueStats?.in_progress ?? 0)}
             sub={`รอ ${issueStats?.pending ?? 0} | ดำเนินการ ${issueStats?.in_progress ?? 0}`}
             note={`แก้ไขแล้ว ${issueStats?.resolved ?? 0}`}
