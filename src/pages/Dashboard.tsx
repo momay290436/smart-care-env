@@ -22,6 +22,21 @@ type WasteFilter = "day" | "week" | "month" | "custom";
 
 const CHART_COLORS = ["#0097a7", "#26a69a", "#42a5f5", "#ef5350", "#ffa726", "#ab47bc", "#66bb6a", "#ec407a"];
 
+const WASTE_FORECAST_COST_PER_KG: Record<string, number> = {
+  general: 2,
+  infectious: 15,
+  recycle: 1,
+  hazardous: 25,
+  organic: 3,
+  other: 10,
+};
+
+function addMonths(date: Date, months: number) {
+  const next = new Date(date.getTime());
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
 function MetricPanel({ label, value, sub, note, icon: Icon, onClick, accent = "sky" }: {
   label: string; value: string | number; sub?: string; note?: string; icon?: any; onClick?: () => void; accent?: string;
 }) {
@@ -70,6 +85,8 @@ export default function Dashboard() {
   const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
   const [customTo, setCustomTo] = useState<Date | undefined>(undefined);
   const [drilldown, setDrilldown] = useState<string | null>(null);
+  const [forecastType, setForecastType] = useState<string>("general");
+  const [forecastHorizon, setForecastHorizon] = useState<3 | 6 | 12>(3);
 
   const wasteRange = useMemo(() => {
     const now = new Date();
@@ -81,6 +98,28 @@ export default function Dashboard() {
     }
     return { from: subDays(now, 30).toISOString(), to: now.toISOString() };
   }, [wasteFilter, customFrom, customTo]);
+
+  const { data: wasteHistory } = useQuery({
+    queryKey: ["waste-history"],
+    queryFn: async () => {
+      const { data } = await supabase.from("waste_logs").select("waste_type, weight, created_at").order("created_at", { ascending: true }).limit(1000);
+      return data || [];
+    },
+  });
+
+  const { data: waterStats } = useQuery({
+    queryKey: ["water-kpi"],
+    queryFn: async () => {
+      const [meterResponse, qualityResponse] = await Promise.all([
+        supabase.from("water_meter_records").select("record_date, usage_amount").order("record_date", { ascending: true }).limit(500),
+        supabase.from("water_quality_logs").select("status, check_date").order("check_date", { ascending: false }).limit(200),
+      ]);
+      return {
+        meterRecords: meterResponse.data || [],
+        qualityLogs: qualityResponse.data || [],
+      };
+    },
+  });
 
   const { data: repairStats } = useQuery({
     queryKey: ["repair-stats"],
@@ -204,6 +243,87 @@ export default function Dashboard() {
       return { byType, byDay, total: Number(total.toFixed(2)), allTypes };
     },
   });
+
+  const wasteTypes = useMemo(() => {
+    const types = new Set<string>();
+    (wasteHistory || []).forEach((r: any) => { if (r.waste_type) types.add(r.waste_type); });
+    return Array.from(types);
+  }, [wasteHistory]);
+
+  const selectedForecastType = wasteTypes.includes(forecastType) ? forecastType : wasteTypes[0] || "general";
+
+  const wasteForecast = useMemo(() => {
+    const history = wasteHistory || [];
+    const typeMap: Record<string, number> = {};
+    history.forEach((r: any) => {
+      if (r.waste_type !== selectedForecastType) return;
+      const date = new Date(r.created_at);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      typeMap[key] = (typeMap[key] || 0) + Number(r.weight);
+    });
+
+    const months = Object.keys(typeMap).sort();
+    const recent = months.slice(-12);
+    const actual: Array<{ month: string; monthKey: string; actual: number; forecast?: number }> = recent.map((monthKey) => {
+      const [y, m] = monthKey.split("-");
+      const label = format(new Date(Number(y), Number(m) - 1, 1), "MMM yy", { locale: th });
+      return { month: label, monthKey, actual: Number(typeMap[monthKey].toFixed(2)), forecast: undefined };
+    });
+    const changes: number[] = [];
+    for (let i = 1; i < actual.length; i += 1) {
+      changes.push(actual[i].actual - actual[i - 1].actual);
+    }
+    const avgDelta = changes.length > 0 ? changes.reduce((sum, v) => sum + v, 0) / changes.length : 0;
+    let baseline = actual.length > 0 ? actual[actual.length - 1].actual : 0;
+    const lastMonthKey = actual.length > 0 ? actual[actual.length - 1].monthKey : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    const [lastYear, lastMonth] = lastMonthKey.split("-").map(Number);
+    const lastDate = new Date(lastYear, lastMonth - 1, 1);
+
+    const forecast: Array<{ month: string; monthKey: string; forecast: number; actual?: number }> = [];
+    for (let i = 1; i <= forecastHorizon; i += 1) {
+      const nextDate = addMonths(lastDate, i);
+      baseline = Math.max(0, baseline + avgDelta);
+      const monthKey = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}`;
+      forecast.push({ month: format(nextDate, "MMM yy", { locale: th }), monthKey, forecast: Number(baseline.toFixed(2)) });
+    }
+    const forecastTotal = forecast.reduce((sum, item) => sum + item.forecast, 0);
+    const forecastCost = Number((forecastTotal * (WASTE_FORECAST_COST_PER_KG[selectedForecastType] ?? WASTE_FORECAST_COST_PER_KG.other)).toFixed(2));
+    const chart = [
+      ...actual.map((item) => ({ month: item.month, actual: item.actual, forecast: undefined })),
+      ...forecast.map((item) => ({ month: item.month, actual: undefined, forecast: item.forecast })),
+    ];
+
+    return { chart, total: Number(forecastTotal.toFixed(2)), cost: forecastCost, type: selectedForecastType };
+  }, [wasteHistory, selectedForecastType, forecastHorizon]);
+
+  const waterKpi = useMemo(() => {
+    const meters = (waterStats?.meterRecords || []) as any[];
+    const quality = (waterStats?.qualityLogs || []) as any[];
+    const monthlyMap: Record<string, number> = {};
+    const dailyMap: Record<string, number> = {};
+
+    meters.forEach((r) => {
+      const date = r.record_date;
+      if (!date) return;
+      dailyMap[date] = (dailyMap[date] || 0) + Number(r.usage_amount || 0);
+      const monthKey = date.slice(0, 7);
+      monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + Number(r.usage_amount || 0);
+    });
+
+    const monthly = Object.keys(monthlyMap).sort().slice(-6).map((monthKey) => {
+      const [y, m] = monthKey.split("-");
+      return { month: format(new Date(Number(y), Number(m) - 1, 1), "MMM yy", { locale: th }), value: Number(monthlyMap[monthKey].toFixed(0)) };
+    });
+
+    const totalDays = Object.keys(dailyMap).length;
+    const totalUsage = Object.values(dailyMap).reduce((sum, value) => sum + value, 0);
+    const averageUsage = totalDays > 0 ? Number((totalUsage / totalDays).toFixed(0)) : 0;
+    const passCount = quality.filter((r) => r.status === "pass").length;
+    const qualityTotal = quality.length;
+    const qualityRate = qualityTotal > 0 ? Math.round((passCount / qualityTotal) * 100) : 0;
+
+    return { monthly, averageUsage, qualityRate, passCount, qualityTotal };
+  }, [waterStats]);
 
   const filterLabel = {
     day: "วันนี้", week: "สัปดาห์นี้", month: "เดือนนี้",
@@ -459,11 +579,12 @@ export default function Dashboard() {
           )}
 
           {wasteData && wasteData.byType.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-600 mb-3">สัดส่วนขยะ</h4>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-600 mb-3">สัดส่วนขยะ</h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
                     <Pie data={wasteData.byType} dataKey="weight" nameKey="type" cx="50%" cy="50%" innerRadius={40} outerRadius={80} paddingAngle={4}>
                       {wasteData.byType.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                     </Pie>
@@ -497,9 +618,168 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+
+            <div className="mt-6 rounded-3xl border border-slate-200 p-5 bg-slate-50">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-700">พยากรณ์ขยะ</h4>
+                  <p className="text-sm text-slate-500">เลือกประเภทขยะและช่วงพยากรณ์ 3, 6 หรือ 12 เดือน</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <select value={selectedForecastType} onChange={(e) => setForecastType(e.target.value)} className="h-10 rounded-2xl border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm">
+                    {wasteTypes.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                  {([3, 6, 12] as const).map((months) => (
+                    <Button key={months} size="sm" variant={forecastHorizon === months ? "default" : "outline"} className="text-xs h-10 rounded-2xl px-3" onClick={() => setForecastHorizon(months)}>
+                      {months === 12 ? "รายปี" : ` ${months} เดือน`}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-3">
+                    <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+                      <p className="text-xs uppercase tracking-[0.12em] text-slate-500">ประเภท</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">{wasteForecast.type}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+                      <p className="text-xs uppercase tracking-[0.12em] text-slate-500">ปริมาณพยากรณ์</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900">{wasteForecast.total} กก.</p>
+                    </div>
+                    <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+                      <p className="text-xs uppercase tracking-[0.12em] text-slate-500">คาดการณ์ค่าใช้จ่าย</p>
+                      <p className="mt-1 text-2xl font-bold text-emerald-600">{wasteForecast.cost} ฿</p>
+                      <p className="text-xs text-slate-500 mt-1">อัตราค่าใช้จ่ายโดยประมาณ {WASTE_FORECAST_COST_PER_KG[wasteForecast.type] ?? WASTE_FORECAST_COST_PER_KG.other} ฿/กก.</p>
+                    </div>
+                  </div>
+                  <div className="rounded-3xl bg-white p-4 shadow-sm border border-slate-200">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-3">แนวโน้มพยากรณ์</h4>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <AreaChart data={wasteForecast.chart} margin={{ top: 10, right: 0, left: -10, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="forecastActual" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+                          </linearGradient>
+                          <linearGradient id="forecastLine" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f97316" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#f97316" stopOpacity={0.05} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#475569' }} />
+                        <YAxis tick={{ fontSize: 10, fill: '#475569' }} />
+                        <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                        <Area type="monotone" dataKey="actual" stroke="#22c55e" fill="url(#forecastActual)" strokeWidth={2} connectNulls />
+                        <Area type="monotone" dataKey="forecast" stroke="#f97316" fill="url(#forecastLine)" strokeDasharray="4 4" strokeWidth={2} connectNulls />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           ) : (
             <p className="text-center text-sm text-muted-foreground py-6">ไม่มีข้อมูลขยะในช่วงเวลาที่เลือก</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white shadow-card rounded-2xl border-0 animate-slide-up">
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">KPI ภาพรวม</h3>
+              <p className="text-sm text-slate-500">สรุปผลการทำงาน 5ส., การจัดการปัญหา และน้ำประปา สำหรับผู้บริหาร</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-3">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">5ส. โดยรวม</p>
+                  <p className="text-xs text-slate-500">คะแนนเฉลี่ยและคะแนนตามแผนก</p>
+                </div>
+                <div className="rounded-full bg-teal-100 px-3 py-1 text-sm font-semibold text-teal-700">{avgScore ? `${avgScore}%` : "-"}</div>
+              </div>
+              <div className="mt-4 h-40">
+                {auditByDept && auditByDept.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={auditByDept.slice(0, 6)} margin={{ top: 10, right: 0, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#475569' }} interval={0} angle={-35} textAnchor="end" height={50} />
+                      <YAxis tick={{ fontSize: 10, fill: '#475569' }} />
+                      <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                      <Bar dataKey="score" fill="#14b8a6" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-sm text-slate-500">ยังไม่มีข้อมูล 5ส.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">การจัดการปัญหา</p>
+                  <p className="text-xs text-slate-500">สถานะของปัญหาในระบบ</p>
+                </div>
+                <div className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-700">{(issueStats?.pending ?? 0) + (issueStats?.in_progress ?? 0)} รายการ</div>
+              </div>
+              <div className="mt-4 h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={[
+                      { name: 'รอดำเนินการ', value: issueStats?.pending ?? 0, fill: '#f59e0b' },
+                      { name: 'กำลังดำเนินการ', value: issueStats?.in_progress ?? 0, fill: '#3b82f6' },
+                      { name: 'แก้ไขแล้ว', value: issueStats?.resolved ?? 0, fill: '#4ade80' },
+                    ]} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={60} paddingAngle={3}>
+                      {[(issueStats?.pending ?? 0), (issueStats?.in_progress ?? 0), (issueStats?.resolved ?? 0)].map((_, idx) => (
+                        <Cell key={idx} fill={['#f59e0b', '#3b82f6', '#4ade80'][idx]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value: number) => `${value} รายการ`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">น้ำประปา</p>
+                  <p className="text-xs text-slate-500">แนวโน้มการใช้น้ำและคุณภาพ</p>
+                </div>
+                <div className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">{waterKpi.qualityRate ?? 0}%</div>
+              </div>
+              <div className="mt-4 h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={waterKpi.monthly} margin={{ top: 10, right: 0, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#475569' }} />
+                    <YAxis tick={{ fontSize: 10, fill: '#475569' }} />
+                    <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value: number) => `${value} ลิตร`} />
+                    <Area type="monotone" dataKey="value" stroke="#10b981" fill="#a7f3d0" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
+                <div className="rounded-2xl bg-white p-3 border border-slate-200">
+                  <p className="font-semibold text-slate-900">เฉลี่ยต่อวัน</p>
+                  <p>{waterKpi.averageUsage ?? 0} ลิตร</p>
+                </div>
+                <div className="rounded-2xl bg-white p-3 border border-slate-200">
+                  <p className="font-semibold text-slate-900">คุณภาพผ่าน</p>
+                  <p>{waterKpi.qualityRate ?? 0}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
