@@ -89,7 +89,7 @@ export default function FireCheck() {
 
   const selectedLocation = useMemo(() => locations?.find((l) => l.id === locationId), [locations, locationId]);
 
-  const { data: checks } = useQuery({
+  const { data: checks } = useQuery<any[], Error, any[]>({
     queryKey: ["fire-checks"],
     queryFn: async () => {
       const { data, error } = await supabase.from("fire_extinguisher_checks").select("*").order("checked_at", { ascending: false }).limit(200);
@@ -97,9 +97,21 @@ export default function FireCheck() {
       if (!data) return [];
       const locIds = [...new Set(data.map((c: any) => c.location))];
       const { data: locs } = await supabase.from("fire_extinguisher_locations").select("id, name, building, floor").in("id", locIds.length > 0 ? locIds : ["__none__"]);
-      const locMap = Object.fromEntries((locs || []).map((l) => [l.id, l.name]));
+      const locMap = Object.fromEntries((locs || []).map((l: any) => [l.id, l.name]));
       return data.map((c: any) => ({ ...c, location_name: locMap[c.location] || c.location }));
     },
+    staleTime: 60000,
+  });
+
+  const { data: locationChecks = [], isLoading: isLocationChecksLoading } = useQuery<any[], Error, any[]>({
+    queryKey: ["fire-checks-location", locationId],
+    enabled: !!locationId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fire_extinguisher_checks").select("*").eq("location", locationId).order("checked_at", { ascending: false }).limit(50);
+      if (error) { throw error; }
+      return data || [];
+    },
+    staleTime: 60000,
   });
 
   const allOkInspection = (d: InspectionDetails) => Object.values(d).every(Boolean);
@@ -128,7 +140,7 @@ export default function FireCheck() {
           title: `พบปัญหาถังดับเพลิงที่ ${selectedLocation?.name || locationId}`,
           description: `ผลตรวจถังดับเพลิง: ${pressureOk ? "แรงดันปกติ" : "แรงดันผิดปกติ"}, ${conditionOk ? "สภาพทั่วไปปกติ" : "มีรายการผิดปกติ"}` + (notes ? `\nหมายเหตุ: ${notes}` : ""),
           severity: getIssueSeverity("FireCheck", { score: 0 }),
-          department: profile?.department_name || undefined,
+          department: profile?.department_id || undefined,
           createdBy: user.id,
         });
       }
@@ -248,6 +260,40 @@ export default function FireCheck() {
               )}
             </CardContent>
           </Card>
+
+          {locationId && (
+            <Card className="border border-border/50 shadow-card rounded-2xl bg-slate-50">
+              <CardContent className="p-4 md:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.18em] text-slate-500">ประวัติจุดสแกน</p>
+                    <p className="text-lg font-semibold text-slate-900">{selectedLocation?.name || locationId}</p>
+                    <p className="text-sm text-slate-600 mt-1">แสดงประวัติการตรวจถังดับเพลิงของตำแหน่งนี้อย่างรวดเร็ว</p>
+                  </div>
+                  <div className="rounded-3xl bg-white border border-slate-200 px-4 py-3 text-center shadow-sm">
+                    <p className="text-2xl font-bold text-slate-900">{isLocationChecksLoading ? "..." : locationChecks.length}</p>
+                    <p className="text-xs text-slate-500">รายการล่าสุด</p>
+                  </div>
+                </div>
+                {isLocationChecksLoading ? (
+                  <p className="mt-3 text-sm text-slate-600">กำลังโหลดประวัติ...</p>
+                ) : locationChecks.length > 0 ? (
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {locationChecks.slice(0, 3).map((item: any) => (
+                      <div key={item.id} className="rounded-2xl bg-white border border-slate-200 p-3 shadow-sm">
+                        <p className="text-sm font-semibold text-slate-900">{format(new Date(item.checked_at), "d MMM HH:mm", { locale: th })}</p>
+                        <Badge variant={item.pressure_ok && item.condition_ok ? "default" : "destructive"} className="mt-2 rounded-full px-2 py-1 text-[11px]">
+                          {item.pressure_ok && item.condition_ok ? "ปกติ" : "พบปัญหา"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-600">ยังไม่มีประวัติการตรวจของตำแหน่งนี้</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Inspector - Auto filled */}
           <Card className="border border-border/50 shadow-elevated rounded-2xl">

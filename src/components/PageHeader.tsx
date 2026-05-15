@@ -1,12 +1,14 @@
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
+  gradient?: string;
   children?: React.ReactNode;
 }
 
-export default function PageHeader({ title, subtitle, children }: PageHeaderProps) {
+export default function PageHeader({ title, subtitle, gradient, children }: PageHeaderProps) {
+  const gradientClass = gradient ? `bg-gradient-to-r ${gradient}` : "bg-gradient-to-r from-[hsl(195,80%,25%)] via-[hsl(187,75%,30%)] to-[hsl(170,60%,38%)]";
   return (
-    <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[hsl(195,80%,25%)] via-[hsl(187,75%,30%)] to-[hsl(170,60%,38%)] p-4 md:p-8 shadow-2xl">
+    <div className={`relative rounded-3xl overflow-hidden ${gradientClass} p-4 md:p-8 shadow-2xl`}>
       {/* Decorative circles */}
       <div className="absolute top-0 right-0 w-40 h-40 bg-white/8 rounded-full -translate-y-1/3 translate-x-1/2 pointer-events-none blur-xl" />
       <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4 pointer-events-none blur-lg" />

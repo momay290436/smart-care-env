@@ -105,31 +105,31 @@ export default function IssueManagement() {
       <PageHeader title="จัดการปัญหา" subtitle="Issue Management — รวบรวมปัญหาจากทุกระบบ" gradient="from-red-50/80 to-amber-50/80" />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 md:gap-3">
-        <Card className="bg-white rounded-2xl shadow-card border-0 border-t-4 border-t-red-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <p className="text-2xl font-extrabold text-red-600">{counts.pending}</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">รอการจัดการ</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card className="bg-white rounded-3xl shadow-2xl border border-slate-200 border-t-4 border-t-red-500">
+          <CardContent className="min-h-[130px] p-5 text-center flex flex-col justify-center gap-3">
+            <p className="text-3xl md:text-4xl font-extrabold text-red-600">{counts.pending}</p>
+            <p className="text-sm md:text-base text-slate-600">รอการจัดการ</p>
           </CardContent>
         </Card>
-        <Card className="bg-white rounded-2xl shadow-card border-0 border-t-4 border-t-amber-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <p className="text-2xl font-extrabold text-amber-600">{counts.in_progress}</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">กำลังดำเนินการ</p>
+        <Card className="bg-white rounded-3xl shadow-2xl border border-slate-200 border-t-4 border-t-amber-500">
+          <CardContent className="min-h-[130px] p-5 text-center flex flex-col justify-center gap-3">
+            <p className="text-3xl md:text-4xl font-extrabold text-amber-600">{counts.in_progress}</p>
+            <p className="text-sm md:text-base text-slate-600">กำลังดำเนินการ</p>
           </CardContent>
         </Card>
-        <Card className="bg-white rounded-2xl shadow-card border-0 border-t-4 border-t-emerald-500">
-          <CardContent className="p-3 md:p-4 text-center">
-            <p className="text-2xl font-extrabold text-emerald-600">{counts.resolved}</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">แก้ไขแล้ว</p>
+        <Card className="bg-white rounded-3xl shadow-2xl border border-slate-200 border-t-4 border-t-emerald-500">
+          <CardContent className="min-h-[130px] p-5 text-center flex flex-col justify-center gap-3">
+            <p className="text-3xl md:text-4xl font-extrabold text-emerald-600">{counts.resolved}</p>
+            <p className="text-sm md:text-base text-slate-600">แก้ไขแล้ว</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-3">
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="h-10 w-36 rounded-2xl text-sm"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-12 w-44 rounded-2xl text-base"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">ทุกสถานะ</SelectItem>
             <SelectItem value="pending">รอการจัดการ</SelectItem>
@@ -138,7 +138,7 @@ export default function IssueManagement() {
           </SelectContent>
         </Select>
         <Select value={filterSeverity} onValueChange={setFilterSeverity}>
-          <SelectTrigger className="h-10 w-32 rounded-2xl text-sm"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-12 w-40 rounded-2xl text-base"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">ทุกระดับ</SelectItem>
             <SelectItem value="high">สูง</SelectItem>
@@ -147,13 +147,13 @@ export default function IssueManagement() {
           </SelectContent>
         </Select>
         <Select value={filterDept} onValueChange={setFilterDept}>
-          <SelectTrigger className="h-10 w-40 rounded-2xl text-sm"><SelectValue placeholder="ทุกแผนก" /></SelectTrigger>
+          <SelectTrigger className="h-12 w-48 rounded-2xl text-base"><SelectValue placeholder="ทุกแผนก" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">ทุกแผนก</SelectItem>
             {deptList.map((d: any) => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Badge variant="secondary" className="h-10 px-4 flex items-center rounded-2xl">{allIssues.length} รายการ</Badge>
+        <Badge variant="secondary" className="h-12 px-5 flex items-center rounded-2xl text-base">{allIssues.length} รายการ</Badge>
       </div>
 
       {/* Issue List */}
@@ -163,22 +163,22 @@ export default function IssueManagement() {
           const stat = STATUS_CONFIG[issue.status] || STATUS_CONFIG.pending;
           return (
             <Card key={issue.id} className={`rounded-2xl border shadow-card hover:shadow-elevated transition-all cursor-pointer ${sev.bg}`} onClick={() => { setSelected(issue); setResolutionNotes(issue.resolution_notes || ""); }}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg font-bold ${issue.severity === "high" ? "bg-red-100 text-red-600" : issue.severity === "medium" ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"}`}>
+              <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xl font-bold ${issue.severity === "high" ? "bg-red-100 text-red-600" : issue.severity === "medium" ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"}`}>
                   {issue.severity === "high" ? "!" : issue.severity === "medium" ? "·" : "—"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold truncate">{issue.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <Badge variant="outline" className="text-[10px] rounded-full px-2">{MODULE_LABELS[issue.source_module] || issue.source_module}</Badge>
-                    <Badge className={`text-[10px] rounded-full px-2 ${stat.color}`}>
+                  <p className="text-base md:text-lg font-semibold truncate">{issue.title}</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{MODULE_LABELS[issue.source_module] || issue.source_module}</Badge>
+                    <Badge className={`text-sm rounded-full px-3 py-1 ${stat.color}`}>
                       {stat.label}
                     </Badge>
-                    <Badge variant="outline" className={`text-[10px] rounded-full px-2 ${sev.color}`}>ความรุนแรง: {sev.label}</Badge>
+                    <Badge variant="outline" className={`text-sm rounded-full px-3 py-1 ${sev.color}`}>ความรุนแรง: {sev.label}</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">{format(new Date(issue.created_at), "d MMM yy HH:mm", { locale: th })}{issue.department_name ? ` · ${issue.department_name}` : ""}</p>
+                  <p className="text-sm text-muted-foreground mt-2">{format(new Date(issue.created_at), "d MMM yy HH:mm", { locale: th })}{issue.department_name ? ` · ${issue.department_name}` : ""}</p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
               </CardContent>
             </Card>
           );
@@ -196,18 +196,18 @@ export default function IssueManagement() {
       {/* Detail Dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="text-lg">รายละเอียดปัญหา</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-xl">รายละเอียดปัญหา</DialogTitle></DialogHeader>
           {selected && (
-            <div className="space-y-4">
-              <div className={`rounded-2xl p-4 ${SEVERITY_CONFIG[selected.severity]?.bg || "bg-slate-50"}`}>
-                <p className="text-base font-bold">{selected.title}</p>
-                <p className="text-sm text-muted-foreground mt-1">{selected.description || "-"}</p>
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  <Badge variant="outline" className="text-xs rounded-full">{MODULE_LABELS[selected.source_module] || selected.source_module}</Badge>
-                  <Badge variant="outline" className={`text-xs rounded-full ${SEVERITY_CONFIG[selected.severity]?.color}`}>ความรุนแรง: {SEVERITY_CONFIG[selected.severity]?.label}</Badge>
-                  {selected.department_name && <Badge variant="outline" className="text-xs rounded-full">{selected.department_name}</Badge>}
+            <div className="space-y-5">
+              <div className={`rounded-2xl p-5 ${SEVERITY_CONFIG[selected.severity]?.bg || "bg-slate-50"}`}>
+                <p className="text-lg md:text-xl font-bold">{selected.title}</p>
+                <p className="text-sm md:text-base text-muted-foreground mt-2">{selected.description || "-"}</p>
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{MODULE_LABELS[selected.source_module] || selected.source_module}</Badge>
+                  <Badge variant="outline" className={`text-sm rounded-full px-3 py-1 ${SEVERITY_CONFIG[selected.severity]?.color}`}>ความรุนแรง: {SEVERITY_CONFIG[selected.severity]?.label}</Badge>
+                  {selected.department_name && <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{selected.department_name}</Badge>}
                 </div>
-              <p className="text-xs text-muted-foreground mt-2">{format(new Date(selected.created_at), "d MMMM yyyy HH:mm น.", { locale: th })}</p>
+              <p className="text-sm md:text-base text-muted-foreground mt-3">{format(new Date(selected.created_at), "d MMMM yyyy HH:mm น.", { locale: th })}</p>
               </div>
 
               {selected.photo_url && (
