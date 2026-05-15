@@ -225,28 +225,11 @@ export default function FireSafety() {
       </div>
 
       {/* Status bar */}
-      <div className={`rounded-2xl p-3 text-center text-sm font-semibold ${allOk ? "bg-green-500/20 text-green-200 border border-green-500/30" : "bg-red-500/20 text-red-200 border border-red-500/30"}`}>
+      <div className={`rounded-2xl p-3 text-center text-sm font-semibold ${allOk ? "bg-green-100 text-slate-900 border border-green-200" : "bg-red-100 text-slate-900 border border-red-200"}`}>
         ระบบดับเพลิงทั้งหมด: {allOk ? "พร้อมใช้งาน" : "พบปัญหา กรุณาตรวจสอบ"}
       </div>
 
       <PageHeader title="Fire Safety" subtitle="แผนป้องกันและระงับอัคคีภัย" />
-
-      {/* 4 Action Cards */}
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { icon: Flame, label: "แผนที่ฉุกเฉิน", tab: "map", border: "border-l-4 border-l-red-400" },
-          { icon: BookOpen, label: "คู่มือการอพยพ", tab: "guide", border: "border-l-4 border-l-blue-400" },
-          { icon: Phone, label: "เบอร์โทรฉุกเฉิน", tab: "contacts", border: "border-l-4 border-l-green-400" },
-          { icon: ClipboardList, label: "ตรวจสอบผู้ป่วย", tab: "evacuation", border: "border-l-4 border-l-amber-400" },
-        ].map((item, i) => (
-          <Card key={i} className={`shadow-card bg-card rounded-2xl cursor-pointer hover:shadow-elevated transition-all active:scale-[0.97] ${item.border}`}>
-            <CardContent className="p-5 flex flex-col items-center gap-2 text-center">
-              <item.icon className="h-6 w-6 text-card-foreground" />
-              <span className="text-base font-bold text-card-foreground">{item.label}</span>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
       <Tabs defaultValue="map" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4 lg:grid-cols-5 h-12 rounded-2xl bg-white/10">
