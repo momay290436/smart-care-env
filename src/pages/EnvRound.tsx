@@ -83,6 +83,15 @@ export default function EnvRound() {
     queryFn: async () => { const { data } = await supabase.from("departments").select("*").order("name"); return data || []; },
   });
 
+  const { data: allRoundItems = [] } = useQuery({
+    queryKey: ["env_round_items"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("env_round_items").select("*");
+      if (error) { console.error("env_round_items error", error); return []; }
+      return data || [];
+    },
+  });
+
   const { data: rounds = [] } = useQuery({
     queryKey: ["env_rounds"],
     queryFn: async () => {
@@ -327,7 +336,9 @@ export default function EnvRound() {
             </Card>
             <h3 className="font-bold text-base text-foreground">ประวัติการตรวจ</h3>
             <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-              {filteredRounds.map((round: any, idx: number) => (
+              {filteredRounds.map((round: any, idx: number) => {
+                const abnormalCount = allRoundItems.filter((i: any) => i.round_id === round.id && i.result === "abnormal").length;
+                return (
                 <Card key={round.id} className="border-0 shadow-card cursor-pointer hover:shadow-elevated transition-all animate-slide-up rounded-2xl bg-white/80 backdrop-blur-sm hover:-translate-y-0.5" style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'both' }} onClick={() => viewRoundDetails(round)}>
                   <CardContent className="p-4 flex items-center justify-between">
                     <div>
@@ -338,16 +349,24 @@ export default function EnvRound() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={round.status === "completed" ? "default" : "secondary"} className="rounded-2xl text-sm">
-                        {round.status === "completed" ? "เสร็จสิ้น" : "กำลังตรวจ"}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant={round.status === "completed" ? "default" : "secondary"} className="rounded-2xl text-sm">
+                          {round.status === "completed" ? "เสร็จสิ้น" : "กำลังตรวจ"}
+                        </Badge>
+                        {round.status === "completed" && abnormalCount > 0 && (
+                          <div className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-lg font-semibold flex items-center gap-1">
+                            <span className="text-lg">⚠️</span> พบปัญหา ({abnormalCount})
+                          </div>
+                        )}
+                      </div>
                       {isAdmin && (
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive rounded-2xl" onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(round.id); }}>✕</Button>
                       )}
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
               {filteredRounds.length === 0 && <p className="text-center text-muted-foreground py-8 text-base">ไม่มีประวัติการตรวจ</p>}
             </div>
           </div>
@@ -449,12 +468,11 @@ export default function EnvRound() {
                     title: `[ENV Round] ${issueDialog.item_name} ผิดปกติ`,
                     description: `หมวด: ${CATEGORIES.find(c => c.key === issueDialog.category)?.label || issueDialog.category}\n${issueDialog.notes || ""}`,
                     source_module: "env_round", source_id: issueDialog.round_id,
-                    severity: issueDialog.severity || "medium", status: "resolved",
+                    severity: issueDialog.severity || "medium", status: "pending",
                     resolution_notes: issueNotes,
                     photo_url: issueDialog.photo_url || null,
                     department_name: selectedRound?.departments?.name || null,
                     created_by: user?.id,
-                    resolved_at: new Date().toISOString(), resolved_by: user?.id,
                   });
                   setIssueSaving(false);
                   if (error) { toast.error(error.message); return; }
