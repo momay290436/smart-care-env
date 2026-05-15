@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { Check, ChevronsUpDown, Download, Trash2 } from "lucide-react";
 import { Wrench } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
+import { createAutoIssue, getIssueSeverity, hasFireCheckAnomaly } from "@/lib/createAutoIssue";
 import PageHeader from "@/components/PageHeader";
 
 interface InspectionDetails {
@@ -108,12 +109,29 @@ export default function FireCheck() {
       if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
       const pressureOk = inspection.gauge_green;
       const conditionOk = inspection.body_ok && inspection.hose_ok && inspection.handle_ok;
-      const { error } = await supabase.from("fire_extinguisher_checks").insert({
-        location: locationId, pressure_ok: pressureOk, condition_ok: conditionOk,
-        notes: notes || null, department_id: profile?.department_id, checked_by: user.id,
-        inspection_details: inspection as any, inspector_name: profile?.full_name || null,
-      });
+      const { data: inserted, error } = await supabase.from("fire_extinguisher_checks").insert({
+        location: locationId,
+        pressure_ok: pressureOk,
+        condition_ok: conditionOk,
+        notes: notes || null,
+        department_id: profile?.department_id,
+        checked_by: user.id,
+        inspection_details: inspection as any,
+        inspector_name: profile?.full_name || null,
+      }).select("id").single();
       if (error) throw error;
+
+      if (hasFireCheckAnomaly(pressureOk, conditionOk)) {
+        await createAutoIssue({
+          sourceModule: "FireCheck",
+          sourceId: inserted?.id || null,
+          title: `พบปัญหาถังดับเพลิงที่ ${selectedLocation?.name || locationId}`,
+          description: `ผลตรวจถังดับเพลิง: ${pressureOk ? "แรงดันปกติ" : "แรงดันผิดปกติ"}, ${conditionOk ? "สภาพทั่วไปปกติ" : "มีรายการผิดปกติ"}` + (notes ? `\nหมายเหตุ: ${notes}` : ""),
+          severity: getIssueSeverity("FireCheck", { score: 0 }),
+          department: profile?.department_name || undefined,
+          createdBy: user.id,
+        });
+      }
     },
     onSuccess: () => {
       toast.success("บันทึกการตรวจถังดับเพลิงสำเร็จ");

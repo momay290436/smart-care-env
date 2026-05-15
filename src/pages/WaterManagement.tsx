@@ -20,11 +20,12 @@ import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
+import { createAutoIssue, getIssueSeverity, hasWaterQualityAnomaly } from "@/lib/createAutoIssue";
 import PageHeader from "@/components/PageHeader";
 import WaterMaintenanceTab from "@/components/WaterMaintenanceTab";
 import WaterSystemTab from "@/components/WaterSystemTab";
 import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
-import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon } from "lucide-react";
+import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon, Eye, Edit, Trash2, Check, X } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const CHECK_POINTS = ["อาคาร OPD", "อาคาร IPD ชาย", "อาคาร IPD หญิง", "อาคารอำนวยการ", "ห้องผ่าตัด", "ห้องปฏิบัติการ", "โรงครัว"];
@@ -55,6 +56,14 @@ export default function WaterManagement() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showMeterDialog, setShowMeterDialog] = useState(false);
   const [showDisinfectantDialog, setShowDisinfectantDialog] = useState(false);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [showEditMeterDialog, setShowEditMeterDialog] = useState(false);
+  const [showEditDisinfectantDialog, setShowEditDisinfectantDialog] = useState(false);
+  const [selectedQualityLog, setSelectedQualityLog] = useState<any>(null);
+  const [editingMeterRecord, setEditingMeterRecord] = useState<any>(null);
+  const [editingDisinfectantLog, setEditingDisinfectantLog] = useState<any>(null);
+  const [editMeterForm, setEditMeterForm] = useState({ meter_reading: "", usage_amount: "", notes: "" });
+  const [editDisinfectantForm, setEditDisinfectantForm] = useState({ source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
   const [meterReading, setMeterReading] = useState("");
   const [meterNotes, setMeterNotes] = useState<string[]>([]);
   const [meterNotesOther, setMeterNotesOther] = useState("");
@@ -83,7 +92,7 @@ export default function WaterManagement() {
   const { data: disinfectantLogs = [] } = useQuery({
     queryKey: ["water-disinfectant-logs"],
     queryFn: async () => {
-      const { data } = await supabase.from("water_disinfectant_logs").select("*").order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
+      const { data } = await supabase.from("water_quality_logs").select("*").not("disinfectant_name", "is", null).order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
       return data || [];
     },
   });
@@ -277,12 +286,29 @@ export default function WaterManagement() {
       const ph = formData.ph_value ? Number(formData.ph_value) : null;
       const cl = formData.chlorine_value ? Number(formData.chlorine_value) : null;
       const turb = formData.turbidity_value ? Number(formData.turbidity_value) : null;
-      const pass = (!cl || (cl >= 0.2 && cl <= 0.5)) && (!ph || (ph >= 6.5 && ph <= 8.5)) && (!turb || turb <= 5);
-      const { error } = await supabase.from("water_quality_logs").insert({
-        check_point: formData.check_point, ph_value: ph, chlorine_value: cl, turbidity_value: turb,
-        status: pass ? "pass" : "fail", notes: formData.notes || null, recorded_by: user.id,
-      });
+      const status = (!cl || (cl >= 0.2 && cl <= 0.5)) && (!ph || (ph >= 6.5 && ph <= 8.5)) && (!turb || turb <= 5) ? "pass" : "fail";
+      const { data: inserted, error } = await supabase.from("water_quality_logs").insert({
+        check_point: formData.check_point,
+        ph_value: ph,
+        chlorine_value: cl,
+        turbidity_value: turb,
+        status,
+        notes: formData.notes || null,
+        recorded_by: user.id,
+      }).select("id").single();
       if (error) throw error;
+
+      if (hasWaterQualityAnomaly(status)) {
+        await createAutoIssue({
+          sourceModule: "WaterManagement",
+          sourceId: inserted?.id || null,
+          title: `คุณภาพน้ำผิดปกติที่ ${formData.check_point}`,
+          description: `pH: ${ph ?? "-"}, คลอรีน: ${cl ?? "-"}, ความขุ่น: ${turb ?? "-"}` + (formData.notes ? `\nหมายเหตุ: ${formData.notes}` : ""),
+          severity: getIssueSeverity("WaterManagement", { score: 0 }),
+          department: profile?.department_id || undefined,
+          createdBy: user.id,
+        });
+      }
     },
     onSuccess: () => {
       toast.success("บันทึกผลตรวจคุณภาพน้ำสำเร็จ");
@@ -307,20 +333,32 @@ export default function WaterManagement() {
       const passSource = sourceConcentration >= 0.2 && sourceConcentration <= 0.5 && sourcePh >= 6.5 && sourcePh <= 8.5;
       const passOutlet = outletConcentration >= 0.2 && outletConcentration <= 0.5 && outletPh >= 6.5 && outletPh <= 8.5;
       const status = passSource && passOutlet ? "pass" : "fail";
-      const { error } = await supabase.from("water_disinfectant_logs").insert({
+      const { data: inserted, error } = await supabase.from("water_quality_logs").insert({
         check_date: checkDate,
+        check_point: "สารเคมีกำจัดเชื้อโรค",
         check_time: checkTime,
         disinfectant_name: "คลอรีน",
         source_concentration: sourceConcentration,
         source_ph: sourcePh,
         outlet_concentration: outletConcentration,
         outlet_ph: outletPh,
-        inspector_id: user.id,
+        recorded_by: user.id,
         inspector_name: profile?.full_name || "",
         notes: disinfectantForm.notes || null,
         status,
-      });
+      }).select("id").single();
       if (error) throw error;
+      if (hasWaterQualityAnomaly(status)) {
+        await createAutoIssue({
+          sourceModule: "WaterManagement",
+          sourceId: inserted?.id || null,
+          title: `พบปัญหาการตรวจสารเคมีฆ่าเชื้อ`,
+          description: `สารเคมี: คลอรีน, ต้นทาง: ${sourceConcentration} mg/l, pH: ${sourcePh}, ปลายทาง: ${outletConcentration} mg/l, pH: ${outletPh}` + (disinfectantForm.notes ? `\nหมายเหตุ: ${disinfectantForm.notes}` : ""),
+          severity: getIssueSeverity("WaterManagement", { score: 0 }),
+          department: profile?.department_id || undefined,
+          createdBy: user.id,
+        });
+      }
     },
     onSuccess: () => {
       toast.success("บันทึกสารเคมีกำจัดเชื้อโรคสำเร็จ");
@@ -373,6 +411,80 @@ export default function WaterManagement() {
       setMeterReading("");
       setMeterNotes([]);
       setMeterNotesOther("");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateMeterRecord = useMutation({
+    mutationFn: async () => {
+      if (!editingMeterRecord) return;
+      const { error } = await supabase.from("water_meter_records").update({
+        meter_reading: Number(editMeterForm.meter_reading) || editingMeterRecord.meter_reading,
+        usage_amount: Number(editMeterForm.usage_amount) || editingMeterRecord.usage_amount,
+        notes: editMeterForm.notes || editingMeterRecord.notes,
+      }).eq("id", editingMeterRecord.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("แก้ไขข้อมูลมิเตอร์สำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["water-meter-all"] });
+      setShowEditMeterDialog(false);
+      setEditingMeterRecord(null);
+      setEditMeterForm({ meter_reading: "", usage_amount: "", notes: "" });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteMeterRecord = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("water_meter_records").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบบันทึกมิเตอร์สำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["water-meter-all"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateDisinfectantLog = useMutation({
+    mutationFn: async () => {
+      if (!editingDisinfectantLog) return;
+      const sourceConcentration = Number(editDisinfectantForm.source_concentration) || editingDisinfectantLog.source_concentration;
+      const sourcePh = Number(editDisinfectantForm.source_ph) || editingDisinfectantLog.source_ph;
+      const outletConcentration = Number(editDisinfectantForm.outlet_concentration) || editingDisinfectantLog.outlet_concentration;
+      const outletPh = Number(editDisinfectantForm.outlet_ph) || editingDisinfectantLog.outlet_ph;
+      const passSource = sourceConcentration >= 0.2 && sourceConcentration <= 0.5 && sourcePh >= 6.5 && sourcePh <= 8.5;
+      const passOutlet = outletConcentration >= 0.2 && outletConcentration <= 0.5 && outletPh >= 6.5 && outletPh <= 8.5;
+      const status = passSource && passOutlet ? "pass" : "fail";
+      const { error } = await supabase.from("water_quality_logs").update({
+        source_concentration: sourceConcentration,
+        source_ph: sourcePh,
+        outlet_concentration: outletConcentration,
+        outlet_ph: outletPh,
+        notes: editDisinfectantForm.notes || editingDisinfectantLog.notes,
+        status,
+      }).eq("id", editingDisinfectantLog.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("แก้ไขบันทึกสารเคมีสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["water-disinfectant-logs"] });
+      setShowEditDisinfectantDialog(false);
+      setEditingDisinfectantLog(null);
+      setEditDisinfectantForm({ source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteDisinfectantLog = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("water_quality_logs").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบบันทึกสารเคมีสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["water-disinfectant-logs"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -590,6 +702,7 @@ export default function WaterManagement() {
                           <th className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">รวมต่อวัน</th>
                           <th className="whitespace-nowrap px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">ผู้บันทึก</th>
                           <th className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">หมายเหตุ</th>
+                          <th className="whitespace-nowrap px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">การจัดการ</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white">
@@ -613,12 +726,26 @@ export default function WaterManagement() {
                                 <td className="px-4 py-3 text-right text-xs text-cyan-700 font-bold">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
                                 <td className="px-4 py-3 text-center text-xs text-slate-600">{r.recorder_name || "-"}</td>
                                 <td className="px-4 py-3 text-xs text-slate-600">{r.notes || "-"}</td>
+                                <td className="px-4 py-3 text-center text-xs flex gap-1 justify-center">
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-blue-100 text-blue-600" onClick={() => {
+                                    setEditingMeterRecord(r);
+                                    setEditMeterForm({ meter_reading: String(r.meter_reading), usage_amount: String(r.usage_amount || ""), notes: r.notes || "" });
+                                    setShowEditMeterDialog(true);
+                                  }}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-red-100 text-red-600" onClick={() => {
+                                    if (confirm("ยืนยันการลบ?")) deleteMeterRecord.mutate(r.id);
+                                  }}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </td>
                               </tr>
                             ))
                           );
                         })}
                         {filteredMeterRecords.length === 0 && (
-                          <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">ยังไม่มีข้อมูล</td></tr>
+                          <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">ยังไม่มีข้อมูล</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -635,6 +762,7 @@ export default function WaterManagement() {
                           <th className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-500">pH ปลายทาง</th>
                           <th className="whitespace-nowrap px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-500">ผู้บันทึก</th>
                           <th className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-500">หมายเหตุ</th>
+                          <th className="whitespace-nowrap px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-500">การจัดการ</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white">
@@ -652,11 +780,31 @@ export default function WaterManagement() {
                               <td className="px-4 py-3 text-right text-xs text-slate-700">{r.outlet_ph ?? "-"}</td>
                               <td className="px-4 py-3 text-center text-xs text-slate-600">{r.inspector_name || "-"}</td>
                               <td className="px-4 py-3 text-xs text-slate-600">{r.notes || "-"}</td>
+                              <td className="px-4 py-3 text-center text-xs flex gap-1 justify-center">
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-green-100 text-green-600" onClick={() => {
+                                  setSelectedQualityLog(r);
+                                  setShowDetailDialog(true);
+                                }}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-blue-100 text-blue-600" onClick={() => {
+                                  setEditingDisinfectantLog(r);
+                                  setEditDisinfectantForm({ source_concentration: String(r.source_concentration || ""), source_ph: String(r.source_ph || ""), outlet_concentration: String(r.outlet_concentration || ""), outlet_ph: String(r.outlet_ph || ""), notes: r.notes || "" });
+                                  setShowEditDisinfectantDialog(true);
+                                }}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-red-100 text-red-600" onClick={() => {
+                                  if (confirm("ยืนยันการลบ?")) deleteDisinfectantLog.mutate(r.id);
+                                }}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </td>
                             </tr>
                           ))
                         )}
                         {filteredDisinfectantLogs.length === 0 && (
-                          <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">ยังไม่มีข้อมูล</td></tr>
+                          <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">ยังไม่มีข้อมูล</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -847,6 +995,135 @@ export default function WaterManagement() {
               {addQualityLog.isPending ? "กำลังบันทึก..." : "บันทึกผลตรวจ"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail Dialog for Water Quality Logs */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg flex items-center gap-2">
+              <Eye className="h-5 w-5 text-green-500" /> รายละเอียดประวัติการตรวจ
+            </DialogTitle>
+          </DialogHeader>
+          {selectedQualityLog && (
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-green-50 p-3 space-y-1 text-sm">
+                <p><span className="font-semibold">วันที่:</span> {format(new Date(selectedQualityLog.check_date), "d MMM yy", { locale: th })}</p>
+                <p><span className="font-semibold">เวลา:</span> {selectedQualityLog.check_time?.substring(0, 5)} น.</p>
+                <p><span className="font-semibold">จุดตรวจ:</span> {selectedQualityLog.check_point}</p>
+              </div>
+              {selectedQualityLog.check_point === "สารเคมีกำจัดเชื้อโรค" ? (
+                <div className="space-y-3 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-2 bg-amber-50 rounded-xl"><span className="font-semibold">ต้นทาง (mg/l):</span> {selectedQualityLog.source_concentration ?? "-"}</div>
+                    <div className="p-2 bg-amber-50 rounded-xl"><span className="font-semibold">pH ต้นทาง:</span> {selectedQualityLog.source_ph ?? "-"}</div>
+                    <div className="p-2 bg-amber-50 rounded-xl"><span className="font-semibold">ปลายทาง (mg/l):</span> {selectedQualityLog.outlet_concentration ?? "-"}</div>
+                    <div className="p-2 bg-amber-50 rounded-xl"><span className="font-semibold">pH ปลายทาง:</span> {selectedQualityLog.outlet_ph ?? "-"}</div>
+                  </div>
+                  <div className="p-2 bg-blue-50 rounded-xl"><span className="font-semibold">สารเคมี:</span> {selectedQualityLog.disinfectant_name || "-"}</div>
+                </div>
+              ) : (
+                <div className="space-y-3 text-sm">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="p-2 bg-blue-50 rounded-xl"><span className="font-semibold">pH:</span> {selectedQualityLog.ph_value ?? "-"}</div>
+                    <div className="p-2 bg-blue-50 rounded-xl"><span className="font-semibold">คลอรีน:</span> {selectedQualityLog.chlorine_value ?? "-"}</div>
+                    <div className="p-2 bg-blue-50 rounded-xl"><span className="font-semibold">ความขุ่น:</span> {selectedQualityLog.turbidity_value ?? "-"}</div>
+                  </div>
+                </div>
+              )}
+              <div className="p-2 bg-slate-50 rounded-xl text-sm">
+                <span className="font-semibold">ผลการตรวจ:</span> 
+                <span className={selectedQualityLog.status === "pass" ? "ml-2 text-green-600 font-bold" : "ml-2 text-red-600 font-bold"}>
+                  {selectedQualityLog.status === "pass" ? "✓ ปกติ" : "✗ ผิดปกติ"}
+                </span>
+              </div>
+              {selectedQualityLog.notes && <div className="p-2 bg-slate-50 rounded-xl text-sm"><span className="font-semibold">หมายเหตุ:</span> {selectedQualityLog.notes}</div>}
+              <div className="p-2 bg-slate-50 rounded-xl text-xs text-slate-600">
+                <p><span className="font-semibold">ผู้บันทึก:</span> {selectedQualityLog.recorded_by}</p>
+                <p><span className="font-semibold">ผู้ตรวจ:</span> {selectedQualityLog.inspector_name || "-"}</p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Meter Dialog */}
+      <Dialog open={showEditMeterDialog} onOpenChange={setShowEditMeterDialog}>
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg flex items-center gap-2">
+              <Edit className="h-5 w-5 text-blue-500" /> แก้ไขข้อมูลมิเตอร์น้ำ
+            </DialogTitle>
+          </DialogHeader>
+          {editingMeterRecord && (
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-blue-50 p-3 space-y-1 text-sm">
+                <p><span className="font-semibold">วันที่:</span> {format(new Date(editingMeterRecord.record_date), "d MMM yy", { locale: th })}</p>
+                <p><span className="font-semibold">เวลา:</span> {editingMeterRecord.record_time?.substring(0, 5)} น.</p>
+              </div>
+              <div>
+                <Label className="font-semibold">เลขมิเตอร์ *</Label>
+                <Input type="number" value={editMeterForm.meter_reading} onChange={(e) => setEditMeterForm({ ...editMeterForm, meter_reading: e.target.value })} className="h-12 rounded-2xl" />
+              </div>
+              <div>
+                <Label className="font-semibold">การใช้ (ลบ.ม.) *</Label>
+                <Input type="number" value={editMeterForm.usage_amount} onChange={(e) => setEditMeterForm({ ...editMeterForm, usage_amount: e.target.value })} className="h-12 rounded-2xl" />
+              </div>
+              <div>
+                <Label className="font-semibold">หมายเหตุ</Label>
+                <Textarea value={editMeterForm.notes} onChange={(e) => setEditMeterForm({ ...editMeterForm, notes: e.target.value })} placeholder="หมายเหตุเพิ่มเติม..." rows={3} className="rounded-2xl" />
+              </div>
+              <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => updateMeterRecord.mutate()} disabled={updateMeterRecord.isPending}>
+                {updateMeterRecord.isPending ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Disinfectant Dialog */}
+      <Dialog open={showEditDisinfectantDialog} onOpenChange={setShowEditDisinfectantDialog}>
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg flex items-center gap-2">
+              <Edit className="h-5 w-5 text-amber-500" /> แก้ไขบันทึกสารเคมีกำจัดเชื้อโรค
+            </DialogTitle>
+          </DialogHeader>
+          {editingDisinfectantLog && (
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-amber-50 p-3 space-y-1 text-sm">
+                <p><span className="font-semibold">วันที่:</span> {format(new Date(editingDisinfectantLog.check_date), "d MMM yy", { locale: th })}</p>
+                <p><span className="font-semibold">เวลา:</span> {editingDisinfectantLog.check_time?.substring(0, 5)} น.</p>
+                <p><span className="font-semibold">สารเคมี:</span> {editingDisinfectantLog.disinfectant_name}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold">ต้นทาง (mg/l)</Label>
+                  <Input type="number" step="0.01" value={editDisinfectantForm.source_concentration} onChange={(e) => setEditDisinfectantForm({ ...editDisinfectantForm, source_concentration: e.target.value })} className="h-10 rounded-2xl" />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold">pH ต้นทาง</Label>
+                  <Input type="number" step="0.1" value={editDisinfectantForm.source_ph} onChange={(e) => setEditDisinfectantForm({ ...editDisinfectantForm, source_ph: e.target.value })} className="h-10 rounded-2xl" />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold">ปลายทาง (mg/l)</Label>
+                  <Input type="number" step="0.01" value={editDisinfectantForm.outlet_concentration} onChange={(e) => setEditDisinfectantForm({ ...editDisinfectantForm, outlet_concentration: e.target.value })} className="h-10 rounded-2xl" />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold">pH ปลายทาง</Label>
+                  <Input type="number" step="0.1" value={editDisinfectantForm.outlet_ph} onChange={(e) => setEditDisinfectantForm({ ...editDisinfectantForm, outlet_ph: e.target.value })} className="h-10 rounded-2xl" />
+                </div>
+              </div>
+              <div>
+                <Label className="font-semibold">หมายเหตุ</Label>
+                <Textarea value={editDisinfectantForm.notes} onChange={(e) => setEditDisinfectantForm({ ...editDisinfectantForm, notes: e.target.value })} placeholder="หมายเหตุเพิ่มเติม..." rows={2} className="rounded-2xl" />
+              </div>
+              <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => updateDisinfectantLog.mutate()} disabled={updateDisinfectantLog.isPending}>
+                {updateDisinfectantLog.isPending ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -262,7 +262,7 @@ export default function WasteLog() {
               <div className="flex flex-wrap gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className={cn("text-sm h-10 w-40 justify-start rounded-2xl", !customFrom && "text-slate-500")}>
+                    <Button variant="outline" size="sm" className={cn("text-sm h-10 w-40 justify-start rounded-2xl font-semibold", !customFrom ? "text-slate-900 border-slate-400" : "text-slate-900 border-slate-400")}>
                       {customFrom ? format(customFrom, "d MMM yy", { locale: th }) : "วันเริ่มต้น"}
                     </Button>
                   </PopoverTrigger>
@@ -272,7 +272,7 @@ export default function WasteLog() {
                 </Popover>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className={cn("text-sm h-10 w-40 justify-start rounded-2xl", !customTo && "text-slate-500")}>
+                    <Button variant="outline" size="sm" className={cn("text-sm h-10 w-40 justify-start rounded-2xl font-semibold", !customTo ? "text-slate-900 border-slate-400" : "text-slate-900 border-slate-400")}>
                       {customTo ? format(customTo, "d MMM yy", { locale: th }) : "วันสิ้นสุด"}
                     </Button>
                   </PopoverTrigger>

@@ -16,6 +16,7 @@ import { format, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { exportToExcel } from "@/lib/exportExcel";
+import { createAutoIssue, getIssueSeverity, hasEnvRoundAnomaly } from "@/lib/createAutoIssue";
 import PageHeader from "@/components/PageHeader";
 import EnvRoundCalendar from "@/components/EnvRoundCalendar";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -160,6 +161,17 @@ export default function EnvRound() {
           priority: item.severity === "high" ? "urgent" : item.severity === "medium" ? "high" : "normal",
           photo_url: item.photo_url || null,
         });
+        if (hasEnvRoundAnomaly(item.result)) {
+          await createAutoIssue({
+            sourceModule: "EnvRound",
+            sourceId: activeRound || null,
+            title: `[ENV Round] ${item.item_name} ผิดปกติ`,
+            description: `ระดับความรุนแรง: ${item.severity || "low"}\n${item.notes || ""}` + (item.photo_url ? `\nรูปภาพ: ${item.photo_url}` : ""),
+            severity: getIssueSeverity("EnvRound", { details: item }),
+            department: departments.find((d) => d.id === selectedDept)?.name || undefined,
+            createdBy: user!.id,
+          });
+        }
       }
       const deptName = departments.find((d) => d.id === selectedDept)?.name || "ไม่ระบุ";
       const highRisk = abnormalItems.filter((i) => i.severity === "high").length;

@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { exportMultiSheet } from "@/lib/exportExcel";
 import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
-import { Wrench, CheckCircle, Flame, Trash2, Search, FlaskConical, AlertTriangle, Clock } from "lucide-react";
+import { Wrench, CheckCircle, Flame, Trash2, Search, FlaskConical, AlertTriangle } from "lucide-react";
 
 type WasteFilter = "day" | "week" | "month" | "custom";
 
@@ -291,15 +291,6 @@ export default function Dashboard() {
             note={`แก้ไขแล้ว ${issueStats?.resolved ?? 0}`}
             icon={AlertTriangle}
             accent="red"
-            onClick={() => navigate("/issues")}
-          />
-          <MetricPanel
-            label="เมนูด่วน"
-            value="ดูระบบทั้งหมด"
-            sub="รวมข้อมูลจากทุกฟังก์ชัน"
-            note="คลิกเพื่อดูรายละเอียดเพิ่มเติม"
-            icon={Clock}
-            accent="purple"
             onClick={() => navigate("/issues")}
           />
         </div>

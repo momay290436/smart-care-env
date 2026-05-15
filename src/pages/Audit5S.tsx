@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
+import { createAutoIssue, getIssueSeverity, has5SAnomalyByScore } from "@/lib/createAutoIssue";
 import PageHeader from "@/components/PageHeader";
 import { Trash2 } from "lucide-react";
 
@@ -96,14 +97,27 @@ export default function Audit5S() {
       let photoAfterUrl = null;
       if (photoBefore) photoBeforeUrl = await uploadPhoto(photoBefore, "5s-before");
       if (photoAfter) photoAfterUrl = await uploadPhoto(photoAfter, "5s-after");
-      const { error } = await supabase.from("audit_5s").insert({
+      const { data: inserted, error } = await supabase.from("audit_5s").insert({
         department_id: deptId, auditor_id: user.id,
         score_json: { ...scores, auditor_name: auditorName || profile?.full_name || "" },
         total_score: totalScore, notes,
         photo_before: photoBeforeUrl, photo_after: photoAfterUrl,
-      });
+      }).select("id").single();
       if (error) throw error;
       const dept = departments?.find((d) => d.id === deptId);
+      if (has5SAnomalyByScore(totalScore)) {
+        await createAutoIssue({
+          sourceModule: "Audit5S",
+          sourceId: inserted?.id || null,
+          title: `พบปัญหา 5ส แผนก ${dept?.name || "ไม่ระบุ"}`,
+          description: `คะแนนรวม ${totalScore}% (${getGrade(totalScore).label})\n` +
+            categories.map((c) => `${c.label}: ${scores[c.key]}%`).join("\n") +
+            (notes ? `\nหมายเหตุ: ${notes}` : ""),
+          severity: getIssueSeverity("Audit5S", { score: totalScore }),
+          department: dept?.name || undefined,
+          createdBy: user.id,
+        });
+      }
       // Sync to Google Sheets & Drive
       try {
         await supabase.functions.invoke("sync-google-sheets", {
