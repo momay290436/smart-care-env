@@ -264,7 +264,7 @@ export default function HazmatInventory() {
 
   return (
     <div className="space-y-5 pb-6">
-      <PageHeader title="Smart HAZMAT Inventory" subtitle="บริหารจัดการคลังวัตถุอันตรายและสารเคมี" gradient="from-amber-50/80 to-orange-50/80">
+      <PageHeader title="Smart HAZMAT Inventory" subtitle="บริหารจัดการคลังวัตถุอันตรายและสารเคมี">
         <Button size="sm" variant="outline" className="rounded-2xl text-sm h-9 gap-1.5" onClick={() => setShowQrScanner(true)}>
           <Search className="h-4 w-4" /> สแกน QR
         </Button>

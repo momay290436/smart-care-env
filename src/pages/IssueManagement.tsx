@@ -102,7 +102,7 @@ export default function IssueManagement() {
 
   return (
     <div className="space-y-5 pb-6">
-      <PageHeader title="จัดการปัญหา" subtitle="Issue Management — รวบรวมปัญหาจากทุกระบบ" gradient="from-red-50/80 to-amber-50/80" />
+      <PageHeader title="จัดการปัญหา" subtitle="Issue Management — รวบรวมปัญหาจากทุกระบบ" />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

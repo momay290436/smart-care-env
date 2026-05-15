@@ -37,7 +37,7 @@ function getGrade(score: number) {
 }
 
 export default function Audit5S() {
-  const { user, profile } = useAuth();
+  const { user, profile, role } = useAuth();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [deptId, setDeptId] = useState(profile?.department_id || "");
@@ -207,7 +207,7 @@ export default function Audit5S() {
 
   return (
     <div className="space-y-4 pb-6">
-      <PageHeader title="การตรวจ 5ส" subtitle="ประเมินและบันทึกผลการตรวจ 5ส" gradient="from-primary/10 to-accent/40">
+      <PageHeader title="การตรวจ 5ส" subtitle="ประเมินและบันทึกผลการตรวจ 5ส">
         <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 border-primary/30 text-primary" onClick={() => {
           const filtered = audits?.filter((audit: any) => {
             if (filterDept !== "all" && audit.department_id !== filterDept) return false;
@@ -406,7 +406,7 @@ export default function Audit5S() {
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold text-primary">{audit.total_score}%</span>
                     <Badge className={grade.color + " rounded-xl"}>{grade.label}</Badge>
-                    {profile?.role === "admin" && (
+                    {role === "admin" && (
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/60 hover:text-destructive rounded-xl" onClick={(e) => { e.stopPropagation(); if (confirm("ยืนยันลบ?")) deleteAudit.mutate(audit.id); }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>

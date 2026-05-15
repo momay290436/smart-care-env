@@ -179,7 +179,7 @@ export default function FireCheck() {
 
   return (
     <div className="space-y-4 pb-6">
-      <PageHeader title="ตรวจถังดับเพลิง" subtitle="บันทึกและตรวจสอบสภาพถังดับเพลิง" gradient="from-primary/10 to-accent/40">
+      <PageHeader title="ตรวจถังดับเพลิง" subtitle="บันทึกและตรวจสอบสภาพถังดับเพลิง">
         <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 border-primary/30 text-primary" onClick={() => {
           const filtered = checks?.filter((c: any) => {
             const details: InspectionDetails | null = c.inspection_details;

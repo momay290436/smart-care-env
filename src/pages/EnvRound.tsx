@@ -251,7 +251,7 @@ export default function EnvRound() {
   if (!activeRound) {
     return (
       <div className="space-y-5 pb-6">
-        <PageHeader title="Smart ENV Round" subtitle="ระบบเดินตรวจสิ่งแวดล้อมและความปลอดภัย" gradient="from-emerald-50/80 to-teal-50/80">
+        <PageHeader title="Smart ENV Round" subtitle="ระบบเดินตรวจสิ่งแวดล้อมและความปลอดภัย">
           <Button size="sm" variant="outline" className="rounded-2xl text-sm h-9 gap-1.5" onClick={() => {
             exportToExcel(filteredRounds.map((r: any) => ({
               "วันที่": format(new Date(r.created_at), "d MMM yyyy HH:mm", { locale: th }),
