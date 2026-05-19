@@ -445,7 +445,10 @@ export default function FireCheck() {
                       <td className="py-3 px-3 text-xs text-slate-700 font-medium whitespace-nowrap">{format(new Date(c.checked_at), "d MMM yy HH:mm", { locale: th })}</td>
                       <td className="py-3 px-3 text-sm font-semibold text-slate-900">{c.location_name || c.location}</td>
                       <td className="py-3 px-3 text-center">
-                        <Badge variant={allOk ? "default" : "destructive"} className="rounded-full px-3 py-1 text-[11px] font-semibold">
+                        <Badge className={cn(
+                          "rounded-full px-3 py-1 text-[11px] font-semibold",
+                          allOk ? "bg-[#a3e9a4] text-slate-900 border-transparent" : "bg-[#f69988] text-slate-900 border-transparent"
+                        )}>
                           {allOk ? "ปกติ" : `พบปัญหา ${failCount}`}
                         </Badge>
                       </td>
