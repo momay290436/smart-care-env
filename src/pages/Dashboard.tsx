@@ -321,8 +321,9 @@ export default function Dashboard() {
     const passCount = quality.filter((r) => r.status === "pass").length;
     const qualityTotal = quality.length;
     const qualityRate = qualityTotal > 0 ? Math.round((passCount / qualityTotal) * 100) : 0;
+    const reserveVolume = averageUsage * 2;
 
-    return { monthly, averageUsage, qualityRate, passCount, qualityTotal };
+    return { monthly, averageUsage, qualityRate, passCount, qualityTotal, reserveVolume };
   }, [waterStats]);
 
   const filterLabel = {
@@ -774,8 +775,8 @@ export default function Dashboard() {
                   <p>{waterKpi.averageUsage ?? 0} ลิตร</p>
                 </div>
                 <div className="rounded-2xl bg-white p-3 border border-slate-200">
-                  <p className="font-semibold text-slate-900">คุณภาพผ่าน</p>
-                  <p>{waterKpi.qualityRate ?? 0}%</p>
+                  <p className="font-semibold text-slate-900">น้ำสำรอง</p>
+                  <p>{waterKpi.reserveVolume ?? 0} ลิตร</p>
                 </div>
               </div>
             </div>
