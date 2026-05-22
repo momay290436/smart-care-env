@@ -116,6 +116,17 @@ export default function FireCheck() {
 
   const allOkInspection = (d: InspectionDetails) => Object.values(d).every(Boolean);
 
+  const checksSummary = useMemo(() => {
+    const total = checks?.length ?? 0;
+    let normal = 0;
+    (checks || []).forEach((c: any) => {
+      const details: InspectionDetails | null = c.inspection_details;
+      const ok = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
+      if (ok) normal += 1;
+    });
+    return { total, normal, abnormal: total - normal };
+  }, [checks]);
+
   const createCheck = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
@@ -203,6 +214,36 @@ export default function FireCheck() {
           {showForm ? "ซ่อน" : "+ สแกน QR ตรวจ"}
         </Button>
       </PageHeader>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card className="shadow-card rounded-3xl border border-border/50">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-sm font-semibold">ตรวจทั้งหมด</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-3xl font-extrabold">{checksSummary.total}</p>
+            <p className="text-sm text-muted-foreground mt-2">รวมทุกผลตรวจในระบบ</p>
+          </CardContent>
+        </Card>
+        <Card className="shadow-card rounded-3xl border border-border/50">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-sm font-semibold">ผลปกติ</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-3xl font-extrabold text-emerald-700">{checksSummary.normal}</p>
+            <p className="text-sm text-muted-foreground mt-2">ไม่มีรายการความผิดปกติ</p>
+          </CardContent>
+        </Card>
+        <Card className="shadow-card rounded-3xl border border-border/50">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-sm font-semibold">พบปัญหา</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-3xl font-extrabold text-destructive">{checksSummary.abnormal}</p>
+            <p className="text-sm text-muted-foreground mt-2">ต้องตรวจสอบซ่อมบำรุง</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {showForm && (
         <div className="space-y-4 animate-slide-up">

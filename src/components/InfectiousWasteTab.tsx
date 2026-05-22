@@ -29,6 +29,8 @@ interface WasteRow {
   sharp_waste_kg: string;
   non_sharp_waste_kg: string;
   delivered_by: string;
+  source_type?: string;
+  bottle_count?: string;
 }
 
 export default function InfectiousWasteTab() {
@@ -37,7 +39,7 @@ export default function InfectiousWasteTab() {
   const [showForm, setShowForm] = useState(false);
   const [collectionDate, setCollectionDate] = useState<Date | undefined>(new Date());
   const [transferDate, setTransferDate] = useState<Date | undefined>();
-  const [rows, setRows] = useState<WasteRow[]>([{ health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "" }]);
+  const [rows, setRows] = useState<WasteRow[]>([{ health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "", source_type: "", bottle_count: "" }]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<any>(null);
   const [filterMonth, setFilterMonth] = useState(format(new Date(), "yyyy-MM"));
@@ -62,12 +64,29 @@ export default function InfectiousWasteTab() {
     });
   }, [records, filterMonth, showAllRecords]);
 
-  const addRow = () => setRows([...rows, { health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "" }]);
+  const addRow = () => setRows([...rows, { health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "", source_type: "", bottle_count: "" }]);
   const removeRow = (i: number) => setRows(rows.filter((_, idx) => idx !== i));
   const updateRow = (i: number, field: keyof WasteRow, value: string) => {
     const updated = [...rows];
     updated[i] = { ...updated[i], [field]: value };
     setRows(updated);
+  };
+
+  const parseNoteFields = (notes: any) => {
+    if (typeof notes === "string") {
+      try {
+        const parsed = JSON.parse(notes);
+        if (parsed && typeof parsed === "object") {
+          return {
+            source_type: parsed.source_type || "",
+            bottle_count: parsed.bottle_count || "",
+          };
+        }
+      } catch {
+        return { source_type: "", bottle_count: "" };
+      }
+    }
+    return { source_type: "", bottle_count: "" };
   };
 
   const saveMutation = useMutation({
@@ -83,6 +102,7 @@ export default function InfectiousWasteTab() {
         sharp_waste_kg: r.sharp_waste_kg ? parseFloat(r.sharp_waste_kg) : null,
         non_sharp_waste_kg: r.non_sharp_waste_kg ? parseFloat(r.non_sharp_waste_kg) : null,
         delivered_by: r.delivered_by?.trim() || null,
+        notes: r.source_type || r.bottle_count ? JSON.stringify({ source_type: r.source_type, bottle_count: r.bottle_count }) : null,
         recorded_by: user.id,
       }));
       const { error } = await supabase.from("infectious_waste_records").insert(inserts);
@@ -92,7 +112,7 @@ export default function InfectiousWasteTab() {
       toast.success("บันทึกข้อมูลขยะติดเชื้อสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
       setShowForm(false);
-      setRows([{ health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "" }]);
+      setRows([{ health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "", source_type: "", bottle_count: "" }]);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -108,6 +128,7 @@ export default function InfectiousWasteTab() {
 
   const updateMutation = useMutation({
     mutationFn: async (item: any) => {
+      const notesValue = item.source_type || item.bottle_count ? JSON.stringify({ source_type: item.source_type, bottle_count: item.bottle_count }) : item.notes;
       const { error } = await supabase.from("infectious_waste_records").update({
         health_center_name: item.health_center_name,
         sharp_waste_kg: item.sharp_waste_kg,
@@ -115,6 +136,7 @@ export default function InfectiousWasteTab() {
         delivered_by: item.delivered_by,
         collection_date: item.collection_date,
         transfer_date: item.transfer_date,
+        notes: notesValue,
       }).eq("id", item.id);
       if (error) throw error;
     },
@@ -179,10 +201,20 @@ export default function InfectiousWasteTab() {
                   <span className="text-amber-600 font-semibold">ไม่มีคม: {r.non_sharp_waste_kg} กก.</span>
                 </div>
                 {r.delivered_by && <p className="text-xs text-muted-foreground mt-0.5">ผู้นำส่ง: {r.delivered_by}</p>}
+                {r.notes && (() => {
+                  let parsed;
+                  try { parsed = JSON.parse(r.notes); } catch { parsed = null; }
+                  return parsed ? (
+                    <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                      {parsed.source_type && <div>แหล่งที่มา: {parsed.source_type}</div>}
+                      {parsed.bottle_count && <div>ปริมาณขวด: {parsed.bottle_count} ขวด</div>}
+                    </div>
+                  ) : null;
+                })()}
               </div>
               {isAdmin && (
                 <div className="flex gap-1 flex-shrink-0">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => setEditItem({...r})}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => setEditItem({ ...r, ...parseNoteFields(r.notes) })}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => setDeleteId(r.id)}>
@@ -256,6 +288,23 @@ export default function InfectiousWasteTab() {
                         <Input value={row.delivered_by} onChange={e => updateRow(i, "delivered_by", e.target.value)} className="h-12 rounded-xl text-sm" placeholder="ชื่อ" />
                       </div>
                     </div>
+                    <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                      <div>
+                        <Label className="text-xs font-semibold">แหล่งที่มา</Label>
+                        <Select value={row.source_type || ""} onValueChange={(v) => updateRow(i, "source_type", v)}>
+                          <SelectTrigger className="h-12 rounded-xl text-sm"><SelectValue placeholder="เลือกแหล่งที่มา" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="รพ.มส.">รพ.มส.</SelectItem>
+                            <SelectItem value="คลินิกเอกชน">คลินิกเอกชน</SelectItem>
+                            <SelectItem value="อื่น ๆ">อื่น ๆ</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">ปริมาณขวด</Label>
+                        <Input type="number" step="1" min="0" value={row.bottle_count || ""} onChange={e => updateRow(i, "bottle_count", e.target.value)} className="h-12 rounded-xl text-sm" placeholder="จำนวนขวด" />
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -284,6 +333,23 @@ export default function InfectiousWasteTab() {
                 <div><Label className="text-xs">ไม่มีคม (กก.)</Label><Input type="number" value={editItem.non_sharp_waste_kg} onChange={e => setEditItem({...editItem, non_sharp_waste_kg: e.target.value})} className="h-10 rounded-xl" /></div>
               </div>
               <div><Label className="text-xs">ผู้นำส่ง</Label><Input value={editItem.delivered_by || ""} onChange={e => setEditItem({...editItem, delivered_by: e.target.value})} className="h-10 rounded-xl" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">แหล่งที่มา</Label>
+                  <Select value={editItem.source_type || ""} onValueChange={v => setEditItem({...editItem, source_type: v})}>
+                    <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="เลือกแหล่งที่มา" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="รพ.มส.">รพ.มส.</SelectItem>
+                      <SelectItem value="คลินิกเอกชน">คลินิกเอกชน</SelectItem>
+                      <SelectItem value="อื่น ๆ">อื่น ๆ</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">ปริมาณขวด</Label>
+                  <Input type="number" step="1" min="0" value={editItem.bottle_count || ""} onChange={e => setEditItem({...editItem, bottle_count: e.target.value})} className="h-10 rounded-xl" />
+                </div>
+              </div>
               <Button className="w-full h-11 rounded-2xl font-bold" onClick={() => updateMutation.mutate(editItem)} disabled={updateMutation.isPending}>บันทึก</Button>
             </div>
           )}

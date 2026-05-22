@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,10 +20,10 @@ import { exportToExcel } from "@/lib/exportExcel";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid, BarChart, Bar, Area, AreaChart } from "recharts";
 import PageHeader from "@/components/PageHeader";
 import InfectiousWasteTab from "@/components/InfectiousWasteTab";
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, Pencil, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 
-const wasteTypes: Record<string, { label: string; color: string; chartColor: string }> = {
+const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
   general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "hsl(210 15% 55%)" },
   infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "hsl(0 72% 55%)" },
   recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "hsl(152 55% 42%)" },
@@ -35,6 +35,13 @@ const PIE_COLORS = ["hsl(210 15% 55%)", "hsl(0 72% 55%)", "hsl(152 55% 42%)", "h
 export default function WasteLog() {
   const { user, profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const [typesMap, setTypesMap] = useState<Record<string, { label: string; color: string; chartColor: string }>>(DEFAULT_WASTE_TYPES);
+  const [manageDeptsOpen, setManageDeptsOpen] = useState(false);
+  const [deptEditName, setDeptEditName] = useState("");
+  const [deptEditId, setDeptEditId] = useState<string | null>(null);
+  const [manageTypesOpen, setManageTypesOpen] = useState(false);
+  const [newTypeKey, setNewTypeKey] = useState("");
+  const [newTypeLabel, setNewTypeLabel] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [wasteType, setWasteType] = useState("general");
   const [weight, setWeight] = useState("");
@@ -53,6 +60,24 @@ export default function WasteLog() {
       return data || [];
     },
   });
+
+  // load persisted waste types and costs from app_settings
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: wt } = await supabase.from("app_settings").select("value").eq("key", "waste_types").maybeSingle();
+        if (wt && wt.value) {
+          const parsed = JSON.parse(wt.value);
+          if (parsed && typeof parsed === "object") setTypesMap(parsed);
+        }
+        const { data: wc } = await supabase.from("app_settings").select("value").eq("key", "waste_costs").maybeSingle();
+        if (wc && wc.value) {
+          const parsed = JSON.parse(wc.value);
+          if (parsed && typeof parsed === "object") setCostPerKg(parsed);
+        }
+      } catch (e) {}
+    })();
+  }, []);
 
   const { data: logs = [] } = useQuery({
     queryKey: ["waste-logs"],
@@ -109,6 +134,64 @@ export default function WasteLog() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const saveDepartment = useMutation({
+    mutationFn: async ({ id, name }: { id?: string | null; name: string }) => {
+      if (!name.trim()) throw new Error("กรุณาระบุชื่อแผนก");
+      if (id) {
+        const { error } = await supabase.from("departments").update({ name: name.trim() }).eq("id", id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("departments").insert({ name: name.trim() });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("บันทึกแผนกสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+      setDeptEditId(null);
+      setDeptEditName("");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteDepartment = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("departments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบแผนกสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const saveWasteSettings = useMutation({
+    mutationFn: async () => {
+      const typeValue = JSON.stringify(typesMap);
+      const costValue = JSON.stringify(costPerKg);
+
+      const { data: existingTypes } = await supabase.from("app_settings").select("id").eq("key", "waste_types").maybeSingle();
+      if (existingTypes) {
+        await supabase.from("app_settings").update({ value: typeValue }).eq("key", "waste_types");
+      } else {
+        await supabase.from("app_settings").insert({ key: "waste_types", value: typeValue });
+      }
+
+      const { data: existingCosts } = await supabase.from("app_settings").select("id").eq("key", "waste_costs").maybeSingle();
+      if (existingCosts) {
+        await supabase.from("app_settings").update({ value: costValue }).eq("key", "waste_costs");
+      } else {
+        await supabase.from("app_settings").insert({ key: "waste_costs", value: costValue });
+      }
+    },
+    onSuccess: () => {
+      toast.success("บันทึกการตั้งค่าเรียบร้อยแล้ว");
+      queryClient.invalidateQueries({ queryKey: ["app_settings"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const filteredLogs = useMemo(() => {
     return logs.filter((log: any) => {
       if (filterType !== "all" && log.waste_type !== filterType) return false;
@@ -132,7 +215,7 @@ export default function WasteLog() {
 
     filteredLogs.forEach((log: any) => {
       const day = format(new Date(log.created_at), "d MMM", { locale: th });
-      const wt = wasteTypes[log.waste_type]?.label || log.waste_type;
+      const wt = typesMap[log.waste_type]?.label || log.waste_type;
       const dept = log.departments?.name || "ไม่ระบุ";
       const w = Number(log.weight);
 
@@ -212,7 +295,7 @@ export default function WasteLog() {
         <Button size="sm" className="rounded-2xl text-xs h-9 bg-emerald-500 text-white hover:bg-emerald-600 gap-1" onClick={() => {
           exportToExcel(filteredLogs.map((l: any) => ({
             "วันที่": new Date(l.created_at).toLocaleDateString("th-TH"),
-            "ประเภทขยะ": wasteTypes[l.waste_type]?.label || l.waste_type,
+            "ประเภทขยะ": typesMap[l.waste_type]?.label || l.waste_type,
             "น้ำหนัก (กก.)": l.weight,
             "แผนก": l.departments?.name || "-",
           })), "waste-logs", "บันทึกขยะ");
@@ -243,7 +326,7 @@ export default function WasteLog() {
                 <SelectTrigger className="h-10 text-sm w-32 rounded-2xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">ทุกประเภท</SelectItem>
-                  {Object.entries(wasteTypes).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                  {Object.entries(typesMap).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filterPeriod} onValueChange={setFilterPeriod}>
@@ -293,7 +376,7 @@ export default function WasteLog() {
                 <p className="text-xs text-muted-foreground mt-1">น้ำหนักรวม (กก.)</p>
               </CardContent>
             </Card>
-            {Object.entries(wasteTypes).map(([k, v]) => {
+            {Object.entries(typesMap).map(([k, v]) => {
               const typeWeight = filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
               return (
                 <Card key={k} className="shadow-lg border-0 rounded-3xl bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
@@ -317,7 +400,7 @@ export default function WasteLog() {
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
-                    {Object.values(wasteTypes).map((wt) => (
+                    {Object.values(typesMap).map((wt) => (
                       <Line key={wt.label} type="monotone" dataKey={wt.label} stroke={wt.chartColor} strokeWidth={2.5} dot={{ r: 4 }} />
                     ))}
                   </LineChart>
@@ -346,7 +429,7 @@ export default function WasteLog() {
 
         <TabsContent value="records" className="space-y-3 mt-4">
           {filteredLogs.map((log: any) => {
-            const wt = wasteTypes[log.waste_type] || wasteTypes.general;
+            const wt = typesMap[log.waste_type] || typesMap.general;
             return (
               <Card key={log.id} className="group relative overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer hover:-translate-y-1 animate-fade-in bg-white/70 backdrop-blur-md" onClick={() => setSelectedLog(log)}>
                 <div className="absolute inset-0 opacity-[0.05] rounded-3xl" style={{ background: `linear-gradient(135deg, ${wt.chartColor}, transparent)` }} />
@@ -401,7 +484,7 @@ export default function WasteLog() {
             <CardContent className="p-5">
               <h3 className="text-base font-bold text-foreground mb-3">กราฟค่าใช้จ่ายตามประเภทขยะ</h3>
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={Object.entries(wasteTypes).map(([k, v]) => {
+                <BarChart data={Object.entries(typesMap).map(([k, v]) => {
                   const typeWeight = filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
                   return { name: v.label, weight: Math.round(typeWeight * 100) / 100, cost: Math.round(typeWeight * (costPerKg[k] || 0) * 100) / 100, fill: v.chartColor };
                 })} layout="vertical" margin={{ left: 10, right: 20 }}>
@@ -410,7 +493,7 @@ export default function WasteLog() {
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={90} />
                   <Tooltip formatter={(v: number, name: string) => name === "cost" ? [`${v} ฿`, "ค่าใช้จ่าย"] : [`${v} กก.`, "น้ำหนัก"]} />
                   <Bar dataKey="cost" radius={[0, 8, 8, 0]}>
-                    {Object.values(wasteTypes).map((v, i) => <Cell key={i} fill={v.chartColor} />)}
+                    {Object.values(typesMap).map((v, i) => <Cell key={i} fill={v.chartColor} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -425,9 +508,9 @@ export default function WasteLog() {
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={chartData.lineData.map(d => {
                     let dailyCost = 0;
-                    Object.entries(wasteTypes).forEach(([, v]) => {
+                    Object.entries(typesMap).forEach(([, v]) => {
                       const w = (d as any)[v.label] || 0;
-                      const k = Object.entries(wasteTypes).find(([, vv]) => vv.label === v.label)?.[0] || "general";
+                      const k = Object.entries(typesMap).find(([, vv]) => vv.label === v.label)?.[0] || "general";
                       dailyCost += w * (costPerKg[k] || 0);
                     });
                     return { date: d.date, cost: Math.round(dailyCost * 100) / 100 };
@@ -452,7 +535,7 @@ export default function WasteLog() {
           <Card className="shadow-card border border-border/50 rounded-2xl">
             <CardContent className="p-5 space-y-3">
               <h3 className="text-base font-bold text-foreground">ตั้งค่าราคาค่ากำจัด (บาท/กก.)</h3>
-              {Object.entries(wasteTypes).map(([k, v]) => (
+              {Object.entries(typesMap).map(([k, v]) => (
                 <div key={k} className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <span className="inline-block w-3 h-3 rounded-full" style={{ background: v.chartColor }} />
@@ -464,11 +547,17 @@ export default function WasteLog() {
             </CardContent>
           </Card>
 
+          <div className="flex justify-end">
+            <Button className="h-12 rounded-2xl" onClick={() => saveWasteSettings.mutate()} disabled={saveWasteSettings.isPending}>
+              {saveWasteSettings.isPending ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}
+            </Button>
+          </div>
+
           <Card className="shadow-card border border-border/50 rounded-2xl">
             <CardContent className="p-5">
               <h3 className="text-base font-bold text-foreground mb-3">รายละเอียดค่าใช้จ่าย</h3>
               <div className="space-y-2">
-                {Object.entries(wasteTypes).map(([k, v]) => {
+                {Object.entries(typesMap).map(([k, v]) => {
                   const typeWeight = filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
                   const typeCost = typeWeight * (costPerKg[k] || 0);
                   const pct = totalCost > 0 ? Math.round((typeCost / totalCost) * 100) : 0;
@@ -520,7 +609,7 @@ export default function WasteLog() {
               <Select value={wasteType} onValueChange={setWasteType}>
                 <SelectTrigger className="h-12 rounded-2xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(wasteTypes).map(([k, v]) => (
+                  {Object.entries(typesMap).map(([k, v]) => (
                     <SelectItem key={k} value={k}>
                       <div className="flex items-center gap-2">
                         <span className="inline-block w-3 h-3 rounded-full" style={{ background: v.chartColor }} />
@@ -548,12 +637,110 @@ export default function WasteLog() {
           <DialogHeader><DialogTitle>รายละเอียดบันทึกขยะ</DialogTitle></DialogHeader>
           {selectedLog && (
             <div className="space-y-3 text-base">
-                  <div className="flex justify-between"><span className="text-muted-foreground">ประเภท:</span><Badge className={`${wasteTypes[selectedLog.waste_type]?.color} border`} variant="secondary">{wasteTypes[selectedLog.waste_type]?.label}</Badge></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">ประเภท:</span><Badge className={`${typesMap[selectedLog.waste_type]?.color} border`} variant="secondary">{typesMap[selectedLog.waste_type]?.label}</Badge></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">น้ำหนัก:</span><span className="font-bold text-foreground">{selectedLog.weight} กก.</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">แผนก:</span><span className="text-foreground">{selectedLog.departments?.name || "-"}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">วันที่:</span><span className="text-foreground">{new Date(selectedLog.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span></div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manageDeptsOpen} onOpenChange={setManageDeptsOpen}>
+        <DialogContent className="max-w-2xl rounded-3xl">
+          <DialogHeader><DialogTitle>จัดการแผนก</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              {departments.map((dept: any) => (
+                <div key={dept.id} className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{dept.name}</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="rounded-2xl" onClick={() => { setDeptEditId(dept.id); setDeptEditName(dept.name); }}>
+                    แก้ไข
+                  </Button>
+                  <Button variant="ghost" size="sm" className="rounded-2xl text-destructive" onClick={() => deleteDepartment.mutate(dept.id)}>
+                    ลบ
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3 p-4 rounded-3xl border border-border/70 bg-slate-50">
+              <Label className="text-sm font-semibold">เพิ่ม / แก้ไขแผนก</Label>
+              <Input placeholder="ชื่อแผนก" value={deptEditName} onChange={(e) => setDeptEditName(e.target.value)} className="h-12 rounded-2xl" />
+              <div className="flex gap-2 flex-wrap">
+                <Button className="h-12 rounded-2xl" onClick={() => saveDepartment.mutate({ id: deptEditId, name: deptEditName })} disabled={saveDepartment.isPending || !deptEditName.trim()}>
+                  {saveDepartment.isPending ? "กำลังบันทึก..." : deptEditId ? "อัปเดต" : "เพิ่ม"}
+                </Button>
+                {deptEditId && (
+                  <Button variant="ghost" className="h-12 rounded-2xl" onClick={() => { setDeptEditId(null); setDeptEditName(""); }}>
+                    ยกเลิก
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manageTypesOpen} onOpenChange={setManageTypesOpen}>
+        <DialogContent className="max-w-2xl rounded-3xl">
+          <DialogHeader><DialogTitle>จัดการประเภทขยะ</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              {Object.entries(typesMap).map(([key, value]) => (
+                <div key={key} className="flex flex-col gap-2 rounded-3xl border border-border/50 p-3 bg-slate-50">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-3 h-3 rounded-full" style={{ background: value.chartColor }} />
+                      <span className="font-medium">{key}</span>
+                    </div>
+                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => {
+                      const copy = { ...typesMap };
+                      delete copy[key];
+                      setTypesMap(copy);
+                    }}>
+                      ลบ
+                    </Button>
+                  </div>
+                  <Input value={value.label} onChange={(e) => setTypesMap(prev => ({ ...prev, [key]: { ...prev[key], label: e.target.value } }))} className="h-12 rounded-2xl" />
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3 p-4 rounded-3xl border border-border/70 bg-slate-50">
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="คีย์ใหม่ เช่น special" value={newTypeKey} onChange={(e) => setNewTypeKey(e.target.value)} className="h-12 rounded-2xl" />
+                <Input placeholder="ป้ายชื่อใหม่" value={newTypeLabel} onChange={(e) => setNewTypeLabel(e.target.value)} className="h-12 rounded-2xl" />
+              </div>
+              <Button className="h-12 rounded-2xl" onClick={() => {
+                const trimmedKey = newTypeKey.trim();
+                const trimmedLabel = newTypeLabel.trim();
+                if (!trimmedKey || !trimmedLabel) {
+                  toast.error("กรุณากรอกคีย์และป้ายชื่อ");
+                  return;
+                }
+                if (typesMap[trimmedKey]) {
+                  toast.error("คีย์นี้มีอยู่แล้ว");
+                  return;
+                }
+                setTypesMap(prev => ({
+                  ...prev,
+                  [trimmedKey]: {
+                    label: trimmedLabel,
+                    color: "bg-slate-200 text-slate-800 border-slate-300",
+                    chartColor: "hsl(210 15% 55%)",
+                  },
+                }));
+                setNewTypeKey("");
+                setNewTypeLabel("");
+              }}>
+                เพิ่มประเภทใหม่
+              </Button>
+            </div>
+            <Button className="w-full h-12 rounded-2xl" onClick={() => saveWasteSettings.mutate()} disabled={saveWasteSettings.isPending}>
+              {saveWasteSettings.isPending ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
