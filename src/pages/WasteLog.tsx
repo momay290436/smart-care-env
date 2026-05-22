@@ -603,6 +603,14 @@ export default function WasteLog() {
                   {departments.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {isAdmin && (
+                <div className="flex items-center justify-between gap-2 pt-2">
+                  <span className="text-xs text-muted-foreground">เฉพาะผู้ดูแลระบบ สามารถจัดการรายการแผนกได้</span>
+                  <Button size="sm" variant="outline" className="h-10 rounded-2xl" onClick={() => setManageDeptsOpen(true)}>
+                    จัดการ
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label className="font-semibold">ประเภทขยะ</Label>
@@ -619,12 +627,20 @@ export default function WasteLog() {
                   ))}
                 </SelectContent>
               </Select>
+              {isAdmin && (
+                <div className="flex items-center justify-between gap-2 pt-2">
+                  <span className="text-xs text-muted-foreground">เฉพาะผู้ดูแลระบบ สามารถจัดการรายการประเภทขยะได้</span>
+                  <Button size="sm" variant="outline" className="h-10 rounded-2xl" onClick={() => setManageTypesOpen(true)}>
+                    จัดการ
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label className="font-semibold">น้ำหนัก (กก.)</Label>
               <Input type="number" step="0.1" min="0" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0.0" className="text-lg h-12 rounded-2xl" />
             </div>
-            <Button className="w-full h-12 text-base rounded-2xl font-bold" onClick={() => createLog.mutate()} disabled={createLog.isPending || !weight}>
+            <Button className="w-full h-14 rounded-2xl text-base font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 shadow-lg" onClick={() => createLog.mutate()} disabled={createLog.isPending || !weight}>
               {createLog.isPending ? "กำลังบันทึก..." : "บันทึก"}
             </Button>
           </div>
