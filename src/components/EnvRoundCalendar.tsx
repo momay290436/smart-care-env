@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isSameMonth, addMonths, subMonths } from "date-fns";
 import { th } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, Download } from "lucide-react";
+import { exportToExcel } from "@/lib/exportExcel";
 
 export default function EnvRoundCalendar() {
   const { user, isAdmin } = useAuth();
@@ -25,6 +26,9 @@ export default function EnvRoundCalendar() {
   const [deptId, setDeptId] = useState("");
   const [color, setColor] = useState("#0891b2");
   const [notes, setNotes] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFrom, setExportFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [exportTo, setExportTo] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -66,6 +70,24 @@ export default function EnvRoundCalendar() {
     onSuccess: () => { toast.success("ลบสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["env-schedule-events"] }); },
   });
 
+  const handleExportEvents = async () => {
+    const { data } = await supabase.from("schedule_events").select("*, departments(name)")
+      .eq("event_type", "env")
+      .gte("start_date", exportFrom).lte("start_date", exportTo)
+      .order("start_date");
+    const rows = (data || []).map((e: any) => ({
+      "วันที่": format(new Date(e.start_date), "d MMM yyyy", { locale: th }),
+      "ถึงวันที่": e.end_date ? format(new Date(e.end_date), "d MMM yyyy", { locale: th }) : "-",
+      "กิจกรรม": e.title,
+      "แผนก": e.departments?.name || "ทุกแผนก",
+      "หมายเหตุ": e.notes || "-",
+    }));
+    if (rows.length === 0) { toast.info("ไม่มีกำหนดการในช่วงที่เลือก"); return; }
+    exportToExcel(rows, `env-schedule-${exportFrom}_${exportTo}`, "กำหนดการ ENV");
+    toast.success("ส่งออก Excel สำเร็จ");
+    setExportOpen(false);
+  };
+
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -87,11 +109,16 @@ export default function EnvRoundCalendar() {
             <CalendarDays className="h-5 w-5 text-primary" />
             <h3 className="font-bold text-lg text-foreground">ปฏิทินกำหนดการ ENV Round</h3>
           </div>
-          {isAdmin && (
-            <Button size="sm" className="rounded-2xl gap-1.5" onClick={() => setShowAdd(true)}>
-              <Plus className="h-4 w-4" /> เพิ่ม
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="rounded-2xl gap-1.5" onClick={() => setExportOpen(true)}>
+              <Download className="h-4 w-4" /> Export
             </Button>
-          )}
+            {isAdmin && (
+              <Button size="sm" className="rounded-2xl gap-1.5" onClick={() => setShowAdd(true)}>
+                <Plus className="h-4 w-4" /> เพิ่ม
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Month navigation */}
@@ -115,13 +142,15 @@ export default function EnvRoundCalendar() {
             const dayEvents = events.filter((e: any) => isSameDay(new Date(e.start_date), day));
             const isToday = isSameDay(day, new Date());
             return (
-              <div key={day.toISOString()} className={`min-h-[48px] p-1 rounded-xl text-center relative ${isToday ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted/50"}`}>
-                <span className={`text-xs ${isToday ? "font-bold text-primary" : "text-foreground"}`}>{format(day, "d")}</span>
-                <div className="space-y-0.5 mt-0.5">
+              <div key={day.toISOString()} className={`min-h-[72px] p-1 rounded-xl relative overflow-hidden ${isToday ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted/50 bg-muted/10"}`}>
+                <div className={`text-[11px] text-center ${isToday ? "font-bold text-primary" : "text-foreground"}`}>{format(day, "d")}</div>
+                <div className="flex flex-col gap-0.5 mt-0.5">
                   {dayEvents.slice(0, 2).map((ev: any) => (
-                    <div key={ev.id} className="rounded-full h-1.5 w-full" style={{ backgroundColor: ev.color || "#0891b2" }} title={ev.title} />
+                    <div key={ev.id} className="text-[9px] text-white rounded px-1 py-0.5 truncate leading-tight" style={{ backgroundColor: ev.color || "#0891b2" }} title={ev.title}>
+                      {ev.title}
+                    </div>
                   ))}
-                  {dayEvents.length > 2 && <span className="text-[8px] text-muted-foreground">+{dayEvents.length - 2}</span>}
+                  {dayEvents.length > 2 && <span className="text-[9px] text-muted-foreground">+{dayEvents.length - 2}</span>}
                 </div>
               </div>
             );
@@ -180,6 +209,28 @@ export default function EnvRoundCalendar() {
               <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => addEvent.mutate()} disabled={!title || !startDate || addEvent.isPending}>
                 {addEvent.isPending ? "กำลังบันทึก..." : "เพิ่มกำหนดการ"}
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+          <DialogContent className="rounded-3xl max-w-md">
+            <DialogHeader><DialogTitle>ส่งออกกำหนดการ ENV Round</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">เลือกช่วงวันที่ต้องการส่งออก</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>วันเริ่ม</Label><Input type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="h-12 rounded-2xl" /></div>
+                <div><Label>วันสิ้นสุด</Label><Input type="date" value={exportTo} onChange={(e) => setExportTo(e.target.value)} className="h-12 rounded-2xl" /></div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 rounded-2xl" onClick={() => {
+                  setExportFrom(format(startOfMonth(currentMonth), "yyyy-MM-dd"));
+                  setExportTo(format(endOfMonth(currentMonth), "yyyy-MM-dd"));
+                }}>เดือนนี้</Button>
+                <Button className="flex-1 rounded-2xl gap-1" onClick={handleExportEvents}>
+                  <Download className="h-4 w-4" /> Export Excel
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
