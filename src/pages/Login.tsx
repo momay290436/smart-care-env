@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { toast } from "sonner";
+import CreatorCredit from "@/components/CreatorCredit";
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -62,6 +63,10 @@ export default function Login() {
 
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <span>ติดต่อผู้ดูแลระบบเพื่อขอบัญชีใช้งาน</span>
+        </div>
+
+        <div className="mt-8 flex items-center justify-center">
+          <CreatorCredit />
         </div>
       </div>
     </div>

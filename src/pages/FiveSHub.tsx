@@ -16,7 +16,8 @@ import { useState, useMemo } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from "date-fns";
 import { th } from "date-fns/locale";
 import PageHeader from "@/components/PageHeader";
-import { ClipboardCheck, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2, History, Sparkles } from "lucide-react";
+import { ClipboardCheck, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2, History, Sparkles, Download } from "lucide-react";
+import { exportToExcel } from "@/lib/exportExcel";
 
 const EVENT_COLORS = [
   { value: "#0891b2", label: "ฟ้าน้ำทะเล" },
@@ -48,6 +49,9 @@ export default function FiveSHub() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
   const [selectedAudit, setSelectedAudit] = useState<any>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFrom, setExportFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [exportTo, setExportTo] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -69,6 +73,27 @@ export default function FiveSHub() {
       return data || [];
     },
   });
+
+  const handleExportEvents = async () => {
+    const { data } = await supabase
+      .from("schedule_events")
+      .select("*, departments(name)")
+      .eq("event_type", "5s")
+      .gte("start_date", exportFrom)
+      .lte("start_date", exportTo)
+      .order("start_date");
+    const rows = (data || []).map((e: any) => ({
+      "วันที่": format(new Date(e.start_date), "d MMM yyyy", { locale: th }),
+      "ถึงวันที่": e.end_date ? format(new Date(e.end_date), "d MMM yyyy", { locale: th }) : "-",
+      "กิจกรรม": e.title,
+      "แผนก": e.departments?.name || "ทุกแผนก",
+      "หมายเหตุ": e.notes || "-",
+    }));
+    if (rows.length === 0) { toast.info("ไม่มีกำหนดการในช่วงที่เลือก"); return; }
+    exportToExcel(rows, `5s-schedule-${exportFrom}_${exportTo}`, "กำหนดการ 5ส");
+    toast.success("ส่งออก Excel สำเร็จ");
+    setExportOpen(false);
+  };
 
   const { data: recentAudits = [] } = useQuery({
     queryKey: ["recent-5s-audits"],
@@ -120,7 +145,7 @@ export default function FiveSHub() {
 
   return (
     <div className="space-y-5 pb-6">
-      <PageHeader title="ระบบ 5ส." subtitle="ตรวจ 5ส · ปฏิทินกำหนดการ · ประวัติการตรวจ" gradient="from-teal-50/80 to-cyan-50/80" />
+      <PageHeader title="ระบบ 5ส." subtitle="ตรวจ 5ส · ปฏิทินกำหนดการ · ประวัติการตรวจ" />
 
       {/* 60/40 Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -131,11 +156,16 @@ export default function FiveSHub() {
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <CalendarIcon className="h-5 w-5 text-primary" /> ปฏิทินกำหนดการ 5ส
               </CardTitle>
-              {isAdmin && (
-                <Button size="sm" className="rounded-2xl gap-1 h-9" onClick={() => setShowAddEvent(true)}>
-                  <Plus className="h-4 w-4" /> เพิ่มกิจกรรม
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" className="rounded-2xl gap-1 h-9" onClick={() => setExportOpen(true)}>
+                  <Download className="h-4 w-4" /> Export
                 </Button>
-              )}
+                {isAdmin && (
+                  <Button size="sm" className="rounded-2xl gap-1 h-9" onClick={() => setShowAddEvent(true)}>
+                    <Plus className="h-4 w-4" /> เพิ่มกิจกรรม
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-4 space-y-3">
@@ -164,19 +194,22 @@ export default function FiveSHub() {
                 return (
                   <button
                     key={day.toISOString()}
-                    className={`relative aspect-square flex flex-col items-center justify-center rounded-xl text-sm transition-all
-                      ${isToday ? "bg-primary/10 font-bold text-primary" : "hover:bg-muted/50"}
+                    className={`relative min-h-[72px] flex flex-col items-stretch p-1 rounded-xl text-xs transition-all overflow-hidden text-left
+                      ${isToday ? "bg-primary/10 font-bold text-primary" : "hover:bg-muted/50 bg-muted/10"}
                       ${isSelected ? "ring-2 ring-primary" : ""}`}
                     onClick={() => setSelectedDate(day)}
                   >
-                    <span>{format(day, "d")}</span>
-                    {dayEvents.length > 0 && (
-                      <div className="flex gap-0.5 mt-0.5">
-                        {dayEvents.slice(0, 3).map((e: any, i: number) => (
-                          <span key={i} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: e.color || "#0891b2" }} />
-                        ))}
-                      </div>
-                    )}
+                    <span className="text-center text-xs font-semibold">{format(day, "d")}</span>
+                    <div className="flex flex-col gap-0.5 mt-0.5 flex-1">
+                      {dayEvents.slice(0, 2).map((e: any) => (
+                        <div key={e.id} className="text-[9px] text-white rounded px-1 py-0.5 truncate leading-tight" style={{ backgroundColor: e.color || "#0891b2" }} title={e.title}>
+                          {e.title}
+                        </div>
+                      ))}
+                      {dayEvents.length > 2 && (
+                        <span className="text-[9px] text-muted-foreground">+{dayEvents.length - 2}</span>
+                      )}
+                    </div>
                   </button>
                 );
               })}
@@ -342,6 +375,28 @@ export default function FiveSHub() {
         confirmLabel="ลบ"
         onConfirm={() => { if (deleteEventId) { deleteEvent.mutate(deleteEventId); setDeleteEventId(null); } }}
       />
+
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader><DialogTitle>ส่งออกกำหนดการ 5ส</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">เลือกช่วงวันที่ต้องการส่งออก (ค่าเริ่มต้น: เดือนปัจจุบัน)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>วันเริ่ม</Label><Input type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="h-12 rounded-2xl" /></div>
+              <div><Label>วันสิ้นสุด</Label><Input type="date" value={exportTo} onChange={(e) => setExportTo(e.target.value)} className="h-12 rounded-2xl" /></div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 rounded-2xl" onClick={() => {
+                setExportFrom(format(startOfMonth(currentMonth), "yyyy-MM-dd"));
+                setExportTo(format(endOfMonth(currentMonth), "yyyy-MM-dd"));
+              }}>เดือนนี้</Button>
+              <Button className="flex-1 rounded-2xl gap-1" onClick={handleExportEvents}>
+                <Download className="h-4 w-4" /> Export Excel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -52,6 +52,9 @@ export default function WasteLog() {
   const [customTo, setCustomTo] = useState<Date | undefined>();
   const [costPerKg, setCostPerKg] = useState<Record<string, number>>({ general: 2, infectious: 15, recycle: 0, hazardous: 25 });
   const [selectedLog, setSelectedLog] = useState<any>(null);
+  // Admin backdate fields
+  const [customDateTime, setCustomDateTime] = useState("");
+  const [customRecorder, setCustomRecorder] = useState("");
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -95,12 +98,16 @@ export default function WasteLog() {
     mutationFn: async () => {
       if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
       const w = parseFloat(weight);
-      const { error } = await supabase.from("waste_logs").insert({
+      const payload: any = {
         waste_type: wasteType,
         weight: w,
         department_id: selectedDept || profile?.department_id || null,
         recorded_by: user.id,
-      });
+      };
+      if (isAdmin && customDateTime) {
+        payload.created_at = new Date(customDateTime).toISOString();
+      }
+      const { error } = await supabase.from("waste_logs").insert(payload);
       if (error) throw error;
 
       // Line notify for high-weight infectious waste
@@ -118,6 +125,8 @@ export default function WasteLog() {
       queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
       setShowForm(false);
       setWeight("");
+      setCustomDateTime("");
+      setCustomRecorder("");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -288,11 +297,11 @@ export default function WasteLog() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="จัดการข้อมูลขยะ" subtitle="บันทึก วิเคราะห์ และคำนวณต้นทุน" gradient="from-emerald-600/90 to-teal-500/90">
-        <Button size="sm" className="rounded-2xl text-xs h-9 bg-emerald-500 text-white hover:bg-emerald-600 gap-1" onClick={handleAdvancedExport}>
+      <PageHeader title="จัดการข้อมูลขยะ" subtitle="บันทึก วิเคราะห์ และคำนวณต้นทุน">
+        <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 gap-1" onClick={handleAdvancedExport}>
           <Download className="h-3.5 w-3.5" /> รายงานเดือน
         </Button>
-        <Button size="sm" className="rounded-2xl text-xs h-9 bg-emerald-500 text-white hover:bg-emerald-600 gap-1" onClick={() => {
+        <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 gap-1" onClick={() => {
           exportToExcel(filteredLogs.map((l: any) => ({
             "วันที่": new Date(l.created_at).toLocaleDateString("th-TH"),
             "ประเภทขยะ": typesMap[l.waste_type]?.label || l.waste_type,
@@ -640,6 +649,15 @@ export default function WasteLog() {
               <Label className="font-semibold">น้ำหนัก (กก.)</Label>
               <Input type="number" step="0.1" min="0" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0.0" className="text-lg h-12 rounded-2xl" />
             </div>
+            {isAdmin && (
+              <div className="space-y-3 rounded-2xl bg-blue-50/50 p-4 border border-blue-100">
+                <p className="text-xs font-bold text-blue-700">⚙ ตัวเลือกผู้ดูแล (ลงข้อมูลย้อนหลัง)</p>
+                <div className="space-y-1">
+                  <Label className="text-xs">วัน/เดือน/ปี และเวลา (เว้นว่าง = ใช้เวลาปัจจุบัน)</Label>
+                  <Input type="datetime-local" value={customDateTime} onChange={(e) => setCustomDateTime(e.target.value)} className="h-11 rounded-2xl" />
+                </div>
+              </div>
+            )}
             <Button className="w-full h-14 rounded-2xl text-base font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 shadow-lg" onClick={() => createLog.mutate()} disabled={createLog.isPending || !weight}>
               {createLog.isPending ? "กำลังบันทึก..." : "บันทึก"}
             </Button>
