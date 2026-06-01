@@ -1265,6 +1265,96 @@ export type Database = {
         }
         Relationships: []
       }
+      water_chemical_logs: {
+        Row: {
+          chemical_name: string
+          concentration_downstream: number | null
+          concentration_upstream: number | null
+          created_at: string | null
+          id: string
+          log_date: string
+          log_time: string
+          notes: string | null
+          ph_downstream: number | null
+          ph_upstream: number | null
+          recorded_by: string
+        }
+        Insert: {
+          chemical_name: string
+          concentration_downstream?: number | null
+          concentration_upstream?: number | null
+          created_at?: string | null
+          id?: string
+          log_date: string
+          log_time: string
+          notes?: string | null
+          ph_downstream?: number | null
+          ph_upstream?: number | null
+          recorded_by: string
+        }
+        Update: {
+          chemical_name?: string
+          concentration_downstream?: number | null
+          concentration_upstream?: number | null
+          created_at?: string | null
+          id?: string
+          log_date?: string
+          log_time?: string
+          notes?: string | null
+          ph_downstream?: number | null
+          ph_upstream?: number | null
+          recorded_by?: string
+        }
+        Relationships: []
+      }
+      water_disinfectant_records: {
+        Row: {
+          check_date: string | null
+          check_time: string | null
+          chemical_name: string
+          created_at: string
+          destination_concentration: number
+          destination_ph: number
+          id: string
+          note: string | null
+          record_date: string | null
+          record_time: string | null
+          recorder_name: string | null
+          source_concentration: number
+          source_ph: number
+        }
+        Insert: {
+          check_date?: string | null
+          check_time?: string | null
+          chemical_name?: string
+          created_at?: string
+          destination_concentration: number
+          destination_ph: number
+          id?: string
+          note?: string | null
+          record_date?: string | null
+          record_time?: string | null
+          recorder_name?: string | null
+          source_concentration: number
+          source_ph: number
+        }
+        Update: {
+          check_date?: string | null
+          check_time?: string | null
+          chemical_name?: string
+          created_at?: string
+          destination_concentration?: number
+          destination_ph?: number
+          id?: string
+          note?: string | null
+          record_date?: string | null
+          record_time?: string | null
+          recorder_name?: string | null
+          source_concentration?: number
+          source_ph?: number
+        }
+        Relationships: []
+      }
       water_emergency_tests: {
         Row: {
           created_at: string
@@ -1444,54 +1534,6 @@ export type Database = {
         }
         Relationships: []
       }
-      water_disinfectant_logs: {
-        Row: {
-          check_date: string
-          check_time: string
-          created_at: string
-          disinfectant_name: string
-          id: string
-          inspector_id: string
-          inspector_name: string
-          notes: string | null
-          outlet_concentration: number
-          outlet_ph: number
-          source_concentration: number
-          source_ph: number
-          status: string
-        }
-        Insert: {
-          check_date?: string
-          check_time?: string
-          created_at?: string
-          disinfectant_name?: string
-          id?: string
-          inspector_id: string
-          inspector_name?: string
-          notes?: string | null
-          outlet_concentration?: number
-          outlet_ph?: number
-          source_concentration?: number
-          source_ph?: number
-          status?: string
-        }
-        Update: {
-          check_date?: string
-          check_time?: string
-          created_at?: string
-          disinfectant_name?: string
-          id?: string
-          inspector_id?: string
-          inspector_name?: string
-          notes?: string | null
-          outlet_concentration?: number
-          outlet_ph?: number
-          source_concentration?: number
-          source_ph?: number
-          status?: string
-        }
-        Relationships: []
-      }
       water_quality_batch_items: {
         Row: {
           batch_id: string
@@ -1574,58 +1616,91 @@ export type Database = {
           check_date: string
           check_point: string
           check_time: string | null
+          chemical_type: string | null
+          chlorine_downstream: number | null
+          chlorine_level: number | null
+          chlorine_upstream: number | null
           chlorine_value: number | null
           created_at: string
           disinfectant_name: string | null
+          downstream_concentration: number | null
           id: string
+          inlet_concentration: number | null
+          inlet_ph: number | null
           inspector_name: string | null
           notes: string | null
           outlet_concentration: number | null
           outlet_ph: number | null
+          ph_downstream: number | null
+          ph_level: number | null
+          ph_upstream: number | null
           ph_value: number | null
           recorded_by: string
           source_concentration: number | null
           source_ph: number | null
           status: string
           turbidity_value: number | null
+          upstream_concentration: number | null
         }
         Insert: {
           check_date?: string
           check_point?: string
           check_time?: string | null
+          chemical_type?: string | null
+          chlorine_downstream?: number | null
+          chlorine_level?: number | null
+          chlorine_upstream?: number | null
           chlorine_value?: number | null
           created_at?: string
           disinfectant_name?: string | null
+          downstream_concentration?: number | null
           id?: string
+          inlet_concentration?: number | null
+          inlet_ph?: number | null
           inspector_name?: string | null
           notes?: string | null
           outlet_concentration?: number | null
           outlet_ph?: number | null
+          ph_downstream?: number | null
+          ph_level?: number | null
+          ph_upstream?: number | null
           ph_value?: number | null
           recorded_by: string
           source_concentration?: number | null
           source_ph?: number | null
           status?: string
           turbidity_value?: number | null
+          upstream_concentration?: number | null
         }
         Update: {
           check_date?: string
           check_point?: string
           check_time?: string | null
+          chemical_type?: string | null
+          chlorine_downstream?: number | null
+          chlorine_level?: number | null
+          chlorine_upstream?: number | null
           chlorine_value?: number | null
           created_at?: string
           disinfectant_name?: string | null
+          downstream_concentration?: number | null
           id?: string
+          inlet_concentration?: number | null
+          inlet_ph?: number | null
           inspector_name?: string | null
           notes?: string | null
           outlet_concentration?: number | null
           outlet_ph?: number | null
+          ph_downstream?: number | null
+          ph_level?: number | null
+          ph_upstream?: number | null
           ph_value?: number | null
           recorded_by?: string
           source_concentration?: number | null
           source_ph?: number | null
           status?: string
           turbidity_value?: number | null
+          upstream_concentration?: number | null
         }
         Relationships: []
       }
