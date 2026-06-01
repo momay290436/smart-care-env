@@ -375,6 +375,28 @@ export default function FiveSHub() {
         confirmLabel="ลบ"
         onConfirm={() => { if (deleteEventId) { deleteEvent.mutate(deleteEventId); setDeleteEventId(null); } }}
       />
+
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader><DialogTitle>ส่งออกกำหนดการ 5ส</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">เลือกช่วงวันที่ต้องการส่งออก (ค่าเริ่มต้น: เดือนปัจจุบัน)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>วันเริ่ม</Label><Input type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="h-12 rounded-2xl" /></div>
+              <div><Label>วันสิ้นสุด</Label><Input type="date" value={exportTo} onChange={(e) => setExportTo(e.target.value)} className="h-12 rounded-2xl" /></div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 rounded-2xl" onClick={() => {
+                setExportFrom(format(startOfMonth(currentMonth), "yyyy-MM-dd"));
+                setExportTo(format(endOfMonth(currentMonth), "yyyy-MM-dd"));
+              }}>เดือนนี้</Button>
+              <Button className="flex-1 rounded-2xl gap-1" onClick={handleExportEvents}>
+                <Download className="h-4 w-4" /> Export Excel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
