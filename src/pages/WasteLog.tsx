@@ -288,11 +288,11 @@ export default function WasteLog() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="จัดการข้อมูลขยะ" subtitle="บันทึก วิเคราะห์ และคำนวณต้นทุน" gradient="from-emerald-600/90 to-teal-500/90">
-        <Button size="sm" className="rounded-2xl text-xs h-9 bg-emerald-500 text-white hover:bg-emerald-600 gap-1" onClick={handleAdvancedExport}>
+      <PageHeader title="จัดการข้อมูลขยะ" subtitle="บันทึก วิเคราะห์ และคำนวณต้นทุน">
+        <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 gap-1" onClick={handleAdvancedExport}>
           <Download className="h-3.5 w-3.5" /> รายงานเดือน
         </Button>
-        <Button size="sm" className="rounded-2xl text-xs h-9 bg-emerald-500 text-white hover:bg-emerald-600 gap-1" onClick={() => {
+        <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 gap-1" onClick={() => {
           exportToExcel(filteredLogs.map((l: any) => ({
             "วันที่": new Date(l.created_at).toLocaleDateString("th-TH"),
             "ประเภทขยะ": typesMap[l.waste_type]?.label || l.waste_type,

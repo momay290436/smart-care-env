@@ -120,7 +120,7 @@ export default function FiveSHub() {
 
   return (
     <div className="space-y-5 pb-6">
-      <PageHeader title="ระบบ 5ส." subtitle="ตรวจ 5ส · ปฏิทินกำหนดการ · ประวัติการตรวจ" gradient="from-teal-50/80 to-cyan-50/80" />
+      <PageHeader title="ระบบ 5ส." subtitle="ตรวจ 5ส · ปฏิทินกำหนดการ · ประวัติการตรวจ" />
 
       {/* 60/40 Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
