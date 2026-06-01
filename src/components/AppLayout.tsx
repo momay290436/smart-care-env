@@ -12,6 +12,7 @@ import {
 import { Settings, LogOut } from "lucide-react";
 import PageTransition from "@/components/PageTransition";
 import BottomNav from "@/components/BottomNav";
+import CreatorCredit from "@/components/CreatorCredit";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { profile, isAdmin, isSimplified, signOut } = useAuth();
@@ -42,6 +43,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
+            <CreatorCredit className="hidden sm:inline text-primary-foreground/60 mr-1" />
             {isAdmin && !isSimplified && (
               <Button variant="ghost" size="sm" className="rounded-2xl text-xs md:text-sm gap-1 md:gap-1.5 h-8 md:h-10 px-2 md:px-4 text-primary-foreground/80 hover:text-primary-foreground hover:bg-white/10" onClick={() => navigate("/admin")}>
                 <Settings className="h-3.5 w-3.5 md:h-4 md:w-4" />
