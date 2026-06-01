@@ -46,7 +46,7 @@ const PM_ALERTS = [
 ];
 
 export default function WaterManagement() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -69,6 +69,8 @@ export default function WaterManagement() {
   const [meterNotesOther, setMeterNotesOther] = useState("");
   const [formData, setFormData] = useState({ check_point: "", ph_value: "", chlorine_value: "", turbidity_value: "", notes: "" });
   const [disinfectantForm, setDisinfectantForm] = useState({ disinfectant_name: "คลอรีน", source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
+  const [disinfectantCustomDateTime, setDisinfectantCustomDateTime] = useState("");
+  const [disinfectantCustomRecorder, setDisinfectantCustomRecorder] = useState("");
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
   const [meterContentTab, setMeterContentTab] = useState<"meter" | "disinfectant">("meter");
@@ -323,9 +325,10 @@ export default function WaterManagement() {
     mutationFn: async () => {
       if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
       if (!disinfectantForm.source_concentration || !disinfectantForm.source_ph || !disinfectantForm.outlet_concentration || !disinfectantForm.outlet_ph) throw new Error("กรุณากรอกค่าต้นทางและปลายทางให้ครบ");
-      const now = new Date();
-      const checkDate = format(now, "yyyy-MM-dd");
-      const checkTime = format(now, "HH:mm:ss");
+      const recordWhen = (isAdmin && disinfectantCustomDateTime) ? new Date(disinfectantCustomDateTime) : new Date();
+      const checkDate = format(recordWhen, "yyyy-MM-dd");
+      const checkTime = format(recordWhen, "HH:mm:ss");
+      const recorderName = (isAdmin && disinfectantCustomRecorder) ? disinfectantCustomRecorder : (profile?.full_name || "");
       const sourceConcentration = Number(disinfectantForm.source_concentration);
       const sourcePh = Number(disinfectantForm.source_ph);
       const outletConcentration = Number(disinfectantForm.outlet_concentration);
@@ -343,7 +346,7 @@ export default function WaterManagement() {
         outlet_concentration: outletConcentration,
         outlet_ph: outletPh,
         recorded_by: user.id,
-        inspector_name: profile?.full_name || "",
+        inspector_name: recorderName,
         notes: disinfectantForm.notes || null,
         status,
       }).select("id").single();
@@ -365,6 +368,8 @@ export default function WaterManagement() {
       queryClient.invalidateQueries({ queryKey: ["water-disinfectant-logs"] });
       setShowDisinfectantDialog(false);
       setDisinfectantForm({ disinfectant_name: "คลอรีน", source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
+      setDisinfectantCustomDateTime("");
+      setDisinfectantCustomRecorder("");
     },
     onError: (e: any) => {
       toast.error(e.message || "เกิดข้อผิดพลาดขณะบันทึกข้อมูล");
@@ -937,6 +942,19 @@ export default function WaterManagement() {
               <Label className="font-semibold">หมายเหตุ</Label>
               <Textarea value={disinfectantForm.notes} onChange={(e) => setDisinfectantForm({ ...disinfectantForm, notes: e.target.value })} placeholder="บันทึกข้อมูลเพิ่มเติม..." rows={2} className="rounded-2xl" />
             </div>
+            {isAdmin && (
+              <div className="space-y-3 rounded-2xl bg-blue-50/50 p-4 border border-blue-100">
+                <p className="text-xs font-bold text-blue-700">⚙ ตัวเลือกผู้ดูแล (ลงข้อมูลย้อนหลัง)</p>
+                <div className="space-y-1">
+                  <Label className="text-xs">วัน/เดือน/ปี และเวลา (เว้นว่าง = ใช้ปัจจุบัน)</Label>
+                  <Input type="datetime-local" value={disinfectantCustomDateTime} onChange={(e) => setDisinfectantCustomDateTime(e.target.value)} className="h-11 rounded-2xl" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ชื่อผู้บันทึก (เว้นว่าง = ใช้ชื่อจากบัญชี)</Label>
+                  <Input value={disinfectantCustomRecorder} onChange={(e) => setDisinfectantCustomRecorder(e.target.value)} placeholder={profile?.full_name || ""} className="h-11 rounded-2xl" />
+                </div>
+              </div>
+            )}
             <Button className="w-full h-12 rounded-2xl text-base font-bold bg-amber-500 text-black hover:bg-amber-600" onClick={() => addDisinfectantLog.mutate()} disabled={addDisinfectantLog.isPending || !disinfectantForm.source_concentration || !disinfectantForm.source_ph || !disinfectantForm.outlet_concentration || !disinfectantForm.outlet_ph}>
               {addDisinfectantLog.isPending ? "กำลังบันทึก..." : "บันทึกสารเคมี"}
             </Button>
