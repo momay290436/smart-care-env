@@ -580,7 +580,7 @@ export default function WaterManagement() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-500 font-semibold uppercase tracking-wider">สถานะน้ำสำรอง</p>
-                  <p className="text-2xl md:text-3xl font-black text-slate-900 mt-1">ขณะระบบมีน้ำสำรอง</p>
+                  <p className="text-2xl md:text-3xl font-black text-slate-900 mt-1">ระบบมีน้ำสำรอง</p>
                   <p className="text-3xl md:text-4xl font-black bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent mt-1">{RESERVE_M3} ลบ.ม.</p>
                   {avgDaily > 0 && (
                     <p className="text-xs text-slate-500 mt-2">ใช้น้ำเฉลี่ย {avgDaily.toFixed(1)} ลบ.ม./วัน · รองรับได้ ~{(totalSeconds / 3600).toFixed(1)} ชม.</p>
@@ -842,24 +842,26 @@ export default function WaterManagement() {
                       </thead>
                       <tbody className="bg-white">
                         {groupedDisinfectantLogs.map(([date, dateRecords]) =>
-                          dateRecords.sort((a: any, b: any) => a.check_time.localeCompare(b.check_time)).map((r: any, i: number) => (
-                            <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                              <td className="px-4 py-3 text-xs font-semibold text-slate-700">
-                                {format(new Date(date), "d MMM yy", { locale: th })}
-                              </td>
-                              <td className="px-4 py-3 text-center text-xs text-slate-600">{r.check_time?.substring(0, 5)}</td>
-                              <td className="px-4 py-3 text-xs font-semibold text-slate-900">{r.disinfectant_name || "-"}</td>
-                              <td className="px-4 py-3 text-right text-xs text-slate-700">{r.source_concentration ?? "-"}</td>
-                              <td className="px-4 py-3 text-right text-xs text-slate-700">{r.source_ph ?? "-"}</td>
-                              <td className="px-4 py-3 text-right text-xs text-slate-700">{r.outlet_concentration ?? "-"}</td>
-                              <td className="px-4 py-3 text-right text-xs text-slate-700">{r.outlet_ph ?? "-"}</td>
-                              <td className="px-4 py-3 text-center text-xs text-slate-600">{r.inspector_name || "-"}</td>
-                              <td className="px-4 py-3 text-xs text-slate-600">{r.notes || "-"}</td>
-                              <td className="px-4 py-3 text-center text-xs flex gap-1 justify-center">
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-green-100 text-green-600" onClick={() => {
-                                  setSelectedQualityLog(r);
-                                  setShowDetailDialog(true);
-                                }}>
+                          dateRecords.sort((a: any, b: any) => a.check_time.localeCompare(b.check_time)).map((r: any, i: number) => {
+                            const isAbnormal = r.status === "fail" || r.status === "failed";
+                            return (
+                              <tr key={r.id} className={cn(i % 2 === 0 ? "bg-white" : "bg-slate-50", isAbnormal && "bg-red-50")}>
+                                <td className={cn("px-4 py-3 text-xs font-semibold", isAbnormal ? "text-red-700" : "text-slate-700")}>
+                                  {format(new Date(date), "d MMM yy", { locale: th })}
+                                </td>
+                                <td className={cn("px-4 py-3 text-center text-xs", isAbnormal ? "text-red-700" : "text-slate-600")}>{r.check_time?.substring(0, 5)}</td>
+                                <td className={cn("px-4 py-3 text-xs font-semibold", isAbnormal ? "text-red-700" : "text-slate-900")}>{r.disinfectant_name || "-"}</td>
+                                <td className={cn("px-4 py-3 text-right text-xs", isAbnormal ? "text-red-700" : "text-slate-700")}>{r.source_concentration ?? "-"}</td>
+                                <td className={cn("px-4 py-3 text-right text-xs", isAbnormal ? "text-red-700" : "text-slate-700")}>{r.source_ph ?? "-"}</td>
+                                <td className={cn("px-4 py-3 text-right text-xs", isAbnormal ? "text-red-700" : "text-slate-700")}>{r.outlet_concentration ?? "-"}</td>
+                                <td className={cn("px-4 py-3 text-right text-xs", isAbnormal ? "text-red-700" : "text-slate-700")}>{r.outlet_ph ?? "-"}</td>
+                                <td className={cn("px-4 py-3 text-center text-xs", isAbnormal ? "text-red-700" : "text-slate-600")}>{r.inspector_name || "-"}</td>
+                                <td className={cn("px-4 py-3 text-xs", isAbnormal ? "text-red-700" : "text-slate-600")}>{r.notes || "-"}</td>
+                                <td className="px-4 py-3 text-center text-xs flex gap-1 justify-center">
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-green-100 text-green-600" onClick={() => {
+                                    setSelectedQualityLog(r);
+                                    setShowDetailDialog(true);
+                                  }}>
                                   <Eye className="h-4 w-4" />
                                 </Button>
                                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-blue-100 text-blue-600" onClick={() => {
