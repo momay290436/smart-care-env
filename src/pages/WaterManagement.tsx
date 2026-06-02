@@ -67,6 +67,19 @@ export default function WaterManagement() {
   const [meterReading, setMeterReading] = useState("");
   const [meterNotes, setMeterNotes] = useState<string[]>([]);
   const [meterNotesOther, setMeterNotesOther] = useState("");
+  const [meterCustomDateTime, setMeterCustomDateTime] = useState("");
+  const [meterCustomRecorder, setMeterCustomRecorder] = useState("");
+  const [emergencyStart, setEmergencyStart] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const s = localStorage.getItem("emergencyWaterStart");
+    return s ? Number(s) : null;
+  });
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    if (!emergencyStart) return;
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [emergencyStart]);
   const [formData, setFormData] = useState({ check_point: "", ph_value: "", chlorine_value: "", turbidity_value: "", notes: "" });
   const [disinfectantForm, setDisinfectantForm] = useState({ disinfectant_name: "คลอรีน", source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
   const [disinfectantCustomDateTime, setDisinfectantCustomDateTime] = useState("");
@@ -380,7 +393,7 @@ export default function WaterManagement() {
     mutationFn: async () => {
       if (!user || !meterReading) throw new Error("กรุณากรอกเลขมิเตอร์");
       const reading = Number(meterReading);
-      const now = new Date();
+      const now = isAdmin && meterCustomDateTime ? new Date(meterCustomDateTime) : new Date();
       const hour = now.getHours();
       const shift = hour < 12 ? "morning" : "afternoon";
       const todayStr = format(now, "yyyy-MM-dd");
@@ -396,7 +409,7 @@ export default function WaterManagement() {
       const { error } = await supabase.from("water_meter_records").insert({
         record_date: todayStr, record_time: timeStr, shift, meter_reading: reading,
         usage_amount: usageAmount, daily_total: dailyTotal, recorded_by: user.id,
-        recorder_name: profile?.full_name || "",
+        recorder_name: (isAdmin && meterCustomRecorder) ? meterCustomRecorder : (profile?.full_name || ""),
       notes: meterNotes.length > 0 ? [
         ...meterNotes.filter((note) => note !== "อื่นๆ(ระบุ)"),
         meterNotes.includes("อื่นๆ(ระบุ)") && meterNotesOther ? `อื่นๆ: ${meterNotesOther}` : null,
@@ -416,6 +429,8 @@ export default function WaterManagement() {
       setMeterReading("");
       setMeterNotes([]);
       setMeterNotesOther("");
+      setMeterCustomDateTime("");
+      setMeterCustomRecorder("");
     },
     onError: (e: any) => toast.error(e.message),
   });
