@@ -554,37 +554,92 @@ export default function WaterManagement() {
         </Card>
       </div>
 
-      {/* Top KPI Cards */}
-      <div className="grid grid-cols-3 gap-3 md:gap-4">
-        <Card className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl shadow-2xl border-0 border-t-4 border-t-blue-600 hover:shadow-3xl transition-shadow">
-          <CardContent className="p-4 md:p-5 text-center">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
-              <Droplets className="h-6 w-6 md:h-7 md:w-7 text-white" />
-            </div>
-            <p className="text-2xl md:text-3xl font-black text-blue-700">{waterLevel}%</p>
-            <p className="text-[10px] md:text-xs text-blue-600 font-semibold">ระดับน้ำสำรอง</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl shadow-2xl border-0 border-t-4 border-t-teal-600 hover:shadow-3xl transition-shadow">
-          <CardContent className="p-4 md:p-5 text-center">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-teal-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
-              <Gauge className="h-6 w-6 md:h-7 md:w-7 text-white" />
-            </div>
-            <p className="text-2xl md:text-3xl font-black text-teal-700">{avgChlorine ?? "-"}</p>
-            <p className="text-[10px] md:text-xs text-teal-600 font-semibold">คลอรีน (mg/l)</p>
-            <p className="text-[9px] md:text-[10px] text-teal-500 font-medium">เป้าหมาย 0.2-0.5</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl shadow-2xl border-0 border-t-4 border-t-emerald-600 hover:shadow-3xl transition-shadow">
-          <CardContent className="p-4 md:p-5 text-center">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
-              <AlertTriangle className="h-6 w-6 md:h-7 md:w-7 text-white" />
-            </div>
-            <p className="text-xl md:text-2xl font-extrabold text-emerald-600">{normalPoints.normal}/{normalPoints.total}</p>
-            <p className="text-[10px] md:text-xs text-muted-foreground">จุดน้ำไหลปกติ</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Reserve water status + emergency button */}
+      {(() => {
+        const RESERVE_M3 = 170;
+        // avg daily usage (last 7 distinct days) from meterRecords
+        const dailyMap: Record<string, number> = {};
+        meterRecords.forEach((r: any) => {
+          dailyMap[r.record_date] = (dailyMap[r.record_date] || 0) + Number(r.usage_amount || 0);
+        });
+        const last7 = Object.entries(dailyMap).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 7);
+        const avgDaily = last7.length > 0 ? last7.reduce((s, [, v]) => s + v, 0) / last7.length : 0;
+        const totalSeconds = avgDaily > 0 ? Math.round((RESERVE_M3 / avgDaily) * 86400) : 0;
+        const elapsedSeconds = emergencyStart ? Math.floor((nowTick - emergencyStart) / 1000) : 0;
+        const remaining = Math.max(0, totalSeconds - elapsedSeconds);
+        const hh = Math.floor(remaining / 3600);
+        const mm = Math.floor((remaining % 3600) / 60);
+        const ss = remaining % 60;
+        const fmt = (n: number) => n.toString().padStart(2, "0");
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-3 md:gap-4">
+            <Card className="bg-gradient-to-br from-blue-50 via-cyan-50 to-white rounded-3xl shadow-xl border-0 border-l-4 border-l-blue-600">
+              <CardContent className="p-5 md:p-6 flex items-center gap-5">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
+                  <Droplets className="h-9 w-9 md:h-10 md:w-10 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs md:text-sm text-slate-500 font-semibold uppercase tracking-wider">สถานะน้ำสำรอง</p>
+                  <p className="text-2xl md:text-3xl font-black text-slate-900 mt-1">ขณะระบบมีน้ำสำรอง</p>
+                  <p className="text-3xl md:text-4xl font-black bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent mt-1">{RESERVE_M3} ลบ.ม.</p>
+                  {avgDaily > 0 && (
+                    <p className="text-xs text-slate-500 mt-2">ใช้น้ำเฉลี่ย {avgDaily.toFixed(1)} ลบ.ม./วัน · รองรับได้ ~{(totalSeconds / 3600).toFixed(1)} ชม.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className={cn(
+              "rounded-3xl shadow-xl border-0 border-l-4 transition-all",
+              emergencyStart ? "bg-gradient-to-br from-red-50 via-orange-50 to-white border-l-red-600 animate-pulse-subtle" : "bg-white border-l-red-500"
+            )}>
+              <CardContent className="p-5 md:p-6 flex flex-col justify-between gap-3 h-full">
+                {emergencyStart ? (
+                  <>
+                    <div>
+                      <p className="text-xs font-black text-red-700 uppercase tracking-wider flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" /> กำลังใช้น้ำสำรอง
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-1">เริ่มเมื่อ {format(new Date(emergencyStart), "d MMM HH:mm น.", { locale: th })}</p>
+                    </div>
+                    <div className="text-center py-1">
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider">เวลาที่ใช้ได้คงเหลือ</p>
+                      <p className="text-3xl md:text-4xl font-black font-mono text-red-700 tracking-tight mt-1">
+                        {fmt(hh)}:{fmt(mm)}:{fmt(ss)}
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-1">ชม. : นาที : วินาที</p>
+                    </div>
+                    <Button size="sm" variant="outline" className="rounded-2xl border-red-300 text-red-700 hover:bg-red-50 h-10" onClick={() => {
+                      if (confirm("ยืนยันว่าน้ำจากส่วนกลางกลับมาไหลปกติแล้ว?")) {
+                        localStorage.removeItem("emergencyWaterStart");
+                        setEmergencyStart(null);
+                        toast.success("ปิดสถานะใช้น้ำสำรองแล้ว");
+                      }
+                    }}>
+                      ✓ น้ำส่วนกลางกลับมาแล้ว
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">กรณีฉุกเฉิน</p>
+                      <p className="text-sm text-slate-600 mt-1">กดปุ่มด้านล่างเมื่อน้ำจากส่วนกลางไม่ไหล เพื่อเริ่มนับถอยหลังเวลาใช้น้ำสำรอง</p>
+                    </div>
+                    <Button className="w-full h-14 rounded-2xl text-base md:text-lg font-black bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white shadow-lg shadow-red-200" onClick={() => {
+                      const t = Date.now();
+                      localStorage.setItem("emergencyWaterStart", String(t));
+                      setEmergencyStart(t);
+                      setNowTick(t);
+                      toast.error("เริ่มใช้น้ำสำรอง - กำลังนับถอยหลัง");
+                    }}>
+                      <AlertTriangle className="h-5 w-5 mr-2" /> น้ำจากส่วนกลางไม่ไหล
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* Tabs: คุณภาพน้ำ / ระบบ / บำรุงรักษา */}
       <Tabs defaultValue="quality" className="w-full">
