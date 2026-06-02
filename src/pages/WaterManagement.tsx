@@ -904,6 +904,19 @@ export default function WaterManagement() {
               )}
             </div>
             <p className="text-xs text-muted-foreground">💡 ระบบจะคำนวณ "จำนวนน้ำที่ใช้ไป" อัตโนมัติจากเลขมิเตอร์ครั้งก่อนหน้า</p>
+            {isAdmin && (
+              <div className="space-y-3 rounded-2xl bg-blue-50/50 p-4 border border-blue-100">
+                <p className="text-xs font-bold text-blue-700">⚙ ตัวเลือกผู้ดูแล (ลงข้อมูลย้อนหลัง)</p>
+                <div className="space-y-1">
+                  <Label className="text-xs">วัน/เดือน/ปี และเวลา (เว้นว่าง = ใช้ปัจจุบัน)</Label>
+                  <Input type="datetime-local" value={meterCustomDateTime} onChange={(e) => setMeterCustomDateTime(e.target.value)} className="h-11 rounded-2xl" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ชื่อผู้บันทึก (เว้นว่าง = ใช้ชื่อจากบัญชี)</Label>
+                  <Input value={meterCustomRecorder} onChange={(e) => setMeterCustomRecorder(e.target.value)} placeholder={profile?.full_name || ""} className="h-11 rounded-2xl" />
+                </div>
+              </div>
+            )}
             <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => addMeterRecord.mutate()} disabled={addMeterRecord.isPending || !meterReading}>
               {addMeterRecord.isPending ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
             </Button>
