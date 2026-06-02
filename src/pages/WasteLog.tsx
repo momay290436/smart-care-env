@@ -218,18 +218,20 @@ export default function WasteLog() {
 
   // Chart data
   const chartData = useMemo(() => {
-    const dayMap: Record<string, Record<string, number>> = {};
+    const dayMap: Record<string, { sortKey: string; label: string; types: Record<string, number> }> = {};
     const typeMap: Record<string, number> = {};
     const deptMap: Record<string, Record<string, number>> = {};
 
     filteredLogs.forEach((log: any) => {
-      const day = format(new Date(log.created_at), "d MMM", { locale: th });
+      const d = new Date(log.created_at);
+      const sortKey = format(d, "yyyy-MM-dd");
+      const label = format(d, "d MMM", { locale: th });
       const wt = typesMap[log.waste_type]?.label || log.waste_type;
       const dept = log.departments?.name || "ไม่ระบุ";
       const w = Number(log.weight);
 
-      if (!dayMap[day]) dayMap[day] = {};
-      dayMap[day][wt] = (dayMap[day][wt] || 0) + w;
+      if (!dayMap[sortKey]) dayMap[sortKey] = { sortKey, label, types: {} };
+      dayMap[sortKey].types[wt] = (dayMap[sortKey].types[wt] || 0) + w;
 
       typeMap[wt] = (typeMap[wt] || 0) + w;
 
@@ -237,7 +239,13 @@ export default function WasteLog() {
       deptMap[dept][wt] = (deptMap[dept][wt] || 0) + w;
     });
 
-    const lineData = Object.entries(dayMap).map(([date, types]) => ({ date, ...types }));
+    const lineData = Object.values(dayMap)
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .map(({ label, types }) => {
+        const row: Record<string, any> = { date: label };
+        Object.values(typesMap).forEach((t) => { row[t.label] = Math.round((types[t.label] || 0) * 100) / 100; });
+        return row;
+      });
     const pieData = Object.entries(typeMap).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
     const deptData = Object.entries(deptMap).map(([dept, types]) => ({
       dept,
@@ -400,19 +408,46 @@ export default function WasteLog() {
           </div>
 
           {chartData.lineData.length > 0 && (
-            <Card className="shadow-card border border-border/50 rounded-2xl">
+            <Card className="shadow-card border border-border/50 rounded-3xl bg-white">
               <CardContent className="p-5">
-                <h3 className="text-base font-bold text-foreground mb-3">แนวโน้มขยะรายวัน</h3>
-                <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={chartData.lineData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(200 18% 90%)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    {Object.values(typesMap).map((wt) => (
-                      <Line key={wt.label} type="monotone" dataKey={wt.label} stroke={wt.chartColor} strokeWidth={2.5} dot={{ r: 4 }} />
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">แนวโน้มขยะรายวัน</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">น้ำหนักรวมแต่ละประเภท (กก.)</p>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={chartData.lineData} margin={{ top: 10, right: 16, left: -10, bottom: 0 }}>
+                    <defs>
+                      {Object.values(typesMap).map((wt, idx) => (
+                        <linearGradient key={idx} id={`waste-grad-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={wt.chartColor} stopOpacity={0.45} />
+                          <stop offset="95%" stopColor={wt.chartColor} stopOpacity={0.02} />
+                        </linearGradient>
+                      ))}
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(200 18% 92%)" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={{ stroke: "#e2e8f0" }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={40} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 14, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.08)", fontSize: 12 }}
+                      formatter={(value: number, name: string) => [`${value} กก.`, name]}
+                      labelStyle={{ fontWeight: 700, color: "#0f172a", marginBottom: 4 }}
+                    />
+                    <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                    {Object.values(typesMap).map((wt, idx) => (
+                      <Area
+                        key={wt.label}
+                        type="monotone"
+                        dataKey={wt.label}
+                        stroke={wt.chartColor}
+                        strokeWidth={2.5}
+                        fill={`url(#waste-grad-${idx})`}
+                        dot={{ r: 3, fill: wt.chartColor, strokeWidth: 0 }}
+                        activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
+                      />
                     ))}
-                  </LineChart>
+                  </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
