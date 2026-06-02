@@ -878,8 +878,8 @@ export default function WaterManagement() {
                                 </Button>
                               </td>
                             </tr>
-                          ))
-                        )}
+                          )}
+                        ))}
                         {filteredDisinfectantLogs.length === 0 && (
                           <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">ยังไม่มีข้อมูล</td></tr>
                         )}
