@@ -776,7 +776,7 @@ export default function Dashboard() {
                 </div>
                 <div className="rounded-2xl bg-white p-3 border border-slate-200">
                   <p className="font-semibold text-slate-900">น้ำสำรอง</p>
-                  <p>{waterKpi.reserveVolume ?? 0} ลิตร</p>
+                  <p>170 ลบ.ม.</p>
                 </div>
               </div>
             </div>
