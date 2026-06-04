@@ -69,17 +69,50 @@ export default function WaterManagement() {
   const [meterNotesOther, setMeterNotesOther] = useState("");
   const [meterCustomDateTime, setMeterCustomDateTime] = useState("");
   const [meterCustomRecorder, setMeterCustomRecorder] = useState("");
+  // Emergency reserve-water state.
+  // - Timer runs ONLY on the client (setInterval + useState). No polling, no DB writes per tick.
+  // - DB is written exactly TWICE per cycle: 1) INSERT on start, 2) UPDATE on stop.
+  // - localStorage is the source of truth across reloads; on mount we also fetch any
+  //   open event from the DB (single one-shot query) to recover state across devices.
   const [emergencyStart, setEmergencyStart] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const s = localStorage.getItem("emergencyWaterStart");
     return s ? Number(s) : null;
   });
+  const [emergencyEventId, setEmergencyEventId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("emergencyWaterEventId");
+  });
+  const [emergencyBusy, setEmergencyBusy] = useState(false);
   const [nowTick, setNowTick] = useState(Date.now());
   useEffect(() => {
     if (!emergencyStart) return;
     const t = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(t);
   }, [emergencyStart]);
+
+  // One-shot recovery: if no local state but the DB has an open event, adopt it.
+  useEffect(() => {
+    if (emergencyStart || emergencyEventId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("water_emergency_events")
+        .select("id, started_at")
+        .is("ended_at", null)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      const ts = new Date(data.started_at).getTime();
+      localStorage.setItem("emergencyWaterStart", String(ts));
+      localStorage.setItem("emergencyWaterEventId", data.id);
+      setEmergencyStart(ts);
+      setEmergencyEventId(data.id);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [formData, setFormData] = useState({ check_point: "", ph_value: "", chlorine_value: "", turbidity_value: "", notes: "" });
   const [disinfectantForm, setDisinfectantForm] = useState({ disinfectant_name: "คลอรีน", source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
   const [disinfectantCustomDateTime, setDisinfectantCustomDateTime] = useState("");
@@ -608,30 +641,71 @@ export default function WaterManagement() {
                       </p>
                       <p className="text-[10px] text-slate-500 mt-1">ชม. : นาที : วินาที</p>
                     </div>
-                    <Button size="sm" variant="outline" className="rounded-2xl border-red-300 text-red-700 hover:bg-red-50 h-10" onClick={() => {
-                      if (confirm("ยืนยันว่าน้ำจากส่วนกลางกลับมาไหลปกติแล้ว?")) {
-                        localStorage.removeItem("emergencyWaterStart");
-                        setEmergencyStart(null);
-                        toast.success("ปิดสถานะใช้น้ำสำรองแล้ว");
-                      }
-                    }}>
-                      ✓ น้ำส่วนกลางกลับมาแล้ว
+                    <Button
+                      disabled={emergencyBusy}
+                      className="w-full h-14 rounded-2xl text-base md:text-lg font-black bg-gradient-to-r from-red-700 to-rose-600 hover:from-red-800 hover:to-rose-700 text-white shadow-lg shadow-red-200 animate-pulse"
+                      onClick={async () => {
+                        if (!confirm("ยืนยันว่าน้ำจากส่วนกลางกลับมาไหลปกติแล้ว?")) return;
+                        setEmergencyBusy(true);
+                        try {
+                          // Single DB write to close the event.
+                          if (emergencyEventId) {
+                            const { error } = await supabase
+                              .from("water_emergency_events")
+                              .update({ ended_at: new Date().toISOString(), ended_by: user?.id ?? null })
+                              .eq("id", emergencyEventId);
+                            if (error) throw error;
+                          }
+                          localStorage.removeItem("emergencyWaterStart");
+                          localStorage.removeItem("emergencyWaterEventId");
+                          setEmergencyStart(null);
+                          setEmergencyEventId(null);
+                          toast.success("ปิดสถานะใช้น้ำสำรองแล้ว");
+                        } catch (e: any) {
+                          toast.error(e.message || "บันทึกไม่สำเร็จ");
+                        } finally {
+                          setEmergencyBusy(false);
+                        }
+                      }}
+                    >
+                      <Droplets className="h-5 w-5 mr-2" /> {emergencyBusy ? "กำลังบันทึก..." : "กดเมื่อน้ำไหลแล้ว"}
                     </Button>
                   </>
                 ) : (
                   <>
                     <div>
                       <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">กรณีฉุกเฉิน</p>
-                      <p className="text-sm text-slate-600 mt-1">กดปุ่มด้านล่างเมื่อน้ำจากส่วนกลางไม่ไหล เพื่อเริ่มนับถอยหลังเวลาใช้น้ำสำรอง</p>
+                      <p className="text-sm text-slate-600 mt-1">กดปุ่มด้านล่างเมื่อน้ำจากส่วนกลางไม่ไหล เพื่อเริ่มนับถอยหลังเวลาใช้น้ำสำรอง (บันทึกลงระบบ 1 ครั้ง)</p>
                     </div>
-                    <Button className="w-full h-14 rounded-2xl text-base md:text-lg font-black bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white shadow-lg shadow-red-200" onClick={() => {
-                      const t = Date.now();
-                      localStorage.setItem("emergencyWaterStart", String(t));
-                      setEmergencyStart(t);
-                      setNowTick(t);
-                      toast.error("เริ่มใช้น้ำสำรอง - กำลังนับถอยหลัง");
-                    }}>
-                      <AlertTriangle className="h-5 w-5 mr-2" /> น้ำจากส่วนกลางไม่ไหล
+                    <Button
+                      disabled={emergencyBusy}
+                      className="w-full h-14 rounded-2xl text-base md:text-lg font-black bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white shadow-lg shadow-red-200"
+                      onClick={async () => {
+                        setEmergencyBusy(true);
+                        try {
+                          const startedAt = new Date();
+                          // Single DB write to open the event.
+                          const { data, error } = await supabase
+                            .from("water_emergency_events")
+                            .insert({ started_at: startedAt.toISOString(), started_by: user?.id ?? null })
+                            .select("id")
+                            .single();
+                          if (error) throw error;
+                          const t = startedAt.getTime();
+                          localStorage.setItem("emergencyWaterStart", String(t));
+                          localStorage.setItem("emergencyWaterEventId", data.id);
+                          setEmergencyStart(t);
+                          setEmergencyEventId(data.id);
+                          setNowTick(t);
+                          toast.error("เริ่มใช้น้ำสำรอง - กำลังนับถอยหลัง");
+                        } catch (e: any) {
+                          toast.error(e.message || "บันทึกไม่สำเร็จ");
+                        } finally {
+                          setEmergencyBusy(false);
+                        }
+                      }}
+                    >
+                      <AlertTriangle className="h-5 w-5 mr-2" /> {emergencyBusy ? "กำลังบันทึก..." : "กดเมื่อน้ำส่วนกลางไม่ไหล"}
                     </Button>
                   </>
                 )}
