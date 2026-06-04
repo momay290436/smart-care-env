@@ -145,6 +145,17 @@ export default function WaterManagement() {
     },
   });
 
+  const { data: emergencyEvents = [] } = useQuery({
+    queryKey: ["water-emergency-events"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("water_emergency_events")
+        .select("*, started_by_profile:started_by(full_name), ended_by_profile:ended_by(full_name)")
+        .order("started_at", { ascending: false })
+        .limit(100);
+      return data || [];
+    },
+  });
 
   const avgChlorine = useMemo(() => {
     const recent = qualityLogs.filter((l: any) => l.chlorine_value != null).slice(0, 20);
@@ -717,12 +728,15 @@ export default function WaterManagement() {
 
       {/* Tabs: คุณภาพน้ำ / ระบบ / บำรุงรักษา */}
       <Tabs defaultValue="quality" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
           <TabsTrigger value="quality" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
             <Droplets className="h-4 w-4 mr-1" /> คุณภาพน้ำ
           </TabsTrigger>
           <TabsTrigger value="meter" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Gauge className="h-4 w-4 mr-1" /> ประวัติการบันทึก
+          </TabsTrigger>
+          <TabsTrigger value="emergency" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-red-500 data-[state=active]:text-white">
+            <AlertTriangle className="h-4 w-4 mr-1" /> เหตุฉุกเฉิน
           </TabsTrigger>
           <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Settings className="h-4 w-4 mr-1" /> บริหารระบบ
@@ -734,6 +748,92 @@ export default function WaterManagement() {
 
         <TabsContent value="system" className="mt-4">
           <WaterSystemTab />
+        </TabsContent>
+
+        <TabsContent value="emergency" className="mt-4">
+          <div className="space-y-4">
+            <Card className="shadow-lg rounded-3xl border-0 bg-white">
+              <CardContent className="p-5 md:p-6">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-600" /> ประวัติเหตุการณ์ฉุกเฉิน (น้ำสำรอง)
+                </h3>
+                
+                {emergencyEvents.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Droplets className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">ยังไม่มีประวัติการใช้น้ำสำรอง</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b-2 border-slate-200 bg-slate-50">
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">เริ่มเวลา</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">สิ้นสุดเวลา</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">ระยะเวลา</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">ผู้เริ่ม</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">ผู้จบ</th>
+                          <th className="px-4 py-3 text-left font-semibold text-slate-700">สถานะ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {emergencyEvents.map((event: any) => {
+                          const startTime = new Date(event.started_at);
+                          const endTime = event.ended_at ? new Date(event.ended_at) : null;
+                          const durationSeconds = endTime ? Math.floor((endTime.getTime() - startTime.getTime()) / 1000) : null;
+                          const durationText = durationSeconds ? (
+                            `${Math.floor(durationSeconds / 3600)} ชม. ${Math.floor((durationSeconds % 3600) / 60)} นาที`
+                          ) : "กำลังนับถอยหลัง...";
+                          const isActive = !event.ended_at;
+
+                          return (
+                            <tr key={event.id} className={`border-b border-slate-100 ${isActive ? "bg-red-50" : "hover:bg-slate-50"}`}>
+                              <td className="px-4 py-3">
+                                <div className="font-medium text-slate-900">{format(startTime, "d MMM yyyy", { locale: th })}</div>
+                                <div className="text-xs text-slate-500">{format(startTime, "HH:mm:ss", { locale: th })}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                {endTime ? (
+                                  <>
+                                    <div className="font-medium text-slate-900">{format(endTime, "d MMM yyyy", { locale: th })}</div>
+                                    <div className="text-xs text-slate-500">{format(endTime, "HH:mm:ss", { locale: th })}</div>
+                                  </>
+                                ) : (
+                                  <span className="text-orange-600 font-semibold">อยู่ระหว่างดำเนิน...</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className={`font-semibold ${isActive ? "text-red-600" : "text-slate-700"}`}>
+                                  {durationText}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="text-slate-700">{event.started_by_profile?.full_name || "ระบบ"}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                {event.ended_by_profile ? (
+                                  <div className="text-slate-700">{event.ended_by_profile.full_name}</div>
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {isActive ? (
+                                  <Badge className="bg-red-500 text-white rounded-full">ดำเนินการอยู่</Badge>
+                                ) : (
+                                  <Badge className="bg-green-500 text-white rounded-full">เสร็จสิ้น</Badge>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="maintenance" className="mt-4">
