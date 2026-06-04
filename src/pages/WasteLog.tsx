@@ -251,6 +251,23 @@ export default function WasteLog() {
       deptMap[dept][wt] = (deptMap[dept][wt] || 0) + w;
     });
 
+    // Add infectious waste data from infectious_waste_records
+    const infectiousLabel = typesMap.infectious?.label || "ขยะติดเชื้อ";
+    infectiousWasteRecords.forEach((record: any) => {
+      const d = new Date(record.collection_date);
+      const sortKey = format(d, "yyyy-MM-dd");
+      const label = format(d, "d MMM", { locale: th });
+      const sharpWaste = Number(record.sharp_waste_kg) || 0;
+      const nonSharpWaste = Number(record.non_sharp_waste_kg) || 0;
+      const totalWaste = sharpWaste + nonSharpWaste;
+
+      if (totalWaste > 0) {
+        if (!dayMap[sortKey]) dayMap[sortKey] = { sortKey, label, types: {} };
+        dayMap[sortKey].types[infectiousLabel] = (dayMap[sortKey].types[infectiousLabel] || 0) + totalWaste;
+        typeMap[infectiousLabel] = (typeMap[infectiousLabel] || 0) + totalWaste;
+      }
+    });
+
     const lineData = Object.values(dayMap)
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
       .map(({ label, types }) => {
@@ -267,7 +284,7 @@ export default function WasteLog() {
     const totalWeight = filteredLogs.reduce((s: number, l: any) => s + Number(l.weight), 0);
 
     return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100 };
-  }, [filteredLogs]);
+  }, [filteredLogs, infectiousWasteRecords, typesMap]);
 
   // Cost calculation
   const totalCost = useMemo(() => {
@@ -460,7 +477,11 @@ export default function WasteLog() {
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
                     <Pie data={chartData.pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={85} paddingAngle={4} dataKey="value">
-                      {chartData.pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      {chartData.pieData.map((item: any) => {
+                        const typeEntry = Object.entries(typesMap).find(([_, v]) => v.label === item.name);
+                        const color = typeEntry ? typeEntry[1].chartColor : "hsl(210 15% 55%)";
+                        return <Cell key={item.name} fill={color} />;
+                      })}
                     </Pie>
                     <Tooltip formatter={(v: number) => `${v} กก.`} />
                     <Legend iconType="circle" iconSize={8} />
@@ -494,12 +515,12 @@ export default function WasteLog() {
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-red-200/50">
-                  <p className="text-xs text-muted-foreground mb-2">บันทึกล่าสุด:</p>
+                  <p className="text-xs text-muted-foreground mb-2">บันทึกล่าสุด (รับเข้าวันที่):</p>
                   <div className="space-y-2">
                     {infectiousWasteRecords.slice(0, 3).map((record: any) => (
                       <div key={record.id} className="text-xs flex items-center justify-between">
                         <span className="text-foreground">{record.health_center_name || "ไม่ระบุ"}</span>
-                        <span className="text-muted-foreground">{new Date(record.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}</span>
+                        <span className="text-muted-foreground">{new Date(record.collection_date || record.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}</span>
                       </div>
                     ))}
                   </div>
