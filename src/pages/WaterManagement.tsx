@@ -150,12 +150,31 @@ export default function WaterManagement() {
     queryFn: async () => {
       const { data } = await supabase
         .from("water_emergency_events")
-        .select("*, started_by_profile:started_by(full_name), ended_by_profile:ended_by(full_name)")
+        .select("id, started_at, ended_at, started_by, ended_by")
         .order("started_at", { ascending: false })
-        .limit(100);
+        .limit(200);
       return data || [];
     },
   });
+
+  const { data: emergencyProfiles = [] } = useQuery({
+    queryKey: ["water-emergency-profiles", emergencyEvents],
+    enabled: !!(emergencyEvents && emergencyEvents.length > 0),
+    queryFn: async () => {
+      const ids = Array.from(new Set(
+        emergencyEvents.flatMap((e: any) => [e.started_by, e.ended_by]).filter(Boolean)
+      ));
+      if (ids.length === 0) return [];
+      const { data } = await supabase.from("profiles").select("id, full_name").in("id", ids as any[]);
+      return data || [];
+    },
+  });
+
+  const emergencyProfileMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    (emergencyProfiles || []).forEach((p: any) => { m[p.id] = p.full_name; });
+    return m;
+  }, [emergencyProfiles]);
 
   const avgChlorine = useMemo(() => {
     const recent = qualityLogs.filter((l: any) => l.chlorine_value != null).slice(0, 20);
@@ -808,11 +827,11 @@ export default function WaterManagement() {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
-                                <div className="text-slate-700">{event.started_by_profile?.full_name || "ระบบ"}</div>
+                                <div className="text-slate-700">{emergencyProfileMap[event.started_by] || event.started_by || "ระบบ"}</div>
                               </td>
                               <td className="px-4 py-3">
-                                {event.ended_by_profile ? (
-                                  <div className="text-slate-700">{event.ended_by_profile.full_name}</div>
+                                {event.ended_by ? (
+                                  <div className="text-slate-700">{emergencyProfileMap[event.ended_by] || event.ended_by}</div>
                                 ) : (
                                   <span className="text-slate-400">-</span>
                                 )}
