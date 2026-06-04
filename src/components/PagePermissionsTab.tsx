@@ -37,6 +37,47 @@ const ALL_PAGES = [
   { key: "/admin", label: "จัดการระบบ", icon: "🔑" },
 ];
 
+// Granular action/button permissions. Stored in the same page_permissions table
+// using the "action:*" key prefix so we don't need a new table or migration.
+const ACTION_GROUPS: { group: string; items: { key: string; label: string; icon: string }[] }[] = [
+  {
+    group: "ระบบน้ำประปา",
+    items: [
+      { key: "action:water-emergency", label: "ปุ่ม “น้ำส่วนกลางไม่ไหล / น้ำไหลแล้ว”", icon: "🚨" },
+      { key: "action:water-meter-record", label: "บันทึกมิเตอร์น้ำ", icon: "🔢" },
+      { key: "action:water-quality-record", label: "บันทึกผลตรวจคุณภาพน้ำ", icon: "💧" },
+      { key: "action:water-disinfectant-record", label: "บันทึกสารเคมีกำจัดเชื้อโรค", icon: "🧪" },
+      { key: "action:water-pathogen-record", label: "บันทึกผลตรวจเชื้อจุลินทรีย์", icon: "🦠" },
+    ],
+  },
+  {
+    group: "งานสิ่งแวดล้อม / 5ส.",
+    items: [
+      { key: "action:waste-record", label: "บันทึกข้อมูลขยะ", icon: "🗑️" },
+      { key: "action:5s-audit-create", label: "บันทึกตรวจ 5ส.", icon: "✅" },
+      { key: "action:env-round-create", label: "บันทึกตรวจ ENV Round", icon: "🌿" },
+    ],
+  },
+  {
+    group: "อัคคีภัย / ซ่อมบำรุง",
+    items: [
+      { key: "action:fire-check-create", label: "บันทึกตรวจถังดับเพลิง", icon: "🧯" },
+      { key: "action:maintenance-request-create", label: "แจ้งซ่อม", icon: "📝" },
+      { key: "action:maintenance-approve", label: "อนุมัติ/มอบหมายงานซ่อม", icon: "👷" },
+    ],
+  },
+  {
+    group: "การจัดการข้อมูล (ขั้นสูง)",
+    items: [
+      { key: "action:edit-history", label: "แก้ไขประวัติการบันทึก", icon: "✏️" },
+      { key: "action:delete-records", label: "ลบข้อมูลในระบบ", icon: "🗑️" },
+      { key: "action:export-excel", label: "ส่งออกข้อมูลเป็น Excel", icon: "📤" },
+      { key: "action:backdate-records", label: "บันทึกย้อนหลัง (เลือกวัน/เวลา/ผู้บันทึก)", icon: "🕒" },
+    ],
+  },
+];
+const ALL_ACTIONS = ACTION_GROUPS.flatMap(g => g.items);
+
 export default function PagePermissionsTab() {
   const queryClient = useQueryClient();
   const [editUser, setEditUser] = useState<any>(null);
@@ -71,6 +112,8 @@ export default function PagePermissionsTab() {
 
   const selectAll = () => setSelectedPages(ALL_PAGES.map(p => p.key));
   const clearAll = () => setSelectedPages([]);
+  const selectAllActions = () => setSelectedPages(prev => Array.from(new Set([...prev, ...ALL_ACTIONS.map(a => a.key)])));
+  const clearAllActions = () => setSelectedPages(prev => prev.filter(k => !k.startsWith("action:")));
 
   const savePermissions = useMutation({
     mutationFn: async () => {
@@ -190,6 +233,42 @@ export default function PagePermissionsTab() {
                 </label>
               ))}
             </div>
+
+            <div className="pt-2 border-t border-border">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-sm font-bold">สิทธิ์ระดับปุ่ม / การกระทำ</p>
+                  <p className="text-[11px] text-muted-foreground">เลือกเฉพาะปุ่มหรือการกระทำที่อนุญาตให้ผู้ใช้คนนี้ใช้งานได้</p>
+                </div>
+                <Badge variant="secondary" className="rounded-2xl">
+                  {selectedPages.filter(k => k.startsWith("action:")).length}/{ALL_ACTIONS.length}
+                </Badge>
+              </div>
+              <div className="flex gap-2 mb-3">
+                <Button variant="outline" size="sm" className="rounded-2xl text-xs" onClick={selectAllActions}>เลือกทุกปุ่ม</Button>
+                <Button variant="outline" size="sm" className="rounded-2xl text-xs" onClick={clearAllActions}>ล้างปุ่มทั้งหมด</Button>
+              </div>
+              <div className="space-y-3">
+                {ACTION_GROUPS.map(group => (
+                  <div key={group.group} className="rounded-2xl border border-border p-3 bg-muted/20">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">{group.group}</p>
+                    <div className="space-y-1">
+                      {group.items.map(item => (
+                        <label key={item.key} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white cursor-pointer transition-colors">
+                          <Checkbox checked={selectedPages.includes(item.key)} onCheckedChange={() => togglePage(item.key)} />
+                          <span className="text-base">{item.icon}</span>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{item.label}</p>
+                            <p className="text-[10px] text-muted-foreground">{item.key}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => savePermissions.mutate()} disabled={savePermissions.isPending}>
               {savePermissions.isPending ? "กำลังบันทึก..." : "บันทึกสิทธิ์"}
             </Button>

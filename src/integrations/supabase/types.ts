@@ -1355,6 +1355,39 @@ export type Database = {
         }
         Relationships: []
       }
+      water_emergency_events: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          ended_by: string | null
+          id: string
+          notes: string | null
+          started_at: string
+          started_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          notes?: string | null
+          started_at?: string
+          started_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          notes?: string | null
+          started_at?: string
+          started_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       water_emergency_tests: {
         Row: {
           created_at: string
