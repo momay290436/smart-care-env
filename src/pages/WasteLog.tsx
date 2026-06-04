@@ -94,6 +94,18 @@ export default function WasteLog() {
     },
   });
 
+  const { data: infectiousWasteRecords = [] } = useQuery({
+    queryKey: ["infectious-waste"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("infectious_waste_records")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      return data || [];
+    },
+  });
+
   const createLog = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
@@ -417,15 +429,7 @@ export default function WasteLog() {
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={chartData.lineData} margin={{ top: 10, right: 16, left: -10, bottom: 0 }}>
-                    <defs>
-                      {Object.values(typesMap).map((wt, idx) => (
-                        <linearGradient key={idx} id={`waste-grad-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={wt.chartColor} stopOpacity={0.45} />
-                          <stop offset="95%" stopColor={wt.chartColor} stopOpacity={0.02} />
-                        </linearGradient>
-                      ))}
-                    </defs>
+                  <BarChart data={chartData.lineData} margin={{ top: 10, right: 16, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(200 18% 92%)" vertical={false} />
                     <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={{ stroke: "#e2e8f0" }} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={40} />
@@ -434,20 +438,16 @@ export default function WasteLog() {
                       formatter={(value: number, name: string) => [`${value} กก.`, name]}
                       labelStyle={{ fontWeight: 700, color: "#0f172a", marginBottom: 4 }}
                     />
-                    <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                    {Object.values(typesMap).map((wt, idx) => (
-                      <Area
+                    <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                    {Object.entries(typesMap).map(([_, wt]) => (
+                      <Bar
                         key={wt.label}
-                        type="monotone"
                         dataKey={wt.label}
-                        stroke={wt.chartColor}
-                        strokeWidth={2.5}
-                        fill={`url(#waste-grad-${idx})`}
-                        dot={{ r: 3, fill: wt.chartColor, strokeWidth: 0 }}
-                        activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
+                        fill={wt.chartColor}
+                        radius={[6, 6, 0, 0]}
                       />
                     ))}
-                  </AreaChart>
+                  </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
@@ -466,6 +466,44 @@ export default function WasteLog() {
                     <Legend iconType="circle" iconSize={8} />
                   </PieChart>
                 </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {infectiousWasteRecords.length > 0 && (
+            <Card className="shadow-card border border-red-200/50 rounded-3xl bg-gradient-to-br from-red-50 to-red-50/30">
+              <CardContent className="p-5">
+                <h3 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full" style={{ background: "hsl(0 72% 55%)" }} />
+                  ข้อมูลขยะติดเชื้อ
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-semibold">ขยะแหลม</p>
+                    <p className="text-2xl font-bold text-red-600">
+                      {Math.round(infectiousWasteRecords.reduce((sum: number, r: any) => sum + (Number(r.sharp_waste_kg) || 0), 0) * 100) / 100}
+                    </p>
+                    <p className="text-xs text-muted-foreground">กก.</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-semibold">ขยะไม่แหลม</p>
+                    <p className="text-2xl font-bold text-orange-600">
+                      {Math.round(infectiousWasteRecords.reduce((sum: number, r: any) => sum + (Number(r.non_sharp_waste_kg) || 0), 0) * 100) / 100}
+                    </p>
+                    <p className="text-xs text-muted-foreground">กก.</p>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-red-200/50">
+                  <p className="text-xs text-muted-foreground mb-2">บันทึกล่าสุด:</p>
+                  <div className="space-y-2">
+                    {infectiousWasteRecords.slice(0, 3).map((record: any) => (
+                      <div key={record.id} className="text-xs flex items-center justify-between">
+                        <span className="text-foreground">{record.health_center_name || "ไม่ระบุ"}</span>
+                        <span className="text-muted-foreground">{new Date(record.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
