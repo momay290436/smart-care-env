@@ -827,11 +827,11 @@ export default function WaterManagement() {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
-                                <div className="text-slate-700">{emergencyProfileMap[event.started_by] || event.started_by || "ระบบ"}</div>
+                                <div className="text-slate-700">{event.started_by_profile?.full_name || emergencyProfileMap[event.started_by] || event.started_by || "ระบบ"}</div>
                               </td>
                               <td className="px-4 py-3">
-                                {event.ended_by ? (
-                                  <div className="text-slate-700">{emergencyProfileMap[event.ended_by] || event.ended_by}</div>
+                                {event.ended_by_profile ? (
+                                  <div className="text-slate-700">{event.ended_by_profile.full_name || emergencyProfileMap[event.ended_by] || event.ended_by}</div>
                                 ) : (
                                   <span className="text-slate-400">-</span>
                                 )}
