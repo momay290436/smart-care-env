@@ -466,6 +466,12 @@ export default function FireCheck() {
                   <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">วันที่ / เวลา</th>
                   <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">ตำแหน่ง</th>
                   <th className="text-center py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">ผลการตรวจ</th>
+                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">ตัวถัง</th>
+                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">สายฉีด</th>
+                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">คันบีบ</th>
+                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">เข็มวัด</th>
+                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">สลัก</th>
+                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">ซีล</th>
                   <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">ผู้ตรวจ</th>
                   <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">หมายเหตุ</th>
                 </tr>
@@ -489,6 +495,11 @@ export default function FireCheck() {
                   const details: InspectionDetails | null = c.inspection_details;
                   const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
                   const failCount = details ? Object.values(details).filter(v => !v).length : 0;
+                  const Mark = ({ ok }: { ok: boolean | undefined }) => details ? (
+                    <span className={cn("inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold", ok ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")} title={ok ? "ปกติ" : "ผิดปกติ"}>
+                      {ok ? "✓" : "✕"}
+                    </span>
+                  ) : <span className="text-slate-400">-</span>;
                   return (
                     <tr key={c.id} className={`${i % 2 === 0 ? "bg-white" : "bg-slate-50"} hover:bg-slate-100 transition-colors cursor-pointer`} onClick={() => setSelectedCheck(c)}>
                       <td className="py-3 px-3 text-xs text-slate-700 font-medium whitespace-nowrap">{format(new Date(c.checked_at), "d MMM yy HH:mm", { locale: th })}</td>
@@ -501,6 +512,12 @@ export default function FireCheck() {
                           {allOk ? "ปกติ" : `พบปัญหา ${failCount}`}
                         </Badge>
                       </td>
+                      <td className="py-3 px-2 text-center"><Mark ok={details?.body_ok} /></td>
+                      <td className="py-3 px-2 text-center"><Mark ok={details?.hose_ok} /></td>
+                      <td className="py-3 px-2 text-center"><Mark ok={details?.handle_ok} /></td>
+                      <td className="py-3 px-2 text-center"><Mark ok={details?.gauge_green} /></td>
+                      <td className="py-3 px-2 text-center"><Mark ok={details?.safety_pin_ok} /></td>
+                      <td className="py-3 px-2 text-center"><Mark ok={details?.tamper_seal_ok} /></td>
                       <td className="py-3 px-3 text-sm text-slate-700">{c.inspector_name || "-"}</td>
                       <td className="py-3 px-3 text-sm text-slate-600">{c.notes ? c.notes.substring(0, 60) + (c.notes.length > 60 ? "..." : "") : "-"}</td>
                     </tr>
@@ -508,7 +525,7 @@ export default function FireCheck() {
                 })}
                 {(!checks || checks.length === 0) && (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-sm text-slate-500">ยังไม่มีบันทึกการตรวจ</td>
+                    <td colSpan={11} className="py-10 text-center text-sm text-slate-500">ยังไม่มีบันทึกการตรวจ</td>
                   </tr>
                 )}
               </tbody>
