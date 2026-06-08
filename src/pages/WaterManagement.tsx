@@ -690,6 +690,7 @@ export default function WaterManagement() {
                           localStorage.removeItem("emergencyWaterEventId");
                           setEmergencyStart(null);
                           setEmergencyEventId(null);
+                          queryClient.invalidateQueries({ queryKey: ["water-emergency-events"] });
                           toast.success("ปิดสถานะใช้น้ำสำรองแล้ว");
                         } catch (e: any) {
                           toast.error(e.message || "บันทึกไม่สำเร็จ");
@@ -727,6 +728,7 @@ export default function WaterManagement() {
                           setEmergencyStart(t);
                           setEmergencyEventId(data.id);
                           setNowTick(t);
+                          queryClient.invalidateQueries({ queryKey: ["water-emergency-events"] });
                           toast.error("เริ่มใช้น้ำสำรอง - กำลังนับถอยหลัง");
                         } catch (e: any) {
                           toast.error(e.message || "บันทึกไม่สำเร็จ");
