@@ -55,6 +55,21 @@ export default function WasteLog() {
   const [customDateTime, setCustomDateTime] = useState("");
   const [customRecorder, setCustomRecorder] = useState("");
 
+  // Chart date range (default last 7 days, client-side filter only)
+  const [chartFrom, setChartFrom] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() - 6); return startOfDay(d); });
+  const [chartTo, setChartTo] = useState<Date>(() => new Date());
+
+  // Infectious-waste dynamic form rows (inside unified modal)
+  const HEALTH_CENTERS = [
+    "รพ.สต.โป่งปูเฟือง","รพ.สต.โป่งกลางน้ำ","รพ.สต.ทุ่งพร้าว","รพ.สต.ห้วยไคร้",
+    "รพ.สต.วาวี","รพ.สต.บ้านดอยช้าง","รพ.สต.แม่สรวย","โรงพยาบาลแม่สรวย","รพ.สต.เจดีย์หลวง",
+    "รพ.สต.ศรีถ้อย","รพ.สต.ห้วยน้ำขุ่น","รพ.สต.ท่าก๊อ","รพ.สต.ป่าแดด",
+  ];
+  const emptyInfRow = () => ({ health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "", source_type: "", bottle_count: "" });
+  const [infCollectionDate, setInfCollectionDate] = useState<Date | undefined>(new Date());
+  const [infTransferDate, setInfTransferDate] = useState<Date | undefined>();
+  const [infRows, setInfRows] = useState<any[]>([emptyInfRow()]);
+
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
     queryFn: async () => {
