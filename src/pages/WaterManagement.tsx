@@ -165,14 +165,14 @@ export default function WaterManagement() {
         emergencyEvents.flatMap((e: any) => [e.started_by, e.ended_by]).filter(Boolean)
       ));
       if (ids.length === 0) return [];
-      const { data } = await supabase.from("profiles").select("id, full_name").in("id", ids as any[]);
+      const { data } = await supabase.from("profiles").select("auth_id, full_name").in("auth_id", ids as any[]);
       return data || [];
     },
   });
 
   const emergencyProfileMap = useMemo(() => {
     const m: Record<string, string> = {};
-    (emergencyProfiles || []).forEach((p: any) => { m[p.id] = p.full_name; });
+    (emergencyProfiles || []).forEach((p: any) => { m[p.auth_id] = p.full_name; });
     return m;
   }, [emergencyProfiles]);
 
