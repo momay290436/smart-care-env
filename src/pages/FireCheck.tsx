@@ -203,9 +203,17 @@ export default function FireCheck() {
             const details: InspectionDetails | null = c.inspection_details;
             const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
             return {
-              "วันที่ตรวจ": new Date(c.checked_at).toLocaleDateString("th-TH"),
-              "ตำแหน่ง": c.location_name || c.location, "ผู้ตรวจ": c.inspector_name || "-",
-              "ผลตรวจ": allOk ? "ปกติ" : "พบปัญหา",
+              "วันที่/เวลา": new Date(c.checked_at).toLocaleString("th-TH"),
+              "ตำแหน่ง": c.location_name || c.location,
+              "ผู้ตรวจ": c.inspector_name || "-",
+              "ผลตรวจรวม": allOk ? "ปกติ" : "พบปัญหา",
+              "ตัวถัง": details ? (details.body_ok ? "ปกติ" : "ผิดปกติ") : "-",
+              "สายฉีด": details ? (details.hose_ok ? "ปกติ" : "ผิดปกติ") : "-",
+              "คันบีบและไกกด": details ? (details.handle_ok ? "ปกติ" : "ผิดปกติ") : "-",
+              "เข็มวัด": details ? (details.gauge_green ? "ปกติ" : "ผิดปกติ") : "-",
+              "สลักนิรภัย": details ? (details.safety_pin_ok ? "ปกติ" : "ผิดปกติ") : "-",
+              "ซีลจัดยึด": details ? (details.tamper_seal_ok ? "ปกติ" : "ผิดปกติ") : "-",
+              "หมายเหตุ": c.notes || "-",
             };
           }), "fire-check", "ตรวจถังดับเพลิง");
           toast.success("ส่งออก Excel สำเร็จ");
