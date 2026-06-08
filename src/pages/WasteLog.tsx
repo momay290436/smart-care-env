@@ -185,6 +185,8 @@ export default function WasteLog() {
       toast.success("บันทึกน้ำหนักขยะสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
       queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-history"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-filtered"] });
       setShowForm(false);
       setWeight("");
       setCustomDateTime("");
@@ -204,6 +206,8 @@ export default function WasteLog() {
     onSuccess: () => {
       toast.success("ลบสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-history"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-filtered"] });
     },
     onError: (e: any) => toast.error(e.message),
   });

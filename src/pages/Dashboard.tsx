@@ -102,8 +102,25 @@ export default function Dashboard() {
   const { data: wasteHistory } = useQuery({
     queryKey: ["waste-history"],
     queryFn: async () => {
-      const { data } = await supabase.from("waste_logs").select("waste_type, weight, created_at").order("created_at", { ascending: true }).limit(1000);
-      return data || [];
+      // Fetch new waste logs
+      const { data: wasteLogsData } = await supabase.from("waste_logs").select("waste_type, weight, created_at").order("created_at", { ascending: true }).limit(1000);
+      
+      // Fetch old infectious waste records
+      const { data: infWasteData } = await supabase.from("infectious_waste_records").select("sharp_waste_kg, non_sharp_waste_kg, collection_date").order("collection_date", { ascending: true }).limit(1000);
+      
+      // Combine data: convert infectious_waste_records to waste_logs format
+      const combinedData: any[] = wasteLogsData || [];
+      if (infWasteData && infWasteData.length > 0) {
+        const infWasteFormatted = infWasteData.map((r: any) => ({
+          waste_type: "infectious",
+          weight: Number((Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0)).toFixed(2)),
+          created_at: r.collection_date
+        }));
+        combinedData.push(...infWasteFormatted);
+      }
+      
+      // Sort by created_at
+      return combinedData.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     },
   });
 
@@ -231,13 +248,32 @@ export default function Dashboard() {
   const { data: wasteData } = useQuery({
     queryKey: ["waste-filtered", wasteRange.from, wasteRange.to],
     queryFn: async () => {
-      const { data } = await supabase.from("waste_logs").select("weight, waste_type, created_at").gte("created_at", wasteRange.from).lte("created_at", wasteRange.to).order("created_at", { ascending: true });
-      if (!data || data.length === 0) return { byType: [], byDay: [], total: 0, allTypes: [] };
+      // Fetch new waste logs within date range
+      const { data: wasteLogsData } = await supabase.from("waste_logs").select("weight, waste_type, created_at").gte("created_at", wasteRange.from).lte("created_at", wasteRange.to).order("created_at", { ascending: true });
+      
+      // Fetch old infectious waste records within date range
+      const fromDate = wasteRange.from.split('T')[0];
+      const toDate = wasteRange.to.split('T')[0];
+      const { data: infWasteData } = await supabase.from("infectious_waste_records").select("sharp_waste_kg, non_sharp_waste_kg, collection_date").gte("collection_date", fromDate).lte("collection_date", toDate).order("collection_date", { ascending: true });
+      
+      // Combine data
+      const combinedData: any[] = wasteLogsData || [];
+      if (infWasteData && infWasteData.length > 0) {
+        const infWasteFormatted = infWasteData.map((r: any) => ({
+          weight: Number((Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0)).toFixed(2)),
+          waste_type: "infectious",
+          created_at: r.collection_date
+        }));
+        combinedData.push(...infWasteFormatted);
+      }
+      
+      if (!combinedData || combinedData.length === 0) return { byType: [], byDay: [], total: 0, allTypes: [] };
+      
       const typeMap: Record<string, number> = {}; let total = 0;
-      data.forEach((r) => { const w = Number(r.weight); typeMap[r.waste_type] = (typeMap[r.waste_type] || 0) + w; total += w; });
+      combinedData.forEach((r) => { const w = Number(r.weight); typeMap[r.waste_type] = (typeMap[r.waste_type] || 0) + w; total += w; });
       const byType = Object.entries(typeMap).map(([type, weight]) => ({ type, weight: Number(weight.toFixed(2)) }));
       const dayMap: Record<string, Record<string, number>> = {};
-      data.forEach((r) => { const day = format(new Date(r.created_at), "d MMM", { locale: th }); if (!dayMap[day]) dayMap[day] = {}; dayMap[day][r.waste_type] = (dayMap[day][r.waste_type] || 0) + Number(r.weight); });
+      combinedData.forEach((r) => { const day = format(new Date(r.created_at), "d MMM", { locale: th }); if (!dayMap[day]) dayMap[day] = {}; dayMap[day][r.waste_type] = (dayMap[day][r.waste_type] || 0) + Number(r.weight); });
       const allTypes = Object.keys(typeMap);
       const byDay = Object.entries(dayMap).map(([date, types]) => { const row: any = { date }; allTypes.forEach(t => { row[t] = Number((types[t] || 0).toFixed(2)); }); return row; });
       return { byType, byDay, total: Number(total.toFixed(2)), allTypes };
