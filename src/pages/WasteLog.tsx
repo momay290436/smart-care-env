@@ -248,7 +248,13 @@ export default function WasteLog() {
     const typeMap: Record<string, number> = {};
     const deptMap: Record<string, Record<string, number>> = {};
 
-    filteredLogs.forEach((log: any) => {
+    const rangeStart = startOfDay(chartFrom).getTime();
+    const rangeEnd = startOfDay(chartTo).getTime() + 86400000 - 1;
+    const logsInRange = filteredLogs.filter((l: any) => {
+      const t = new Date(l.created_at).getTime();
+      return t >= rangeStart && t <= rangeEnd;
+    });
+    logsInRange.forEach((log: any) => {
       const d = new Date(log.created_at);
       const sortKey = format(d, "yyyy-MM-dd");
       const label = format(d, "d MMM", { locale: th });
@@ -263,23 +269,6 @@ export default function WasteLog() {
 
       if (!deptMap[dept]) deptMap[dept] = {};
       deptMap[dept][wt] = (deptMap[dept][wt] || 0) + w;
-    });
-
-    // Add infectious waste data from infectious_waste_records
-    const infectiousLabel = typesMap.infectious?.label || "ขยะติดเชื้อ";
-    infectiousWasteRecords.forEach((record: any) => {
-      const d = new Date(record.collection_date);
-      const sortKey = format(d, "yyyy-MM-dd");
-      const label = format(d, "d MMM", { locale: th });
-      const sharpWaste = Number(record.sharp_waste_kg) || 0;
-      const nonSharpWaste = Number(record.non_sharp_waste_kg) || 0;
-      const totalWaste = sharpWaste + nonSharpWaste;
-
-      if (totalWaste > 0) {
-        if (!dayMap[sortKey]) dayMap[sortKey] = { sortKey, label, types: {} };
-        dayMap[sortKey].types[infectiousLabel] = (dayMap[sortKey].types[infectiousLabel] || 0) + totalWaste;
-        typeMap[infectiousLabel] = (typeMap[infectiousLabel] || 0) + totalWaste;
-      }
     });
 
     const lineData = Object.values(dayMap)
@@ -298,7 +287,7 @@ export default function WasteLog() {
     const totalWeight = filteredLogs.reduce((s: number, l: any) => s + Number(l.weight), 0);
 
     return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100 };
-  }, [filteredLogs, infectiousWasteRecords, typesMap]);
+  }, [filteredLogs, typesMap, chartFrom, chartTo]);
 
   // Cost calculation
   const totalCost = useMemo(() => {
