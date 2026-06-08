@@ -686,9 +686,6 @@ export default function WasteLog() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="infectious" className="mt-4">
-          <InfectiousWasteTab />
-        </TabsContent>
       </Tabs>
 
       {/* Add waste form dialog */}
