@@ -19,8 +19,7 @@ import { cn } from "@/lib/utils";
 import { exportToExcel } from "@/lib/exportExcel";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid, BarChart, Bar, Area, AreaChart } from "recharts";
 import PageHeader from "@/components/PageHeader";
-import InfectiousWasteTab from "@/components/InfectiousWasteTab";
-import { Plus, Download, Pencil, Trash2 } from "lucide-react";
+import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
