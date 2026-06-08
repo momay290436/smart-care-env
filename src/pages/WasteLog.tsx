@@ -123,6 +123,51 @@ export default function WasteLog() {
   const createLog = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
+
+      // Infectious waste: insert rich rows + aggregated weight into waste_logs
+      if (wasteType === "infectious") {
+        const valid = infRows.filter((r: any) => r.health_center_name?.trim());
+        if (valid.length === 0) throw new Error("กรุณากรอกชื่อหน่วยงานอย่างน้อย 1 รายการ");
+        if (!infCollectionDate) throw new Error("กรุณาเลือกวันที่รับขยะ");
+        const inserts = valid.map((r: any) => ({
+          collection_date: format(infCollectionDate, "yyyy-MM-dd"),
+          transfer_date: infTransferDate ? format(infTransferDate, "yyyy-MM-dd") : null,
+          health_center_name: r.health_center_name.trim(),
+          sharp_waste_kg: r.sharp_waste_kg ? parseFloat(r.sharp_waste_kg) : 0,
+          non_sharp_waste_kg: r.non_sharp_waste_kg ? parseFloat(r.non_sharp_waste_kg) : 0,
+          delivered_by: r.delivered_by?.trim() || null,
+          notes: (r.source_type || r.bottle_count) ? JSON.stringify({ source_type: r.source_type, bottle_count: r.bottle_count }) : null,
+          recorded_by: user.id,
+        }));
+        const { error: errInf } = await supabase.from("infectious_waste_records").insert(inserts);
+        if (errInf) throw errInf;
+
+        // Aggregate total into waste_logs so dashboard / cost reflects it
+        const totalKg = inserts.reduce((s, x) => s + (x.sharp_waste_kg || 0) + (x.non_sharp_waste_kg || 0), 0);
+        if (totalKg > 0) {
+          const aggPayload: any = {
+            waste_type: "infectious",
+            weight: totalKg,
+            department_id: selectedDept || profile?.department_id || null,
+            recorded_by: user.id,
+          };
+          if (isAdmin && customDateTime) aggPayload.created_at = new Date(customDateTime).toISOString();
+          else aggPayload.created_at = new Date(format(infCollectionDate, "yyyy-MM-dd") + "T08:00:00").toISOString();
+          const { error: errAgg } = await supabase.from("waste_logs").insert(aggPayload);
+          if (errAgg) throw errAgg;
+
+          if (totalKg >= 10) {
+            try {
+              const deptName = departments.find((d: any) => d.id === selectedDept)?.name || "ไม่ระบุ";
+              await supabase.functions.invoke("line-notify", {
+                body: { message: `🔴 แจ้งเตือน: บันทึกขยะติดเชื้อน้ำหนักสูง ${totalKg} กก.\nแผนก: ${deptName}\nผู้บันทึก: ${profile?.full_name}` },
+              });
+            } catch {}
+          }
+        }
+        return;
+      }
+
       const w = parseFloat(weight);
       const payload: any = {
         waste_type: wasteType,
@@ -135,24 +180,18 @@ export default function WasteLog() {
       }
       const { error } = await supabase.from("waste_logs").insert(payload);
       if (error) throw error;
-
-      // Line notify for high-weight infectious waste
-      if (wasteType === "infectious" && w >= 10) {
-        try {
-          const deptName = departments.find(d => d.id === selectedDept)?.name || "ไม่ระบุ";
-          await supabase.functions.invoke("line-notify", {
-            body: { message: `🔴 แจ้งเตือน: บันทึกขยะติดเชื้อน้ำหนักสูง ${w} กก.\nแผนก: ${deptName}\nผู้บันทึก: ${profile?.full_name}` },
-          });
-        } catch {}
-      }
     },
     onSuccess: () => {
       toast.success("บันทึกน้ำหนักขยะสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
       setShowForm(false);
       setWeight("");
       setCustomDateTime("");
       setCustomRecorder("");
+      setInfRows([emptyInfRow()]);
+      setInfCollectionDate(new Date());
+      setInfTransferDate(undefined);
     },
     onError: (e: any) => toast.error(e.message),
   });
