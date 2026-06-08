@@ -110,6 +110,7 @@ export default function Dashboard() {
       
       // Combine data: convert infectious_waste_records to waste_logs format
       const combinedData: any[] = wasteLogsData || [];
+      console.debug("Dashboard:wasteHistory fetched", { wasteLogs: (wasteLogsData || []).length, infectiousOld: (infWasteData || []).length });
       if (infWasteData && infWasteData.length > 0) {
         const infWasteFormatted = infWasteData.map((r: any) => ({
           waste_type: "infectious",
@@ -251,13 +252,12 @@ export default function Dashboard() {
       // Fetch new waste logs within date range
       const { data: wasteLogsData } = await supabase.from("waste_logs").select("weight, waste_type, created_at").gte("created_at", wasteRange.from).lte("created_at", wasteRange.to).order("created_at", { ascending: true });
       
-      // Fetch old infectious waste records within date range
-      const fromDate = wasteRange.from.split('T')[0];
-      const toDate = wasteRange.to.split('T')[0];
-      const { data: infWasteData } = await supabase.from("infectious_waste_records").select("sharp_waste_kg, non_sharp_waste_kg, collection_date").gte("collection_date", fromDate).lte("collection_date", toDate).order("collection_date", { ascending: true });
+      // Fetch all old infectious waste records (include historical data)
+      const { data: infWasteData } = await supabase.from("infectious_waste_records").select("sharp_waste_kg, non_sharp_waste_kg, collection_date").order("collection_date", { ascending: true }).limit(2000);
       
       // Combine data
       const combinedData: any[] = wasteLogsData || [];
+        console.debug("Dashboard:wasteData fetched", { wasteLogs: (wasteLogsData || []).length, infectiousOld: (infWasteData || []).length });
       if (infWasteData && infWasteData.length > 0) {
         const infWasteFormatted = infWasteData.map((r: any) => ({
           weight: Number((Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0)).toFixed(2)),
