@@ -357,11 +357,10 @@ export default function WasteLog() {
       </Button>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-12 rounded-2xl bg-muted/60">
+        <TabsList className="grid w-full grid-cols-3 h-12 rounded-2xl bg-muted/60">
           <TabsTrigger value="dashboard" className="rounded-xl text-base font-semibold">แดชบอร์ด</TabsTrigger>
           <TabsTrigger value="records" className="rounded-xl text-base font-semibold">รายการ</TabsTrigger>
           <TabsTrigger value="cost" className="rounded-xl text-base font-semibold">ต้นทุน</TabsTrigger>
-          <TabsTrigger value="infectious" className="rounded-xl text-sm font-semibold">ขยะติดเชื้อ</TabsTrigger>
         </TabsList>
 
         <Card className="shadow-lg mt-4 border border-slate-200 rounded-2xl bg-white">
