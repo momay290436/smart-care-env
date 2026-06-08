@@ -750,7 +750,7 @@ export default function WasteLog() {
 
       {/* Add waste form dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="rounded-3xl max-w-md">
+        <DialogContent className={cn("rounded-3xl", wasteType === "infectious" ? "max-w-3xl max-h-[90vh] overflow-y-auto" : "max-w-md")}>
           <DialogHeader><DialogTitle>บันทึกน้ำหนักขยะ</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -794,10 +794,101 @@ export default function WasteLog() {
                 </div>
               )}
             </div>
-            <div className="space-y-2">
-              <Label className="font-semibold">น้ำหนัก (กก.)</Label>
-              <Input type="number" step="0.1" min="0" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0.0" className="text-lg h-12 rounded-2xl" />
-            </div>
+            {wasteType === "infectious" ? (
+              <div className="space-y-4 rounded-2xl border border-red-100 bg-red-50/30 p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm font-semibold">วันที่รับขยะ *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start", !infCollectionDate && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {infCollectionDate ? format(infCollectionDate, "d MMM yy", { locale: th }) : "เลือก"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-[9999]"><Calendar mode="single" selected={infCollectionDate} onSelect={setInfCollectionDate} initialFocus className="p-3 pointer-events-auto" /></PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-semibold">วันที่ส่งต่อ ม.แม่ฟ้าหลวง</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full h-12 rounded-2xl justify-start", !infTransferDate && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {infTransferDate ? format(infTransferDate, "d MMM yy", { locale: th }) : "เลือก"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-[9999]"><Calendar mode="single" selected={infTransferDate} onSelect={setInfTransferDate} initialFocus className="p-3 pointer-events-auto" /></PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {infRows.map((row, i) => (
+                    <Card key={i} className="rounded-2xl border bg-white">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-muted-foreground">รายการ #{i + 1}</span>
+                          {infRows.length > 1 && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setInfRows(infRows.filter((_, idx) => idx !== i))}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                        <Select value={row.health_center_name} onValueChange={(v) => setInfRows(infRows.map((r, idx) => idx === i ? { ...r, health_center_name: v } : r))}>
+                          <SelectTrigger className="h-11 rounded-xl text-sm"><SelectValue placeholder="เลือก รพ.สต./โรงพยาบาล" /></SelectTrigger>
+                          <SelectContent>{HEALTH_CENTERS.map(hc => <SelectItem key={hc} value={hc}>{hc}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div>
+                            <Label className="text-xs font-semibold">มีคม (กก.)</Label>
+                            <Input type="number" step="0.1" min="0" value={row.sharp_waste_kg} onChange={(e) => setInfRows(infRows.map((r, idx) => idx === i ? { ...r, sharp_waste_kg: e.target.value } : r))} className="h-11 rounded-xl text-sm" />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-semibold">ไม่มีคม (กก.)</Label>
+                            <Input type="number" step="0.1" min="0" value={row.non_sharp_waste_kg} onChange={(e) => setInfRows(infRows.map((r, idx) => idx === i ? { ...r, non_sharp_waste_kg: e.target.value } : r))} className="h-11 rounded-xl text-sm" />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-semibold">ผู้นำส่ง</Label>
+                            <Input value={row.delivered_by} onChange={(e) => setInfRows(infRows.map((r, idx) => idx === i ? { ...r, delivered_by: e.target.value } : r))} className="h-11 rounded-xl text-sm" placeholder="ชื่อ" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs font-semibold">แหล่งที่มา</Label>
+                            <Select value={row.source_type || ""} onValueChange={(v) => setInfRows(infRows.map((r, idx) => idx === i ? { ...r, source_type: v } : r))}>
+                              <SelectTrigger className="h-11 rounded-xl text-sm"><SelectValue placeholder="เลือกแหล่งที่มา" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="รพ.มส.">รพ.มส.</SelectItem>
+                                <SelectItem value="คลินิกเอกชน">คลินิกเอกชน</SelectItem>
+                                <SelectItem value="อื่น ๆ">อื่น ๆ</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs font-semibold">ปริมาณขวด</Label>
+                            <Input type="number" step="1" min="0" value={row.bottle_count || ""} onChange={(e) => setInfRows(infRows.map((r, idx) => idx === i ? { ...r, bottle_count: e.target.value } : r))} className="h-11 rounded-xl text-sm" placeholder="จำนวนขวด" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  <Button variant="outline" className="w-full rounded-2xl h-11 text-sm" onClick={() => setInfRows([...infRows, emptyInfRow()])}>
+                    <Plus className="h-4 w-4 mr-1" /> เพิ่มรายการ
+                  </Button>
+                </div>
+                <div className="rounded-xl bg-white border border-red-200 p-3 text-sm flex items-center justify-between">
+                  <span className="text-slate-600">น้ำหนักรวมขยะติดเชื้อ</span>
+                  <span className="font-bold text-red-700">
+                    {infRows.reduce((s, r) => s + (parseFloat(r.sharp_waste_kg) || 0) + (parseFloat(r.non_sharp_waste_kg) || 0), 0).toFixed(1)} กก.
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label className="font-semibold">น้ำหนัก (กก.)</Label>
+                <Input type="number" step="0.1" min="0" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0.0" className="text-lg h-12 rounded-2xl" />
+              </div>
+            )}
             {isAdmin && (
               <div className="space-y-3 rounded-2xl bg-blue-50/50 p-4 border border-blue-100">
                 <p className="text-xs font-bold text-blue-700">⚙ ตัวเลือกผู้ดูแล (ลงข้อมูลย้อนหลัง)</p>
@@ -807,8 +898,8 @@ export default function WasteLog() {
                 </div>
               </div>
             )}
-            <Button className="w-full h-14 rounded-2xl text-base font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 shadow-lg" onClick={() => createLog.mutate()} disabled={createLog.isPending || !weight}>
-              {createLog.isPending ? "กำลังบันทึก..." : "บันทึก"}
+            <Button className="w-full h-14 rounded-2xl text-base font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 shadow-lg" onClick={() => createLog.mutate()} disabled={createLog.isPending || (wasteType !== "infectious" && !weight)}>
+              {createLog.isPending ? "กำลังบันทึก..." : (wasteType === "infectious" ? "บันทึกทั้งหมด" : "บันทึก")}
             </Button>
           </div>
         </DialogContent>
