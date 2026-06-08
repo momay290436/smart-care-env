@@ -635,7 +635,7 @@ export default function WaterManagement() {
         const ss = remaining % 60;
         const fmt = (n: number) => n.toString().padStart(2, "0");
         return (
-          <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-3 md:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <Card className="bg-gradient-to-br from-blue-50 via-cyan-50 to-white rounded-3xl shadow-xl border-0 border-l-4 border-l-blue-600">
               <CardContent className="p-5 md:p-6 flex items-center gap-5">
                 <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
