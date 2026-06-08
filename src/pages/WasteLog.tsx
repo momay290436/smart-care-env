@@ -441,10 +441,27 @@ export default function WasteLog() {
           {chartData.lineData.length > 0 && (
             <Card className="shadow-card border border-border/50 rounded-3xl bg-white">
               <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                   <div>
                     <h3 className="text-base font-bold text-foreground">แนวโน้มขยะรายวัน</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">น้ำหนักรวมแต่ละประเภท (กก.)</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">น้ำหนักรวมแต่ละประเภท (กก.) · ค่าเริ่มต้น 7 วันล่าสุด</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" variant="outline" className="h-9 rounded-2xl text-xs" onClick={() => { const d = new Date(); const f = new Date(); f.setDate(f.getDate() - 6); setChartFrom(startOfDay(f)); setChartTo(d); }}>7 วัน</Button>
+                    <Button size="sm" variant="outline" className="h-9 rounded-2xl text-xs" onClick={() => { const d = new Date(); const f = new Date(); f.setDate(f.getDate() - 29); setChartFrom(startOfDay(f)); setChartTo(d); }}>30 วัน</Button>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-9 rounded-2xl text-xs gap-1"><CalendarIcon className="h-3.5 w-3.5" />{format(chartFrom, "d MMM", { locale: th })}</Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="end"><Calendar mode="single" selected={chartFrom} onSelect={(d) => d && setChartFrom(d)} disabled={(d) => d > chartTo} initialFocus className="p-3 pointer-events-auto" /></PopoverContent>
+                    </Popover>
+                    <span className="text-xs text-muted-foreground">—</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-9 rounded-2xl text-xs gap-1"><CalendarIcon className="h-3.5 w-3.5" />{format(chartTo, "d MMM", { locale: th })}</Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="end"><Calendar mode="single" selected={chartTo} onSelect={(d) => d && setChartTo(d)} disabled={(d) => d > new Date() || d < chartFrom} initialFocus className="p-3 pointer-events-auto" /></PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={280}>
