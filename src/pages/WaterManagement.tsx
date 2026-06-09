@@ -57,6 +57,7 @@ export default function WaterManagement() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showMeterDialog, setShowMeterDialog] = useState(false);
   const [showDisinfectantDialog, setShowDisinfectantDialog] = useState(false);
+  const [showWastewaterDialog, setShowWastewaterDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showEditMeterDialog, setShowEditMeterDialog] = useState(false);
   const [showEditDisinfectantDialog, setShowEditDisinfectantDialog] = useState(false);
