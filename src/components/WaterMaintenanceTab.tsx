@@ -264,14 +264,17 @@ export default function WaterMaintenanceTab() {
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>ความถี่</Label>
-                <select name="frequency" className="w-full rounded-2xl border border-input px-3 py-3 text-sm">
-                  <option value="weekly">รายสัปดาห์</option><option value="monthly">รายเดือน</option>
-                  <option value="quarterly">ทุก 3 เดือน</option><option value="biannual">ทุก 6 เดือน</option><option value="yearly">รายปี</option>
+              <div><Label>วันที่ตรวจเช็คครั้งล่าสุด *</Label><Input name="last_inspected_date" type="date" required defaultValue={format(new Date(), "yyyy-MM-dd")} className="h-11 rounded-2xl" /></div>
+              <div><Label>ความถี่ (เดือน)</Label>
+                <select name="frequency_months" defaultValue="1" className="w-full rounded-2xl border border-input px-3 py-3 text-sm">
+                  <option value="1">ทุก 1 เดือน</option>
+                  <option value="3">ทุก 3 เดือน</option>
+                  <option value="6">ทุก 6 เดือน</option>
+                  <option value="12">ทุก 12 เดือน</option>
                 </select>
               </div>
-              <div><Label>กำหนดครั้งถัดไป *</Label><Input name="next_due" type="date" required className="h-11 rounded-2xl" /></div>
             </div>
+            <p className="text-xs text-muted-foreground">ระบบจะคำนวณ "วันตรวจครั้งถัดไป" และแจ้งเตือนล่วงหน้า 14 วันโดยอัตโนมัติ</p>
             <div><Label>ผู้รับผิดชอบ</Label><Input name="assigned_to" className="h-11 rounded-2xl" /></div>
             <div><Label>หมายเหตุ</Label><Input name="notes" className="h-11 rounded-2xl" /></div>
             <Button type="submit" className="w-full h-12 rounded-2xl" disabled={addSchedule.isPending}>บันทึก</Button>
