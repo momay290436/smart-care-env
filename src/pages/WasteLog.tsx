@@ -342,6 +342,32 @@ export default function WasteLog() {
     return Math.round(cost * 100) / 100;
   }, [filteredLogs, costPerKg]);
 
+  // Apply the same date filter (filterPeriod / custom) to infectious_waste_records,
+  // matched on collection_date (fallback transfer_date / created_at).
+  const filteredInfectious = useMemo(() => {
+    const recs = infectiousWasteRecords as any[];
+    if (filterPeriod === "all" && !customFrom && !customTo) return recs;
+    const now = new Date();
+    let from: Date | null = null;
+    let to: Date | null = null;
+    if (filterPeriod === "day") from = startOfDay(now);
+    else if (filterPeriod === "week") from = startOfWeek(now, { weekStartsOn: 1 });
+    else if (filterPeriod === "month") from = startOfMonth(now);
+    else if (filterPeriod === "custom" && customFrom && customTo) { from = startOfDay(customFrom); to = new Date(startOfDay(customTo).getTime() + 86400000 - 1); }
+    return recs.filter((r) => {
+      const dStr = r.collection_date || r.transfer_date || r.created_at;
+      if (!dStr) return true;
+      const d = new Date(dStr);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+  }, [infectiousWasteRecords, filterPeriod, customFrom, customTo]);
+
+  const infectiousFilteredTotal = useMemo(() => {
+    return filteredInfectious.reduce((s, r: any) => s + (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0), 0);
+  }, [filteredInfectious]);
+
   const handleAdvancedExport = () => {
     const wb = XLSX.utils.book_new();
     const deptNames = departments.map((d: any) => d.name).sort();
@@ -404,10 +430,11 @@ export default function WasteLog() {
       </Button>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-12 rounded-2xl bg-muted/60">
-          <TabsTrigger value="dashboard" className="rounded-xl text-base font-semibold">แดชบอร์ด</TabsTrigger>
-          <TabsTrigger value="records" className="rounded-xl text-base font-semibold">รายการ</TabsTrigger>
-          <TabsTrigger value="cost" className="rounded-xl text-base font-semibold">ต้นทุน</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto rounded-2xl bg-muted/60 p-1 gap-1">
+          <TabsTrigger value="dashboard" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">แดชบอร์ด</TabsTrigger>
+          <TabsTrigger value="records" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">รายการ</TabsTrigger>
+          <TabsTrigger value="infectious" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm">ขยะติดเชื้อ</TabsTrigger>
+          <TabsTrigger value="cost" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">ต้นทุน</TabsTrigger>
         </TabsList>
 
         <Card className="shadow-lg mt-4 border border-slate-200 rounded-2xl bg-white">
@@ -468,7 +495,9 @@ export default function WasteLog() {
               </CardContent>
             </Card>
             {Object.entries(typesMap).map(([k, v]) => {
-              const typeWeight = filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
+              const typeWeight = k === "infectious"
+                ? infectiousFilteredTotal
+                : filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
               return (
                 <Card key={k} className="shadow-lg border-0 rounded-3xl bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
                   <CardContent className="p-4 text-center">
@@ -592,47 +621,121 @@ export default function WasteLog() {
           )}
         </TabsContent>
 
-        <TabsContent value="records" className="space-y-3 mt-4">
-          {filteredLogs.map((log: any) => {
-            const wt = typesMap[log.waste_type] || typesMap.general;
-            return (
-              <Card key={log.id} className="group relative overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer hover:-translate-y-1 animate-fade-in bg-white/70 backdrop-blur-md" onClick={() => setSelectedLog(log)}>
-                <div className="absolute inset-0 opacity-[0.05] rounded-3xl" style={{ background: `linear-gradient(135deg, ${wt.chartColor}, transparent)` }} />
-                <CardContent className="relative flex items-center justify-between p-5">
-                  <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm" style={{ background: `${wt.chartColor}20` }}>
-                      <div className="w-4 h-4 rounded-full" style={{ background: wt.chartColor }} />
-                    </div>
-                    <div>
-                      <Badge className={`${wt.color} border rounded-xl text-xs`} variant="secondary">{wt.label}</Badge>
-                      <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
-                        {new Date(log.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
-                        {" · "}{log.departments?.name || "-"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <p className="text-xl font-extrabold text-foreground">{log.weight}</p>
-                      <p className="text-[10px] font-medium text-muted-foreground tracking-wider uppercase">กก.</p>
-                    </div>
-                    {isAdmin && (
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/60 hover:text-destructive rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); if (confirm("ยืนยันลบ?")) deleteLog.mutate(log.id); }}>
-                        ✕
-                      </Button>
+        <TabsContent value="records" className="mt-4">
+          <Card className="shadow-card border border-border/50 rounded-2xl bg-white">
+            <CardContent className="p-4">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[720px]">
+                  <thead>
+                    <tr className="border-b-2 border-slate-200 bg-slate-50 text-slate-700">
+                      <th className="text-left px-3 py-3 text-xs font-bold">วันที่/เวลา</th>
+                      <th className="text-left px-3 py-3 text-xs font-bold">ประเภทขยะ</th>
+                      <th className="text-left px-3 py-3 text-xs font-bold">แผนก/หน่วยงาน</th>
+                      <th className="text-center px-3 py-3 text-xs font-bold">น้ำหนัก (กก.)</th>
+                      <th className="text-left px-3 py-3 text-xs font-bold">ผู้บันทึก</th>
+                      {isAdmin && <th className="text-center px-3 py-3 text-xs font-bold">จัดการ</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLogs.map((log: any, i: number) => {
+                      const wt = typesMap[log.waste_type] || typesMap.general;
+                      return (
+                        <tr key={log.id} className={`${i % 2 ? "bg-slate-50/40" : "bg-white"} hover:bg-emerald-50/40 border-b border-slate-100 cursor-pointer transition-colors`} onClick={() => setSelectedLog(log)}>
+                          <td className="px-3 py-3 text-xs whitespace-nowrap">
+                            {new Date(log.created_at).toLocaleString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                          <td className="px-3 py-3">
+                            <Badge className={`${wt.color} border rounded-full text-[11px] font-semibold`} variant="secondary">{wt.label}</Badge>
+                          </td>
+                          <td className="px-3 py-3 text-xs">{log.departments?.name || "-"}</td>
+                          <td className="px-3 py-3 text-center font-bold text-base text-slate-900">{log.weight}</td>
+                          <td className="px-3 py-3 text-xs text-muted-foreground">{log.recorder_name || "-"}</td>
+                          {isAdmin && (
+                            <td className="px-3 py-3 text-center">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm("ยืนยันลบ?")) deleteLog.mutate(log.id); }}>✕</Button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                    {filteredLogs.length === 0 && (
+                      <tr><td colSpan={isAdmin ? 6 : 5} className="py-10 text-center text-muted-foreground">ไม่มีบันทึกขยะในช่วงที่เลือก</td></tr>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-          {filteredLogs.length === 0 && (
-            <Card className="shadow-card border-0 rounded-2xl bg-white/80 backdrop-blur-sm">
-              <CardContent className="flex flex-col items-center gap-2 py-10">
-                <p className="text-base text-muted-foreground">ไม่มีบันทึกขยะในช่วงที่เลือก</p>
-              </CardContent>
-            </Card>
-          )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="infectious" className="mt-4 space-y-3">
+          <Card className="shadow-card border border-border/50 rounded-2xl bg-white">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div>
+                  <h3 className="text-base font-bold text-foreground">ประวัติขยะติดเชื้อ</h3>
+                  <p className="text-xs text-muted-foreground">รวมน้ำหนัก: <span className="font-bold text-orange-600">{Math.round(infectiousFilteredTotal * 100) / 100}</span> กก. ({filteredInfectious.length} รายการ)</p>
+                </div>
+                <Button size="sm" variant="outline" className="rounded-2xl h-9 gap-1.5 bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100" onClick={() => {
+                  if (filteredInfectious.length === 0) { toast.info("ไม่มีข้อมูลให้ส่งออก"); return; }
+                  const headers = ["ลำดับ", "วันที่รับขยะ", "วันที่ส่งต่อ", "แหล่งที่มา", "ขยะมีคม (กก.)", "ขยะไม่มีคม (กก.)", "น้ำหนักรวม (กก.)", "ผู้ส่ง"];
+                  const rows = filteredInfectious.map((r: any, i: number) => [
+                    i + 1,
+                    r.collection_date ? new Date(r.collection_date).toLocaleDateString("th-TH") : "-",
+                    r.transfer_date ? new Date(r.transfer_date).toLocaleDateString("th-TH") : "-",
+                    r.health_center_name || "-",
+                    Number(r.sharp_waste_kg) || 0,
+                    Number(r.non_sharp_waste_kg) || 0,
+                    (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0),
+                    r.delivered_by || "-",
+                  ]);
+                  const ws = XLSX.utils.aoa_to_sheet([["รายงานขยะติดเชื้อ"], [], headers, ...rows]);
+                  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
+                  ws["!cols"] = headers.map(() => ({ wch: 18 }));
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "ขยะติดเชื้อ");
+                  XLSX.writeFile(wb, `รายงานขยะติดเชื้อ_${format(new Date(), "dd-MM-yyyy")}.xlsx`);
+                  toast.success("ส่งออก Excel สำเร็จ");
+                }}>
+                  <Download className="h-4 w-4" /> Export Excel
+                </Button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[820px]">
+                  <thead>
+                    <tr className="border-b-2 border-orange-200 bg-orange-50 text-orange-800">
+                      <th className="text-left px-3 py-3 text-xs font-bold">วันที่รับขยะ</th>
+                      <th className="text-left px-3 py-3 text-xs font-bold">วันที่ส่งต่อ</th>
+                      <th className="text-left px-3 py-3 text-xs font-bold">แหล่งที่มา</th>
+                      <th className="text-center px-3 py-3 text-xs font-bold">มีคม (กก.)</th>
+                      <th className="text-center px-3 py-3 text-xs font-bold">ไม่มีคม (กก.)</th>
+                      <th className="text-center px-3 py-3 text-xs font-bold">รวม (กก.)</th>
+                      <th className="text-left px-3 py-3 text-xs font-bold">ผู้ส่ง</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredInfectious.map((r: any, i: number) => {
+                      const total = (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0);
+                      return (
+                        <tr key={r.id} className={`${i % 2 ? "bg-slate-50/40" : "bg-white"} hover:bg-orange-50/40 border-b border-slate-100`}>
+                          <td className="px-3 py-3 text-xs">{r.collection_date ? new Date(r.collection_date).toLocaleDateString("th-TH") : "-"}</td>
+                          <td className="px-3 py-3 text-xs">{r.transfer_date ? new Date(r.transfer_date).toLocaleDateString("th-TH") : "-"}</td>
+                          <td className="px-3 py-3 text-xs font-medium">{r.health_center_name || "-"}</td>
+                          <td className="px-3 py-3 text-center text-xs">{r.sharp_waste_kg ?? "-"}</td>
+                          <td className="px-3 py-3 text-center text-xs">{r.non_sharp_waste_kg ?? "-"}</td>
+                          <td className="px-3 py-3 text-center font-bold text-orange-700">{Math.round(total * 100) / 100}</td>
+                          <td className="px-3 py-3 text-xs">{r.delivered_by || "-"}</td>
+                        </tr>
+                      );
+                    })}
+                    {filteredInfectious.length === 0 && (
+                      <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="cost" className="space-y-4 mt-4">

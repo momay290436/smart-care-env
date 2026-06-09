@@ -1229,6 +1229,63 @@ export type Database = {
         }
         Relationships: []
       }
+      wastewater_inspection_logs: {
+        Row: {
+          aerator_status: string | null
+          check_date: string
+          check_time: string | null
+          chlorine_residual: number | null
+          created_at: string
+          id: string
+          inlet_meter: number | null
+          notes: string | null
+          outlet_meter: number | null
+          ph_value: number | null
+          recorded_by: string | null
+          recorder_name: string | null
+          sludge_pump_status: string | null
+          updated_at: string
+          wastewater_volume: number | null
+          water_appearance: string | null
+        }
+        Insert: {
+          aerator_status?: string | null
+          check_date?: string
+          check_time?: string | null
+          chlorine_residual?: number | null
+          created_at?: string
+          id?: string
+          inlet_meter?: number | null
+          notes?: string | null
+          outlet_meter?: number | null
+          ph_value?: number | null
+          recorded_by?: string | null
+          recorder_name?: string | null
+          sludge_pump_status?: string | null
+          updated_at?: string
+          wastewater_volume?: number | null
+          water_appearance?: string | null
+        }
+        Update: {
+          aerator_status?: string | null
+          check_date?: string
+          check_time?: string | null
+          chlorine_residual?: number | null
+          created_at?: string
+          id?: string
+          inlet_meter?: number | null
+          notes?: string | null
+          outlet_meter?: number | null
+          ph_value?: number | null
+          recorded_by?: string | null
+          recorder_name?: string | null
+          sludge_pump_status?: string | null
+          updated_at?: string
+          wastewater_volume?: number | null
+          water_appearance?: string | null
+        }
+        Relationships: []
+      }
       water_assets: {
         Row: {
           created_at: string
@@ -1433,8 +1490,10 @@ export type Database = {
           assigned_to: string | null
           created_at: string
           frequency: string
+          frequency_months: number | null
           id: string
           last_done: string | null
+          last_inspected_date: string | null
           next_due: string
           notes: string | null
           status: string
@@ -1446,8 +1505,10 @@ export type Database = {
           assigned_to?: string | null
           created_at?: string
           frequency?: string
+          frequency_months?: number | null
           id?: string
           last_done?: string | null
+          last_inspected_date?: string | null
           next_due: string
           notes?: string | null
           status?: string
@@ -1459,8 +1520,10 @@ export type Database = {
           assigned_to?: string | null
           created_at?: string
           frequency?: string
+          frequency_months?: number | null
           id?: string
           last_done?: string | null
+          last_inspected_date?: string | null
           next_due?: string
           notes?: string | null
           status?: string

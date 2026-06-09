@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, addMonths } from "date-fns";
 import { th } from "date-fns/locale";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Plus, Wrench, AlertTriangle, CheckCircle } from "lucide-react";
@@ -55,10 +55,22 @@ export default function WaterMaintenanceTab() {
 
   const addSchedule = useMutation({
     mutationFn: async (fd: FormData) => {
-      const { error } = await supabase.from("water_maintenance_schedule").insert({
-        asset_id: (fd.get("asset_id") as string) || null, task_name: fd.get("task_name") as string,
-        frequency: fd.get("frequency") as string, next_due: fd.get("next_due") as string,
-        assigned_to: (fd.get("assigned_to") as string) || null, notes: (fd.get("notes") as string) || null,
+      const lastInspected = (fd.get("last_inspected_date") as string) || null;
+      const months = Number(fd.get("frequency_months")) || 1;
+      const freqLabel = months === 1 ? "monthly" : months === 3 ? "quarterly" : months === 6 ? "biannual" : "yearly";
+      // Client-side calc: next_due = last_inspected + months
+      const nextDue = lastInspected
+        ? format(addMonths(new Date(lastInspected), months), "yyyy-MM-dd")
+        : format(addMonths(new Date(), months), "yyyy-MM-dd");
+      const { error } = await (supabase as any).from("water_maintenance_schedule").insert({
+        asset_id: (fd.get("asset_id") as string) || null,
+        task_name: fd.get("task_name") as string,
+        frequency: freqLabel,
+        frequency_months: months,
+        last_inspected_date: lastInspected,
+        next_due: nextDue,
+        assigned_to: (fd.get("assigned_to") as string) || null,
+        notes: (fd.get("notes") as string) || null,
       });
       if (error) throw error;
     },
@@ -96,15 +108,36 @@ export default function WaterMaintenanceTab() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // Client-side computation only (no polling). Computed once per render from data fetched once.
   const getDueStatus = (nextDue: string) => {
     const days = differenceInDays(new Date(nextDue), new Date());
-    if (days < 0) return { label: "เลยกำหนด", color: "bg-red-100 border-red-300 text-red-800", badge: "destructive" as const };
-    if (days <= 7) return { label: `อีก ${days} วัน`, color: "bg-amber-50 border-amber-300 text-amber-800", badge: "default" as const };
-    return { label: format(new Date(nextDue), "d MMM yy", { locale: th }), color: "bg-slate-50 border-slate-200", badge: "secondary" as const };
+    if (days < 0) return { label: `เลยกำหนด ${Math.abs(days)} วัน`, color: "bg-red-100 border-red-300 text-red-800", badgeClass: "bg-red-600 text-white", pulse: false };
+    if (days <= 14) return { label: `ใกล้ครบกำหนดตรวจเช็ค (${days} วัน)`, color: "bg-amber-50 border-amber-300 text-amber-800", badgeClass: "bg-amber-500 text-white animate-pulse", pulse: true };
+    return { label: `ปกติ · ${format(new Date(nextDue), "d MMM yy", { locale: th })}`, color: "bg-emerald-50 border-emerald-200 text-emerald-800", badgeClass: "bg-emerald-600 text-white", pulse: false };
   };
+
+  const upcomingCount = useMemo(() => {
+    return (schedules as any[]).filter((s) => {
+      const days = differenceInDays(new Date(s.next_due), new Date());
+      return days >= 0 && days <= 14;
+    }).length;
+  }, [schedules]);
+  const overdueCount = useMemo(() => {
+    return (schedules as any[]).filter((s) => differenceInDays(new Date(s.next_due), new Date()) < 0).length;
+  }, [schedules]);
 
   return (
     <div className="space-y-4">
+      {(upcomingCount > 0 || overdueCount > 0) && (
+        <div className={`rounded-2xl border p-3 flex items-center gap-2 ${overdueCount > 0 ? "bg-red-50 border-red-300 text-red-800" : "bg-amber-50 border-amber-300 text-amber-800"}`}>
+          <AlertTriangle className={`h-5 w-5 ${overdueCount > 0 ? "text-red-600" : "text-amber-600 animate-pulse"}`} />
+          <p className="text-sm font-semibold">
+            {overdueCount > 0 && `มี ${overdueCount} รายการเลยกำหนดตรวจเช็ค`}
+            {overdueCount > 0 && upcomingCount > 0 && " · "}
+            {upcomingCount > 0 && `มี ${upcomingCount} รายการใกล้ครบกำหนด (ภายใน 14 วัน)`}
+          </p>
+        </div>
+      )}
       {/* Assets Section */}
       <Card className="bg-white rounded-2xl shadow-elevated border-0">
         <CardContent className="p-4 space-y-3">
@@ -142,15 +175,20 @@ export default function WaterMaintenanceTab() {
           <div className="space-y-2">
             {schedules.map((s: any) => {
               const due = getDueStatus(s.next_due);
+              const months = s.frequency_months || (s.frequency === "monthly" ? 1 : s.frequency === "quarterly" ? 3 : s.frequency === "biannual" ? 6 : s.frequency === "yearly" ? 12 : 1);
               return (
                 <div key={s.id} className={`p-3 rounded-xl border ${due.color}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold">{s.task_name}</p>
-                      <p className="text-xs text-muted-foreground">{s.water_assets?.name || "-"} · {s.frequency}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {s.water_assets?.name || "-"} · ทุก {months} เดือน
+                        {s.last_inspected_date && ` · ตรวจล่าสุด ${format(new Date(s.last_inspected_date), "d MMM yy", { locale: th })}`}
+                      </p>
+                      <p className="text-xs mt-0.5">ตรวจครั้งถัดไป: <span className="font-semibold">{format(new Date(s.next_due), "d MMM yy", { locale: th })}</span></p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={due.badge} className="text-[10px] rounded-full">{due.label}</Badge>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${due.badgeClass}`}>{due.label}</span>
                       {isAdmin && <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => setDeleteTarget({ table: "water_maintenance_schedule", id: s.id })}>✕</Button>}
                     </div>
                   </div>
@@ -226,14 +264,17 @@ export default function WaterMaintenanceTab() {
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>ความถี่</Label>
-                <select name="frequency" className="w-full rounded-2xl border border-input px-3 py-3 text-sm">
-                  <option value="weekly">รายสัปดาห์</option><option value="monthly">รายเดือน</option>
-                  <option value="quarterly">ทุก 3 เดือน</option><option value="biannual">ทุก 6 เดือน</option><option value="yearly">รายปี</option>
+              <div><Label>วันที่ตรวจเช็คครั้งล่าสุด *</Label><Input name="last_inspected_date" type="date" required defaultValue={format(new Date(), "yyyy-MM-dd")} className="h-11 rounded-2xl" /></div>
+              <div><Label>ความถี่ (เดือน)</Label>
+                <select name="frequency_months" defaultValue="1" className="w-full rounded-2xl border border-input px-3 py-3 text-sm">
+                  <option value="1">ทุก 1 เดือน</option>
+                  <option value="3">ทุก 3 เดือน</option>
+                  <option value="6">ทุก 6 เดือน</option>
+                  <option value="12">ทุก 12 เดือน</option>
                 </select>
               </div>
-              <div><Label>กำหนดครั้งถัดไป *</Label><Input name="next_due" type="date" required className="h-11 rounded-2xl" /></div>
             </div>
+            <p className="text-xs text-muted-foreground">ระบบจะคำนวณ "วันตรวจครั้งถัดไป" และแจ้งเตือนล่วงหน้า 14 วันโดยอัตโนมัติ</p>
             <div><Label>ผู้รับผิดชอบ</Label><Input name="assigned_to" className="h-11 rounded-2xl" /></div>
             <div><Label>หมายเหตุ</Label><Input name="notes" className="h-11 rounded-2xl" /></div>
             <Button type="submit" className="w-full h-12 rounded-2xl" disabled={addSchedule.isPending}>บันทึก</Button>

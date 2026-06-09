@@ -25,7 +25,8 @@ import PageHeader from "@/components/PageHeader";
 import WaterMaintenanceTab from "@/components/WaterMaintenanceTab";
 import WaterSystemTab from "@/components/WaterSystemTab";
 import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
-import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon, Eye, Edit, Trash2, Check, X } from "lucide-react";
+import WastewaterTab, { WastewaterInsertDialog } from "@/components/WastewaterTab";
+import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon, Eye, Edit, Trash2, Check, X, FlaskConical } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const CHECK_POINTS = ["อาคาร OPD", "อาคาร IPD ชาย", "อาคาร IPD หญิง", "อาคารอำนวยการ", "ห้องผ่าตัด", "ห้องปฏิบัติการ", "โรงครัว"];
@@ -56,6 +57,7 @@ export default function WaterManagement() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showMeterDialog, setShowMeterDialog] = useState(false);
   const [showDisinfectantDialog, setShowDisinfectantDialog] = useState(false);
+  const [showWastewaterDialog, setShowWastewaterDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showEditMeterDialog, setShowEditMeterDialog] = useState(false);
   const [showEditDisinfectantDialog, setShowEditDisinfectantDialog] = useState(false);
@@ -592,26 +594,37 @@ export default function WaterManagement() {
         </Button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-4">
-        <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 rounded-3xl shadow-2xl border-0 border-b-4 border-b-blue-800 cursor-pointer hover:shadow-3xl transition-all active:scale-95 ring-2 ring-blue-300/50 animate-pulse-subtle" onClick={() => setShowMeterDialog(true)}>
-          <CardContent className="p-6 md:p-8 flex items-center gap-5">
-            <div className="w-20 h-20 md:w-16 md:h-16 rounded-3xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
-              <Plus className="h-9 w-9 md:h-8 md:w-8 text-white font-bold" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-blue-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-blue-300/50" onClick={() => setShowMeterDialog(true)}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
+              <Plus className="h-7 w-7 text-white font-bold" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xl md:text-2xl font-black text-white drop-shadow-md">📝 บันทึกมิเตอร์น้ำออก</p>
-              <p className="text-sm md:text-base text-white/90 truncate drop-shadow-sm">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">📝 บันทึกมิเตอร์น้ำออก</p>
+              <p className="text-xs text-white/90 truncate">บันทึกค่ามิเตอร์</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-amber-600 via-amber-400 to-yellow-500 rounded-3xl shadow-2xl border-0 border-b-4 border-b-amber-800 cursor-pointer hover:shadow-3xl transition-all active:scale-95 ring-2 ring-amber-300/50 animate-pulse-subtle" onClick={() => setShowDisinfectantDialog(true)}>
-          <CardContent className="p-6 md:p-8 flex items-center gap-5">
-            <div className="w-20 h-20 md:w-16 md:h-16 rounded-3xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
-              <Plus className="h-9 w-9 md:h-8 md:w-8 text-white font-bold" />
+        <Card className="bg-gradient-to-br from-amber-600 via-amber-400 to-yellow-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-amber-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-amber-300/50" onClick={() => setShowDisinfectantDialog(true)}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
+              <Plus className="h-7 w-7 text-white font-bold" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xl md:text-2xl font-black text-white drop-shadow-md">🧪 บันทึกปริมาณสารเคมีกำจัดเชื้อโรค</p>
-              <p className="text-sm md:text-base text-white/90 truncate drop-shadow-sm">กดเพื่อบันทึกผลตรวจสารฆ่าเชื้อในน้ำประปา</p>
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🧪 บันทึกสารเคมี</p>
+              <p className="text-xs text-white/90 truncate">สารฆ่าเชื้อในน้ำประปา</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-emerald-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-emerald-300/50" onClick={() => setShowWastewaterDialog(true)}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
+              <Plus className="h-7 w-7 text-white font-bold" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🌿 ตรวจระบบบำบัดน้ำเสีย</p>
+              <p className="text-xs text-white/90 truncate">บันทึกการตรวจประจำวัน</p>
             </div>
           </CardContent>
         </Card>
@@ -749,26 +762,33 @@ export default function WaterManagement() {
 
       {/* Tabs: คุณภาพน้ำ / ระบบ / บำรุงรักษา */}
       <Tabs defaultValue="quality" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
-          <TabsTrigger value="quality" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
+          <TabsTrigger value="quality" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
             <Droplets className="h-4 w-4 mr-1" /> คุณภาพน้ำ
           </TabsTrigger>
-          <TabsTrigger value="meter" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
+          <TabsTrigger value="meter" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Gauge className="h-4 w-4 mr-1" /> ประวัติการบันทึก
           </TabsTrigger>
-          <TabsTrigger value="emergency" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-red-500 data-[state=active]:text-white">
+          <TabsTrigger value="emergency" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-red-500 data-[state=active]:text-white">
             <AlertTriangle className="h-4 w-4 mr-1" /> เหตุฉุกเฉิน
           </TabsTrigger>
-          <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
+          <TabsTrigger value="wastewater" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+            <FlaskConical className="h-4 w-4 mr-1" /> บำบัดน้ำเสีย
+          </TabsTrigger>
+          <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Settings className="h-4 w-4 mr-1" /> บริหารระบบ
           </TabsTrigger>
-          <TabsTrigger value="maintenance" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-amber-500 data-[state=active]:text-white">
+          <TabsTrigger value="maintenance" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-amber-500 data-[state=active]:text-white">
             <Wrench className="h-4 w-4 mr-1" /> บำรุงรักษา
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="system" className="mt-4">
           <WaterSystemTab />
+        </TabsContent>
+
+        <TabsContent value="wastewater" className="mt-4">
+          <WastewaterTab />
         </TabsContent>
 
         <TabsContent value="emergency" className="mt-4">
@@ -1424,6 +1444,9 @@ export default function WaterManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Wastewater inspection insert dialog */}
+      <WastewaterInsertDialog open={showWastewaterDialog} onOpenChange={setShowWastewaterDialog} />
     </div>
   );
 }
