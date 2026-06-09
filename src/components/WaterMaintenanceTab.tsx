@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, addMonths } from "date-fns";
 import { th } from "date-fns/locale";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Plus, Wrench, AlertTriangle, CheckCircle } from "lucide-react";
@@ -55,10 +55,22 @@ export default function WaterMaintenanceTab() {
 
   const addSchedule = useMutation({
     mutationFn: async (fd: FormData) => {
-      const { error } = await supabase.from("water_maintenance_schedule").insert({
-        asset_id: (fd.get("asset_id") as string) || null, task_name: fd.get("task_name") as string,
-        frequency: fd.get("frequency") as string, next_due: fd.get("next_due") as string,
-        assigned_to: (fd.get("assigned_to") as string) || null, notes: (fd.get("notes") as string) || null,
+      const lastInspected = (fd.get("last_inspected_date") as string) || null;
+      const months = Number(fd.get("frequency_months")) || 1;
+      const freqLabel = months === 1 ? "monthly" : months === 3 ? "quarterly" : months === 6 ? "biannual" : "yearly";
+      // Client-side calc: next_due = last_inspected + months
+      const nextDue = lastInspected
+        ? format(addMonths(new Date(lastInspected), months), "yyyy-MM-dd")
+        : format(addMonths(new Date(), months), "yyyy-MM-dd");
+      const { error } = await (supabase as any).from("water_maintenance_schedule").insert({
+        asset_id: (fd.get("asset_id") as string) || null,
+        task_name: fd.get("task_name") as string,
+        frequency: freqLabel,
+        frequency_months: months,
+        last_inspected_date: lastInspected,
+        next_due: nextDue,
+        assigned_to: (fd.get("assigned_to") as string) || null,
+        notes: (fd.get("notes") as string) || null,
       });
       if (error) throw error;
     },
@@ -96,15 +108,36 @@ export default function WaterMaintenanceTab() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // Client-side computation only (no polling). Computed once per render from data fetched once.
   const getDueStatus = (nextDue: string) => {
     const days = differenceInDays(new Date(nextDue), new Date());
-    if (days < 0) return { label: "เลยกำหนด", color: "bg-red-100 border-red-300 text-red-800", badge: "destructive" as const };
-    if (days <= 7) return { label: `อีก ${days} วัน`, color: "bg-amber-50 border-amber-300 text-amber-800", badge: "default" as const };
-    return { label: format(new Date(nextDue), "d MMM yy", { locale: th }), color: "bg-slate-50 border-slate-200", badge: "secondary" as const };
+    if (days < 0) return { label: `เลยกำหนด ${Math.abs(days)} วัน`, color: "bg-red-100 border-red-300 text-red-800", badgeClass: "bg-red-600 text-white", pulse: false };
+    if (days <= 14) return { label: `ใกล้ครบกำหนดตรวจเช็ค (${days} วัน)`, color: "bg-amber-50 border-amber-300 text-amber-800", badgeClass: "bg-amber-500 text-white animate-pulse", pulse: true };
+    return { label: `ปกติ · ${format(new Date(nextDue), "d MMM yy", { locale: th })}`, color: "bg-emerald-50 border-emerald-200 text-emerald-800", badgeClass: "bg-emerald-600 text-white", pulse: false };
   };
+
+  const upcomingCount = useMemo(() => {
+    return (schedules as any[]).filter((s) => {
+      const days = differenceInDays(new Date(s.next_due), new Date());
+      return days >= 0 && days <= 14;
+    }).length;
+  }, [schedules]);
+  const overdueCount = useMemo(() => {
+    return (schedules as any[]).filter((s) => differenceInDays(new Date(s.next_due), new Date()) < 0).length;
+  }, [schedules]);
 
   return (
     <div className="space-y-4">
+      {(upcomingCount > 0 || overdueCount > 0) && (
+        <div className={`rounded-2xl border p-3 flex items-center gap-2 ${overdueCount > 0 ? "bg-red-50 border-red-300 text-red-800" : "bg-amber-50 border-amber-300 text-amber-800"}`}>
+          <AlertTriangle className={`h-5 w-5 ${overdueCount > 0 ? "text-red-600" : "text-amber-600 animate-pulse"}`} />
+          <p className="text-sm font-semibold">
+            {overdueCount > 0 && `มี ${overdueCount} รายการเลยกำหนดตรวจเช็ค`}
+            {overdueCount > 0 && upcomingCount > 0 && " · "}
+            {upcomingCount > 0 && `มี ${upcomingCount} รายการใกล้ครบกำหนด (ภายใน 14 วัน)`}
+          </p>
+        </div>
+      )}
       {/* Assets Section */}
       <Card className="bg-white rounded-2xl shadow-elevated border-0">
         <CardContent className="p-4 space-y-3">
