@@ -1083,6 +1083,15 @@ export default function WasteLog() {
                 </div>
               </div>
             )}
+            <div className="space-y-1">
+              <Label className="font-semibold">ผู้บันทึก</Label>
+              <Input
+                value={profile?.full_name || user?.email || "ผู้ใช้งาน"}
+                readOnly
+                disabled
+                className="h-11 rounded-2xl bg-slate-100 text-slate-700"
+              />
+            </div>
             <Button className="w-full h-14 rounded-2xl text-base font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 shadow-lg" onClick={() => createLog.mutate()} disabled={createLog.isPending || (wasteType !== "infectious" && !weight)}>
               {createLog.isPending ? "กำลังบันทึก..." : (wasteType === "infectious" ? "บันทึกทั้งหมด" : "บันทึก")}
             </Button>
