@@ -342,6 +342,32 @@ export default function WasteLog() {
     return Math.round(cost * 100) / 100;
   }, [filteredLogs, costPerKg]);
 
+  // Apply the same date filter (filterPeriod / custom) to infectious_waste_records,
+  // matched on collection_date (fallback transfer_date / created_at).
+  const filteredInfectious = useMemo(() => {
+    const recs = infectiousWasteRecords as any[];
+    if (filterPeriod === "all" && !customFrom && !customTo) return recs;
+    const now = new Date();
+    let from: Date | null = null;
+    let to: Date | null = null;
+    if (filterPeriod === "day") from = startOfDay(now);
+    else if (filterPeriod === "week") from = startOfWeek(now, { weekStartsOn: 1 });
+    else if (filterPeriod === "month") from = startOfMonth(now);
+    else if (filterPeriod === "custom" && customFrom && customTo) { from = startOfDay(customFrom); to = new Date(startOfDay(customTo).getTime() + 86400000 - 1); }
+    return recs.filter((r) => {
+      const dStr = r.collection_date || r.transfer_date || r.created_at;
+      if (!dStr) return true;
+      const d = new Date(dStr);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+  }, [infectiousWasteRecords, filterPeriod, customFrom, customTo]);
+
+  const infectiousFilteredTotal = useMemo(() => {
+    return filteredInfectious.reduce((s, r: any) => s + (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0), 0);
+  }, [filteredInfectious]);
+
   const handleAdvancedExport = () => {
     const wb = XLSX.utils.book_new();
     const deptNames = departments.map((d: any) => d.name).sort();
