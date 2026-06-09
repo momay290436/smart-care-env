@@ -495,7 +495,9 @@ export default function WasteLog() {
               </CardContent>
             </Card>
             {Object.entries(typesMap).map(([k, v]) => {
-              const typeWeight = filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
+              const typeWeight = k === "infectious"
+                ? infectiousFilteredTotal
+                : filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
               return (
                 <Card key={k} className="shadow-lg border-0 rounded-3xl bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
                   <CardContent className="p-4 text-center">
