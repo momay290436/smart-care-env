@@ -594,26 +594,37 @@ export default function WaterManagement() {
         </Button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-4">
-        <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 rounded-3xl shadow-2xl border-0 border-b-4 border-b-blue-800 cursor-pointer hover:shadow-3xl transition-all active:scale-95 ring-2 ring-blue-300/50 animate-pulse-subtle" onClick={() => setShowMeterDialog(true)}>
-          <CardContent className="p-6 md:p-8 flex items-center gap-5">
-            <div className="w-20 h-20 md:w-16 md:h-16 rounded-3xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
-              <Plus className="h-9 w-9 md:h-8 md:w-8 text-white font-bold" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-blue-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-blue-300/50" onClick={() => setShowMeterDialog(true)}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
+              <Plus className="h-7 w-7 text-white font-bold" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xl md:text-2xl font-black text-white drop-shadow-md">📝 บันทึกมิเตอร์น้ำออก</p>
-              <p className="text-sm md:text-base text-white/90 truncate drop-shadow-sm">กดเพื่อบันทึกค่ามิเตอร์ทันที</p>
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">📝 บันทึกมิเตอร์น้ำออก</p>
+              <p className="text-xs text-white/90 truncate">บันทึกค่ามิเตอร์</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-amber-600 via-amber-400 to-yellow-500 rounded-3xl shadow-2xl border-0 border-b-4 border-b-amber-800 cursor-pointer hover:shadow-3xl transition-all active:scale-95 ring-2 ring-amber-300/50 animate-pulse-subtle" onClick={() => setShowDisinfectantDialog(true)}>
-          <CardContent className="p-6 md:p-8 flex items-center gap-5">
-            <div className="w-20 h-20 md:w-16 md:h-16 rounded-3xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
-              <Plus className="h-9 w-9 md:h-8 md:w-8 text-white font-bold" />
+        <Card className="bg-gradient-to-br from-amber-600 via-amber-400 to-yellow-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-amber-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-amber-300/50" onClick={() => setShowDisinfectantDialog(true)}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
+              <Plus className="h-7 w-7 text-white font-bold" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xl md:text-2xl font-black text-white drop-shadow-md">🧪 บันทึกปริมาณสารเคมีกำจัดเชื้อโรค</p>
-              <p className="text-sm md:text-base text-white/90 truncate drop-shadow-sm">กดเพื่อบันทึกผลตรวจสารฆ่าเชื้อในน้ำประปา</p>
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🧪 บันทึกสารเคมี</p>
+              <p className="text-xs text-white/90 truncate">สารฆ่าเชื้อในน้ำประปา</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-emerald-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-emerald-300/50" onClick={() => setShowWastewaterDialog(true)}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
+              <Plus className="h-7 w-7 text-white font-bold" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🌿 ตรวจระบบบำบัดน้ำเสีย</p>
+              <p className="text-xs text-white/90 truncate">บันทึกการตรวจประจำวัน</p>
             </div>
           </CardContent>
         </Card>
