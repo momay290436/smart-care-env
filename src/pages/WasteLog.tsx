@@ -430,10 +430,11 @@ export default function WasteLog() {
       </Button>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-12 rounded-2xl bg-muted/60">
-          <TabsTrigger value="dashboard" className="rounded-xl text-base font-semibold">แดชบอร์ด</TabsTrigger>
-          <TabsTrigger value="records" className="rounded-xl text-base font-semibold">รายการ</TabsTrigger>
-          <TabsTrigger value="cost" className="rounded-xl text-base font-semibold">ต้นทุน</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto rounded-2xl bg-muted/60 p-1 gap-1">
+          <TabsTrigger value="dashboard" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">แดชบอร์ด</TabsTrigger>
+          <TabsTrigger value="records" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">รายการ</TabsTrigger>
+          <TabsTrigger value="infectious" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm">ขยะติดเชื้อ</TabsTrigger>
+          <TabsTrigger value="cost" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">ต้นทุน</TabsTrigger>
         </TabsList>
 
         <Card className="shadow-lg mt-4 border border-slate-200 rounded-2xl bg-white">
