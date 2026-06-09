@@ -31,6 +31,27 @@ const WASTE_FORECAST_COST_PER_KG: Record<string, number> = {
   other: 10,
 };
 
+const WASTE_TYPE_LABELS: Record<string, string> = {
+  general: "ขยะทั่วไป",
+  infectious: "ขยะติดเชื้อ",
+  recycle: "ขยะรีไซเคิล",
+  recyclable: "ขยะรีไซเคิล",
+  hazardous: "ขยะอันตราย",
+  organic: "ขยะเปียก",
+  "organic waste": "ขยะเปียก",
+  other: "อื่นๆ",
+};
+
+const normalizeWasteType = (type: string) => {
+  const key = String(type || "").trim().toLowerCase();
+  if (key === "recyclable") return "recycle";
+  if (key === "organic waste" || key === "organic") return "organic";
+  if (key === "general waste") return "general";
+  return key || "other";
+};
+
+const getWasteTypeLabel = (type: string) => WASTE_TYPE_LABELS[normalizeWasteType(type)] || type;
+
 function addMonths(date: Date, months: number) {
   const next = new Date(date.getTime());
   next.setMonth(next.getMonth() + months);
@@ -246,6 +267,21 @@ export default function Dashboard() {
     },
   });
 
+  const { data: wasteCostSettings } = useQuery({
+    queryKey: ["waste-costs"],
+    queryFn: async () => {
+      const { data } = await supabase.from("app_settings").select("value").eq("key", "waste_costs").maybeSingle();
+      if (!data?.value) return {};
+      try {
+        return JSON.parse(data.value) as Record<string, number>;
+      } catch {
+        return {};
+      }
+    },
+  });
+
+  const wasteRates = useMemo(() => ({ ...WASTE_FORECAST_COST_PER_KG, ...(wasteCostSettings || {}) }), [wasteCostSettings]);
+
   const { data: wasteData } = useQuery({
     queryKey: ["waste-filtered", wasteRange.from, wasteRange.to],
     queryFn: async () => {
@@ -270,10 +306,20 @@ export default function Dashboard() {
       if (!combinedData || combinedData.length === 0) return { byType: [], byDay: [], total: 0, allTypes: [] };
       
       const typeMap: Record<string, number> = {}; let total = 0;
-      combinedData.forEach((r) => { const w = Number(r.weight); typeMap[r.waste_type] = (typeMap[r.waste_type] || 0) + w; total += w; });
-      const byType = Object.entries(typeMap).map(([type, weight]) => ({ type, weight: Number(weight.toFixed(2)) }));
+      combinedData.forEach((r) => {
+        const normalized = normalizeWasteType(r.waste_type);
+        const w = Number(r.weight);
+        typeMap[normalized] = (typeMap[normalized] || 0) + w;
+        total += w;
+      });
+      const byType = Object.entries(typeMap).map(([type, weight]) => ({ type, label: getWasteTypeLabel(type), weight: Number(weight.toFixed(2)) }));
       const dayMap: Record<string, Record<string, number>> = {};
-      combinedData.forEach((r) => { const day = format(new Date(r.created_at), "d MMM", { locale: th }); if (!dayMap[day]) dayMap[day] = {}; dayMap[day][r.waste_type] = (dayMap[day][r.waste_type] || 0) + Number(r.weight); });
+      combinedData.forEach((r) => {
+        const day = format(new Date(r.created_at), "d MMM", { locale: th });
+        const normalized = normalizeWasteType(r.waste_type);
+        if (!dayMap[day]) dayMap[day] = {};
+        dayMap[day][normalized] = (dayMap[day][normalized] || 0) + Number(r.weight);
+      });
       const allTypes = Object.keys(typeMap);
       const byDay = Object.entries(dayMap).map(([date, types]) => { const row: any = { date }; allTypes.forEach(t => { row[t] = Number((types[t] || 0).toFixed(2)); }); return row; });
       return { byType, byDay, total: Number(total.toFixed(2)), allTypes };
@@ -282,7 +328,7 @@ export default function Dashboard() {
 
   const wasteTypes = useMemo(() => {
     const types = new Set<string>();
-    (wasteHistory || []).forEach((r: any) => { if (r.waste_type) types.add(r.waste_type); });
+    (wasteHistory || []).forEach((r: any) => { if (r.waste_type) types.add(normalizeWasteType(r.waste_type)); });
     return Array.from(types);
   }, [wasteHistory]);
 
@@ -323,7 +369,8 @@ export default function Dashboard() {
       forecast.push({ month: format(nextDate, "MMM yy", { locale: th }), monthKey, forecast: Number(baseline.toFixed(2)) });
     }
     const forecastTotal = forecast.reduce((sum, item) => sum + item.forecast, 0);
-    const forecastCost = Number((forecastTotal * (WASTE_FORECAST_COST_PER_KG[selectedForecastType] ?? WASTE_FORECAST_COST_PER_KG.other)).toFixed(2));
+    const costPerKg = wasteRates[normalizeWasteType(selectedForecastType)] ?? wasteRates.other;
+    const forecastCost = Number((forecastTotal * costPerKg).toFixed(2));
     const chart = [
       ...actual.map((item) => ({ month: item.month, actual: item.actual, forecast: undefined })),
       ...forecast.map((item) => ({ month: item.month, actual: undefined, forecast: item.forecast })),
@@ -622,7 +669,7 @@ export default function Dashboard() {
                   <h4 className="text-sm font-semibold text-slate-600 mb-3">สัดส่วนขยะ</h4>
                   <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
-                    <Pie data={wasteData.byType} dataKey="weight" nameKey="type" cx="50%" cy="50%" innerRadius={40} outerRadius={80} paddingAngle={4}>
+                    <Pie data={wasteData.byType} dataKey="weight" nameKey="label" cx="50%" cy="50%" innerRadius={40} outerRadius={80} paddingAngle={4}>
                       {wasteData.byType.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(value: number) => `${value} กก.`} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
@@ -665,7 +712,7 @@ export default function Dashboard() {
                 <div className="flex flex-wrap gap-2">
                   <select value={selectedForecastType} onChange={(e) => setForecastType(e.target.value)} className="h-10 rounded-2xl border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm">
                     {wasteTypes.map((type) => (
-                      <option key={type} value={type}>{type}</option>
+                      <option key={type} value={type}>{getWasteTypeLabel(type)}</option>
                     ))}
                   </select>
                   {([3, 6, 12] as const).map((months) => (
@@ -680,7 +727,7 @@ export default function Dashboard() {
                   <div className="space-y-3">
                     <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
                       <p className="text-xs uppercase tracking-[0.12em] text-slate-500">ประเภท</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">{wasteForecast.type}</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">{getWasteTypeLabel(wasteForecast.type)}</p>
                     </div>
                     <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
                       <p className="text-xs uppercase tracking-[0.12em] text-slate-500">ปริมาณพยากรณ์</p>
@@ -689,7 +736,7 @@ export default function Dashboard() {
                     <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
                       <p className="text-xs uppercase tracking-[0.12em] text-slate-500">คาดการณ์ค่าใช้จ่าย</p>
                       <p className="mt-1 text-2xl font-bold text-emerald-600">{wasteForecast.cost} ฿</p>
-                      <p className="text-xs text-slate-500 mt-1">อัตราค่าใช้จ่ายโดยประมาณ {WASTE_FORECAST_COST_PER_KG[wasteForecast.type] ?? WASTE_FORECAST_COST_PER_KG.other} ฿/กก.</p>
+                      <p className="text-xs text-slate-500 mt-1">อัตราค่าใช้จ่ายจากระบบ {wasteRates[normalizeWasteType(wasteForecast.type)] ?? wasteRates.other} ฿/กก.</p>
                     </div>
                   </div>
                   <div className="rounded-3xl bg-white p-4 shadow-sm border border-slate-200">
@@ -902,7 +949,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 {wasteData.byType.map((t, i) => (
                   <div key={i} className="flex items-center justify-between bg-slate-50 rounded-xl p-3 border border-slate-100">
-                    <span className="text-sm font-medium text-slate-700">{t.type}</span>
+                    <span className="text-sm font-medium text-slate-700">{t.label || getWasteTypeLabel(t.type)}</span>
                     <span className="text-sm font-bold text-slate-800">{t.weight} กก.</span>
                   </div>
                 ))}

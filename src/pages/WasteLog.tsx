@@ -27,6 +27,18 @@ const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartC
   infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "hsl(0 72% 55%)" },
   recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "hsl(152 55% 42%)" },
   hazardous: { label: "ขยะอันตราย", color: "bg-amber-200 text-amber-900 border-amber-300", chartColor: "hsl(45 90% 50%)" },
+  organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "hsl(100 50% 40%)" },
+};
+
+const WASTE_TYPE_LABELS: Record<string, string> = {
+  general: "ขยะทั่วไป",
+  infectious: "ขยะติดเชื้อ",
+  recycle: "ขยะรีไซเคิล",
+  recyclable: "ขยะรีไซเคิล",
+  hazardous: "ขยะอันตราย",
+  organic: "ขยะเปียก",
+  "organic waste": "ขยะเปียก",
+  other: "อื่นๆ",
 };
 
 const PIE_COLORS = ["hsl(210 15% 55%)", "hsl(0 72% 55%)", "hsl(152 55% 42%)", "hsl(45 90% 50%)"];
@@ -270,9 +282,22 @@ export default function WasteLog() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const normalizeWasteType = (type: string) => {
+    const key = String(type || "").trim().toLowerCase();
+    if (key === "recyclable") return "recycle";
+    if (key === "organic waste" || key === "organic") return "organic";
+    if (key === "general waste") return "general";
+    return key || "other";
+  };
+
+  const getWasteTypeLabel = (rawType: string) => {
+    const normalized = normalizeWasteType(rawType);
+    return WASTE_TYPE_LABELS[normalized] || typesMap[normalized]?.label || rawType;
+  };
+
   const filteredLogs = useMemo(() => {
     return logs.filter((log: any) => {
-      if (filterType !== "all" && log.waste_type !== filterType) return false;
+      if (filterType !== "all" && normalizeWasteType(log.waste_type) !== normalizeWasteType(filterType)) return false;
       const created = new Date(log.created_at);
       const now = new Date();
       if (filterPeriod === "day" && created < startOfDay(now)) return false;
@@ -285,15 +310,64 @@ export default function WasteLog() {
     });
   }, [logs, filterType, filterPeriod, customFrom, customTo]);
 
+  const combinedLogs = useMemo(() => {
+    const normalizedFilter = normalizeWasteType(filterType);
+    const baseLogs = [...filteredLogs];
+    if (normalizedFilter !== "infectious" && normalizedFilter !== "all" && filterType !== "all") {
+      return baseLogs;
+    }
+
+    const filteredInf = (() => {
+      const recs = infectiousWasteRecords as any[];
+      if (filterPeriod === "all" && !customFrom && !customTo) return recs;
+      const now = new Date();
+      let from: Date | null = null;
+      let to: Date | null = null;
+      if (filterPeriod === "day") from = startOfDay(now);
+      else if (filterPeriod === "week") from = startOfWeek(now, { weekStartsOn: 1 });
+      else if (filterPeriod === "month") from = startOfMonth(now);
+      else if (filterPeriod === "custom" && customFrom && customTo) { from = startOfDay(customFrom); to = new Date(startOfDay(customTo).getTime() + 86400000 - 1); }
+      return recs.filter((r) => {
+        const dStr = r.collection_date || r.transfer_date || r.created_at;
+        if (!dStr) return true;
+        const d = new Date(dStr);
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+        return true;
+      });
+    })();
+
+    const existingKeys = new Set(baseLogs
+      .filter((log: any) => normalizeWasteType(log.waste_type) === "infectious")
+      .map((log: any) => `${new Date(log.created_at).toISOString()}|${Number(log.weight)}`));
+
+    filteredInf.forEach((record: any) => {
+      const weight = Number(record.sharp_waste_kg || 0) + Number(record.non_sharp_waste_kg || 0);
+      const createdAt = record.collection_date ? new Date(record.collection_date).toISOString() : new Date(record.created_at || record.transfer_date || new Date()).toISOString();
+      const key = `${createdAt}|${weight}`;
+      if (!existingKeys.has(key)) {
+        baseLogs.push({
+          id: `infectious-${createdAt}-${weight}`,
+          waste_type: "infectious",
+          weight,
+          created_at: createdAt,
+        });
+        existingKeys.add(key);
+      }
+    });
+    return baseLogs;
+  }, [filteredLogs, filterType, filterPeriod, customFrom, customTo, infectiousWasteRecords]);
+
   // Chart data
   const chartData = useMemo(() => {
     const dayMap: Record<string, { sortKey: string; label: string; types: Record<string, number> }> = {};
     const typeMap: Record<string, number> = {};
     const deptMap: Record<string, Record<string, number>> = {};
+    const allTypes = new Set<string>();
 
     const rangeStart = startOfDay(chartFrom).getTime();
     const rangeEnd = startOfDay(chartTo).getTime() + 86400000 - 1;
-    const logsInRange = filteredLogs.filter((l: any) => {
+    const logsInRange = combinedLogs.filter((l: any) => {
       const t = new Date(l.created_at).getTime();
       return t >= rangeStart && t <= rangeEnd;
     });
@@ -301,7 +375,8 @@ export default function WasteLog() {
       const d = new Date(log.created_at);
       const sortKey = format(d, "yyyy-MM-dd");
       const label = format(d, "d MMM", { locale: th });
-      const wt = typesMap[log.waste_type]?.label || log.waste_type;
+      const normalized = normalizeWasteType(log.waste_type);
+      const wt = getWasteTypeLabel(normalized);
       const dept = log.departments?.name || "ไม่ระบุ";
       const w = Number(log.weight);
 
@@ -309,6 +384,7 @@ export default function WasteLog() {
       dayMap[sortKey].types[wt] = (dayMap[sortKey].types[wt] || 0) + w;
 
       typeMap[wt] = (typeMap[wt] || 0) + w;
+      allTypes.add(wt);
 
       if (!deptMap[dept]) deptMap[dept] = {};
       deptMap[dept][wt] = (deptMap[dept][wt] || 0) + w;
@@ -318,7 +394,9 @@ export default function WasteLog() {
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
       .map(({ label, types }) => {
         const row: Record<string, any> = { date: label };
-        Object.values(typesMap).forEach((t) => { row[t.label] = Math.round((types[t.label] || 0) * 100) / 100; });
+        Array.from(allTypes).forEach((typeKey) => {
+          row[typeKey] = Math.round((types[typeKey] || 0) * 100) / 100;
+        });
         return row;
       });
     const pieData = Object.entries(typeMap).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
@@ -327,20 +405,20 @@ export default function WasteLog() {
       ...types,
       total: Object.values(types).reduce((a, b) => a + b, 0),
     }));
-    const totalWeight = filteredLogs.reduce((s: number, l: any) => s + Number(l.weight), 0);
+    const totalWeight = combinedLogs.reduce((s: number, l: any) => s + Number(l.weight), 0);
 
-    return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100 };
-  }, [filteredLogs, typesMap, chartFrom, chartTo]);
+    return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100, allTypes: Array.from(allTypes) };
+  }, [combinedLogs, typesMap, chartFrom, chartTo]);
 
   // Cost calculation
   const totalCost = useMemo(() => {
     let cost = 0;
-    filteredLogs.forEach((log: any) => {
-      const rate = costPerKg[log.waste_type] || 0;
+    combinedLogs.forEach((log: any) => {
+      const rate = costPerKg[normalizeWasteType(log.waste_type)] || 0;
       cost += Number(log.weight) * rate;
     });
     return Math.round(cost * 100) / 100;
-  }, [filteredLogs, costPerKg]);
+  }, [combinedLogs, costPerKg]);
 
   // Apply the same date filter (filterPeriod / custom) to infectious_waste_records,
   // matched on collection_date (fallback transfer_date / created_at).
@@ -497,7 +575,7 @@ export default function WasteLog() {
             {Object.entries(typesMap).map(([k, v]) => {
               const typeWeight = k === "infectious"
                 ? infectiousFilteredTotal
-                : filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
+                : combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
               return (
                 <Card key={k} className="shadow-lg border-0 rounded-3xl bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
                   <CardContent className="p-4 text-center">
@@ -753,7 +831,7 @@ export default function WasteLog() {
               <h3 className="text-base font-bold text-foreground mb-3">กราฟค่าใช้จ่ายตามประเภทขยะ</h3>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={Object.entries(typesMap).map(([k, v]) => {
-                  const typeWeight = filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
+                  const typeWeight = combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
                   return { name: v.label, weight: Math.round(typeWeight * 100) / 100, cost: Math.round(typeWeight * (costPerKg[k] || 0) * 100) / 100, fill: v.chartColor };
                 })} layout="vertical" margin={{ left: 10, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(200 18% 90%)" />
@@ -826,7 +904,7 @@ export default function WasteLog() {
               <h3 className="text-base font-bold text-foreground mb-3">รายละเอียดค่าใช้จ่าย</h3>
               <div className="space-y-2">
                 {Object.entries(typesMap).map(([k, v]) => {
-                  const typeWeight = filteredLogs.filter((l: any) => l.waste_type === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
+                  const typeWeight = combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
                   const typeCost = typeWeight * (costPerKg[k] || 0);
                   const pct = totalCost > 0 ? Math.round((typeCost / totalCost) * 100) : 0;
                   return (
