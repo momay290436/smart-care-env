@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -35,9 +36,11 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
     chlorine_residual: "",
     ph_value: "",
     water_appearance: "ใส",
-    wastewater_volume: "",
-    inlet_meter: "",
-    outlet_meter: "",
+    sediment_volume: "",
+    sedimentation_char: "",
+    electricity_meter: "",
+    treated_water_color: "",
+    treatment_odor: "false",
     aerator_status: "normal",
     sludge_pump_status: "normal",
     notes: "",
@@ -56,9 +59,11 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
         chlorine_residual: form.chlorine_residual ? Number(form.chlorine_residual) : null,
         ph_value: form.ph_value ? Number(form.ph_value) : null,
         water_appearance: form.water_appearance || null,
-        wastewater_volume: form.wastewater_volume ? Number(form.wastewater_volume) : null,
-        inlet_meter: form.inlet_meter ? Number(form.inlet_meter) : null,
-        outlet_meter: form.outlet_meter ? Number(form.outlet_meter) : null,
+        sediment_volume: form.sediment_volume || null,
+        sedimentation_char: form.sedimentation_char || null,
+        electricity_meter: form.electricity_meter || null,
+        treated_water_color: form.treated_water_color || null,
+        treatment_odor: form.treatment_odor === "true",
         aerator_status: form.aerator_status,
         sludge_pump_status: form.sludge_pump_status,
         notes: form.notes || null,
@@ -76,7 +81,7 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
         check_date: format(new Date(), "yyyy-MM-dd"),
         check_time: format(new Date(), "HH:mm"),
         chlorine_residual: "", ph_value: "", water_appearance: "ใส",
-        wastewater_volume: "", inlet_meter: "", outlet_meter: "",
+        sediment_volume: "", sedimentation_char: "", electricity_meter: "", treated_water_color: "", treatment_odor: "false",
         aerator_status: "normal", sludge_pump_status: "normal",
         notes: "", recorder_name: "",
       });
@@ -131,19 +136,38 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs font-semibold">ปริมาณน้ำเสีย (ลบ.ม./วัน)</Label>
-              <Input type="number" step="0.1" value={form.wastewater_volume} onChange={(e) => setForm({ ...form, wastewater_volume: e.target.value })} className="h-11 rounded-2xl" />
+              <Label className="text-xs font-semibold">ปริมาณตะกอน (SV30) มม./ล</Label>
+              <Input type="text" value={form.sediment_volume} onChange={(e) => setForm({ ...form, sediment_volume: e.target.value })} className="h-11 rounded-2xl" />
             </div>
             <div>
-              <Label className="text-xs font-semibold">มิเตอร์น้ำเข้า</Label>
-              <Input type="number" step="0.01" value={form.inlet_meter} onChange={(e) => setForm({ ...form, inlet_meter: e.target.value })} className="h-11 rounded-2xl" />
+              <Label className="text-xs font-semibold">ลักษณะการตกตะกอน</Label>
+              <Input type="text" value={form.sedimentation_char} onChange={(e) => setForm({ ...form, sedimentation_char: e.target.value })} className="h-11 rounded-2xl" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-semibold">มิเตอร์ไฟฟ้า</Label>
+              <Input type="text" value={form.electricity_meter} onChange={(e) => setForm({ ...form, electricity_meter: e.target.value })} className="h-11 rounded-2xl" />
             </div>
             <div>
-              <Label className="text-xs font-semibold">มิเตอร์น้ำออก</Label>
-              <Input type="number" step="0.01" value={form.outlet_meter} onChange={(e) => setForm({ ...form, outlet_meter: e.target.value })} className="h-11 rounded-2xl" />
+              <Label className="text-xs font-semibold">สีของน้ำบำบัด</Label>
+              <Input type="text" value={form.treated_water_color} onChange={(e) => setForm({ ...form, treated_water_color: e.target.value })} className="h-11 rounded-2xl" />
             </div>
+          </div>
+          <div>
+            <Label className="text-xs font-semibold">กลิ่นที่บ่อบำบัด</Label>
+            <RadioGroup value={form.treatment_odor} onValueChange={(value) => setForm({ ...form, treatment_odor: value })} className="grid grid-cols-2 gap-2">
+              <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-3 cursor-pointer hover:border-emerald-400">
+                <RadioGroupItem value="true" />
+                <span>มี</span>
+              </label>
+              <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-3 cursor-pointer hover:border-emerald-400">
+                <RadioGroupItem value="false" />
+                <span>ไม่มี</span>
+              </label>
+            </RadioGroup>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -225,7 +249,7 @@ export default function WastewaterTab() {
 
   const handleExport = () => {
     if (filtered.length === 0) { toast.info("ไม่มีข้อมูลให้ส่งออก"); return; }
-    const headers = ["ลำดับ", "วันที่", "เวลา", "คลอรีนตกค้าง (mg/l)", "ค่า PH", "ลักษณะน้ำทิ้ง", "ปริมาณน้ำเสีย (ลบ.ม./วัน)", "เลขมิเตอร์น้ำเข้า", "เลขมิเตอร์น้ำออก", "เครื่องเติมอากาศ", "เครื่องสูบตะกอน", "หมายเหตุ", "ผู้จดบันทึก"];
+    const headers = ["ลำดับ", "วันที่", "เวลา", "คลอรีนตกค้าง (mg/l)", "ค่า PH", "ลักษณะน้ำทิ้ง", "ปริมาณตะกอน (SV30)", "ลักษณะการตกตะกอน", "มิเตอร์ไฟฟ้า", "สีของน้ำบำบัด", "กลิ่นที่บ่อบำบัด", "เครื่องเติมอากาศ", "เครื่องสูบตะกอน", "หมายเหตุ", "ผู้จดบันทึก"];
     const rows = [...(filtered as any[])]
       .sort((a, b) => (a.check_date || "").localeCompare(b.check_date || "") || (a.check_time || "").localeCompare(b.check_time || ""))
       .map((l: any, i: number) => [
@@ -235,9 +259,11 @@ export default function WastewaterTab() {
         l.chlorine_residual ?? "-",
         l.ph_value ?? "-",
         l.water_appearance || "-",
-        l.wastewater_volume ?? "-",
-        l.inlet_meter ?? "-",
-        l.outlet_meter ?? "-",
+        l.sediment_volume || "-",
+        l.sedimentation_char || "-",
+        l.electricity_meter || "-",
+        l.treated_water_color || "-",
+        l.treatment_odor === true ? "มี" : l.treatment_odor === false ? "ไม่มี" : "-",
         l.aerator_status === "normal" ? "ปกติ" : "ไม่ปกติ",
         l.sludge_pump_status === "normal" ? "ปกติ" : "ไม่ปกติ",
         l.notes || "-",
@@ -286,9 +312,11 @@ export default function WastewaterTab() {
                   <th className="px-2 py-2 text-center text-xs font-bold">คลอรีน</th>
                   <th className="px-2 py-2 text-center text-xs font-bold">PH</th>
                   <th className="px-2 py-2 text-center text-xs font-bold">ลักษณะน้ำ</th>
-                  <th className="px-2 py-2 text-center text-xs font-bold">ปริมาณ</th>
-                  <th className="px-2 py-2 text-center text-xs font-bold">มิเตอร์เข้า</th>
-                  <th className="px-2 py-2 text-center text-xs font-bold">มิเตอร์ออก</th>
+                  <th className="px-2 py-2 text-center text-xs font-bold">ปริมาณตะกอน</th>
+                  <th className="px-2 py-2 text-center text-xs font-bold">ลักษณะการตกตะกอน</th>
+                  <th className="px-2 py-2 text-center text-xs font-bold">มิเตอร์ไฟฟ้า</th>
+                  <th className="px-2 py-2 text-center text-xs font-bold">สีของน้ำ</th>
+                  <th className="px-2 py-2 text-center text-xs font-bold">กลิ่นบ่อบำบัด</th>
                   <th className="px-2 py-2 text-center text-xs font-bold">เครื่องเติมอากาศ</th>
                   <th className="px-2 py-2 text-center text-xs font-bold">สูบตะกอน</th>
                   <th className="px-2 py-2 text-left text-xs font-bold">ผู้บันทึก</th>
@@ -307,9 +335,11 @@ export default function WastewaterTab() {
                       <td className={`px-2 py-2 text-center text-xs ${warn ? "text-red-600 font-bold" : ""}`}>{cl ?? "-"}</td>
                       <td className="px-2 py-2 text-center text-xs">{l.ph_value ?? "-"}</td>
                       <td className="px-2 py-2 text-center text-xs">{l.water_appearance || "-"}</td>
-                      <td className="px-2 py-2 text-center text-xs">{l.wastewater_volume ?? "-"}</td>
-                      <td className="px-2 py-2 text-center text-xs">{l.inlet_meter ?? "-"}</td>
-                      <td className="px-2 py-2 text-center text-xs">{l.outlet_meter ?? "-"}</td>
+                      <td className="px-2 py-2 text-center text-xs">{l.sediment_volume || "-"}</td>
+                      <td className="px-2 py-2 text-center text-xs">{l.sedimentation_char || "-"}</td>
+                      <td className="px-2 py-2 text-center text-xs">{l.electricity_meter || "-"}</td>
+                      <td className="px-2 py-2 text-center text-xs">{l.treated_water_color || "-"}</td>
+                      <td className="px-2 py-2 text-center text-xs">{l.treatment_odor === true ? "มี" : l.treatment_odor === false ? "ไม่มี" : "-"}</td>
                       <td className="px-2 py-2 text-center">
                         <Badge variant={l.aerator_status === "normal" ? "default" : "destructive"} className="text-[10px] rounded-full">
                           {l.aerator_status === "normal" ? "ปกติ" : "ไม่ปกติ"}
