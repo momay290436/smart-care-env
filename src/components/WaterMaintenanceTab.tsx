@@ -175,15 +175,20 @@ export default function WaterMaintenanceTab() {
           <div className="space-y-2">
             {schedules.map((s: any) => {
               const due = getDueStatus(s.next_due);
+              const months = s.frequency_months || (s.frequency === "monthly" ? 1 : s.frequency === "quarterly" ? 3 : s.frequency === "biannual" ? 6 : s.frequency === "yearly" ? 12 : 1);
               return (
                 <div key={s.id} className={`p-3 rounded-xl border ${due.color}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold">{s.task_name}</p>
-                      <p className="text-xs text-muted-foreground">{s.water_assets?.name || "-"} · {s.frequency}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {s.water_assets?.name || "-"} · ทุก {months} เดือน
+                        {s.last_inspected_date && ` · ตรวจล่าสุด ${format(new Date(s.last_inspected_date), "d MMM yy", { locale: th })}`}
+                      </p>
+                      <p className="text-xs mt-0.5">ตรวจครั้งถัดไป: <span className="font-semibold">{format(new Date(s.next_due), "d MMM yy", { locale: th })}</span></p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={due.badge} className="text-[10px] rounded-full">{due.label}</Badge>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${due.badgeClass}`}>{due.label}</span>
                       {isAdmin && <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => setDeleteTarget({ table: "water_maintenance_schedule", id: s.id })}>✕</Button>}
                     </div>
                   </div>
