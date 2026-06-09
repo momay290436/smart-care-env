@@ -1444,6 +1444,9 @@ export default function WaterManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Wastewater inspection insert dialog */}
+      <WastewaterInsertDialog open={showWastewaterDialog} onOpenChange={setShowWastewaterDialog} />
     </div>
   );
 }
