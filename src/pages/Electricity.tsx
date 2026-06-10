@@ -116,4 +116,63 @@ export default function Electricity() {
           <Button onClick={exportExcel} variant="outline"><FileSpreadsheet className="mr-2"/> Export</Button>
           <Dialog>
             <DialogTrigger asChild>
-              <Button><Plus
+              <Button><Plus className="mr-2" /> เพิ่มสถานที่</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>เพิ่มจุดติดตั้ง</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Input placeholder="ชื่อสถานที่" value={newMeter.name} onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
+                <Input placeholder="รหัส QR" value={newMeter.code} onChange={(e) => setNewMeter({...newMeter, code: e.target.value})} />
+                <Input placeholder="หมายเลขเครื่องมิเตอร์" value={newMeter.serial} onChange={(e) => setNewMeter({...newMeter, serial: e.target.value})} />
+                <Input placeholder="URL สำหรับ QR Code" value={newMeter.qr_url} onChange={(e) => setNewMeter({...newMeter, qr_url: e.target.value})} />
+                <Button className="w-full" onClick={handleSaveMeter}>บันทึกสถานที่</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="md:col-span-1">
+          <CardHeader>
+            <CardTitle>บันทึกข้อมูล</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!isScanning ? (
+              <Button onClick={startScanner} className="w-full"><Camera className="mr-2"/> สแกน QR Code</Button>
+            ) : (
+              <div className="relative h-[300px] border-4 border-indigo-500 rounded-lg overflow-hidden">
+                <div id="reader" className="w-full h-full"></div>
+                <Button onClick={() => window.location.reload()} className="absolute top-2 right-2" size="sm" variant="destructive"><X/></Button>
+              </div>
+            )}
+            <Input value={selectedMeter} placeholder="รหัสที่สแกนได้" readOnly />
+            <Input type="number" value={currentValue} placeholder="เลขมิเตอร์" onChange={(e) => setCurrentValue(e.target.value)} />
+            <Button onClick={handleSave} className="w-full">บันทึก</Button>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>ประวัติการบันทึก</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableBody>
+                {logs.map((log: any) => (
+                  <TableRow key={log.id}>
+                    <TableCell>{log.created_at}</TableCell>
+                    <TableCell>{log.meter_name}</TableCell>
+                    <TableCell>{log.current_value}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
