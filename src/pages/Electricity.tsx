@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Camera, X, Plus, Download, FileSpreadsheet } from 'lucide-react';
+import { Camera, X, Plus, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 declare global { interface Window { Html5Qrcode: any; } }
@@ -18,7 +18,9 @@ export default function Electricity() {
   const [selectedMeter, setSelectedMeter] = useState('');
   const [currentValue, setCurrentValue] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '' });
+  
+  // เพิ่ม state สำหรับเก็บ URL QR Code
+  const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
 
   useEffect(() => {
     const script = document.createElement('script');
@@ -27,7 +29,6 @@ export default function Electricity() {
     document.body.appendChild(script);
   }, []);
 
-  const { data: meters = [] } = useQuery({ queryKey: ['meters'], queryFn: async () => (await supabase.from('electricity_meters').select('*')).data || [] });
   const { data: logs = [] } = useQuery({ queryKey: ['logs'], queryFn: async () => (await supabase.from('electricity_logs').select('*')).data || [] });
 
   const startScanner = () => {
@@ -38,6 +39,21 @@ export default function Electricity() {
         (text: string) => { setSelectedMeter(text); setIsScanning(false); html5QrCode.stop(); }, () => {}
       );
     }, 500);
+  };
+
+  // ปรับการบันทึกให้รองรับ qr_url
+  const saveMeter = async () => {
+    const { error } = await supabase.from('electricity_meters').insert([{ 
+      meter_name: newMeter.name, 
+      location_code: newMeter.code,
+      serial_number: newMeter.serial,
+      qr_url: newMeter.qr_url // บันทึก URL ลง Database
+    }]);
+    if (!error) {
+      toast({ title: "เพิ่มสถานที่สำเร็จ" });
+      setNewMeter({ name: '', code: '', serial: '', qr_url: '' });
+      queryClient.invalidateQueries({ queryKey: ['meters'] });
+    }
   };
 
   const exportExcel = () => {
@@ -57,16 +73,20 @@ export default function Electricity() {
             <DialogTrigger asChild><Button><Plus className="mr-2" /> เพิ่มสถานที่</Button></DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>เพิ่มจุดติดตั้ง</DialogTitle></DialogHeader>
-              <Input placeholder="ชื่อสถานที่" onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
-              <Input placeholder="รหัส QR" onChange={(e) => setNewMeter({...newMeter, code: e.target.value})} />
-              <Button onClick={() => { /* เพิ่ม Logic บันทึกที่นี่ */ }}>บันทึก</Button>
+              <div className="space-y-3">
+                <Input placeholder="ชื่อสถานที่" onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
+                <Input placeholder="รหัส QR" onChange={(e) => setNewMeter({...newMeter, code: e.target.value})} />
+                <Input placeholder="หมายเลขเครื่องมิเตอร์" onChange={(e) => setNewMeter({...newMeter, serial: e.target.value})} />
+                {/* เพิ่มช่องใส่ URL ตรงนี้ */}
+                <Input placeholder="URL สำหรับ QR Code" onChange={(e) => setNewMeter({...newMeter, qr_url: e.target.value})} />
+                <Button className="w-full" onClick={saveMeter}>บันทึก</Button>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* ส่วนซ้าย: กล้องและบันทึก */}
         <Card className="md:col-span-1">
           <CardHeader><CardTitle>บันทึกข้อมูล</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -84,18 +104,10 @@ export default function Electricity() {
           </CardContent>
         </Card>
 
-        {/* ส่วนขวา: ประวัติ */}
         <Card className="md:col-span-2">
           <CardHeader><CardTitle>ประวัติการบันทึก</CardTitle></CardHeader>
           <CardContent>
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>วันเวลา</TableHead>
-                  <TableHead>สถานที่</TableHead>
-                  <TableHead>เลขมิเตอร์</TableHead>
-                </TableRow>
-              </TableHeader>
               <TableBody>
                 {logs.map((log: any) => (
                   <TableRow key={log.id}>
