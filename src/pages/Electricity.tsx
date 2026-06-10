@@ -35,7 +35,7 @@ export default function Electricity() {
     queryFn: async () => (await supabase.from('electricity_logs').select('*').order('created_at', { ascending: false })).data || [] 
   });
 
-  // ฟังก์ชันสแกน QR Code (รองรับการ Match ด้วยรูปแบบ หมายเลขเครื่อง.lovable.com)
+  // ฟังก์ชันสแกน QR Code ค้นหาแบบยืดหยุ่นเพื่อจับคู่กับหมายเลขเครื่อง
   const startScanner = () => {
     setIsScanning(true);
     setTimeout(() => {
@@ -47,33 +47,36 @@ export default function Electricity() {
           setIsScanning(false); 
           html5QrCode.stop(); 
 
-          // ทำความสะอาดข้อความ (ตัดช่องว่าง หรืออักษรพิมพ์ใหญ่พิมพ์เล็ก)
-          const cleanScannedText = decodedText.trim().toLowerCase();
+          // 1. ทำความสะอาดข้อความ ตัดช่องว่าง แปลงเป็นตัวพิมพ์เล็ก
+          const rawText = decodedText.trim().toLowerCase();
+          
+          // 2. แกะเอาเฉพาะหมายเลขเครื่องออกมา (กรณีสแกนเจอรูปแบบ "001.lovable.com" จะดึงแค่ "001")
+          const extractedSerial = rawText.split('.')[0];
 
-          // ค้นหาในฐานข้อมูลว่ามี qr_url หรือ location_code หรือ serial_number ตรงกับที่สแกนไหม
+          // 3. ยิง Query ตรวจสอบข้อมูลแบบยืดหยุ่นครอบคลุมทุกคอลัมน์
           const { data: meterData, error } = await supabase
             .from('electricity_meters')
             .select('*')
-            .or(`qr_url.eq."${cleanScannedText}",location_code.eq."${cleanScannedText}",serial_number.eq."${cleanScannedText}"`)
+            .or(`serial_number.eq."${extractedSerial}",serial_number.eq."${rawText}",qr_url.eq."${rawText}",location_code.eq."${rawText}"`)
             .limit(1)
             .maybeSingle();
 
           if (error) {
             console.error("Error fetching meter:", error);
-            toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการตรวจสอบข้อมูล" });
+            toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล" });
             return;
           }
 
           if (meterData) {
             setSelectedMeterId(meterData.id);
             setMeterDisplayName(`${meterData.meter_name} (S/N: ${meterData.serial_number || 'ไม่มีข้อมูล'})`);
-            toast({ title: "พบข้อมูลสถานที่", description: `เลือกจุดติดตั้ง: ${meterData.meter_name}` });
+            toast({ title: "พบข้อมูลสถานที่", description: `จุดติดตั้ง: ${meterData.meter_name}` });
           } else {
             setSelectedMeterId('');
             setMeterDisplayName('ไม่พบข้อมูลสถานที่นี้ในระบบ');
             toast({ 
               variant: "destructive", 
-              title: "ไม่พบข้อมูล", 
+              title: "ไม่พบข้อมูลในระบบ", 
               description: `ไม่พบสถานที่ที่ผูกกับรหัส: ${decodedText}` 
             });
           }
@@ -122,3 +125,68 @@ export default function Electricity() {
       setCurrentValue('');
       setSelectedMeterId('');
       setMeterDisplayName('');
+      queryClient.invalidateQueries({ queryKey: ['logs'] });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "บันทึกไม่สำเร็จ", description: err.message });
+    }
+  };
+
+  // ฟังก์ชันบันทึกสถานที่ติดตั้งใหม่
+  const handleSaveMeter = async () => {
+    if (!newMeter.name || !newMeter.serial) {
+      toast({ variant: "destructive", title: "กรุณากรอกชื่อสถานที่และหมายเลขเครื่องมิเตอร์" });
+      return;
+    }
+
+    const cleanSerial = newMeter.serial.trim().toLowerCase();
+    const autoQrUrl = `${cleanSerial}.lovable.com`;
+
+    try {
+      const { error } = await supabase.from('electricity_meters').insert([{ 
+        meter_name: newMeter.name, 
+        location_code: newMeter.code || cleanSerial, 
+        serial_number: cleanSerial,
+        qr_url: autoQrUrl
+      }]);
+      
+      if (error) throw error;
+
+      toast({ title: "เพิ่มสถานที่ใหม่สำเร็จ", description: `ตั้งค่า URL: ${autoQrUrl}` });
+      setNewMeter({ name: '', code: '', serial: '' });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "เพิ่มสถานที่ล้มเหลว", description: err.message });
+    }
+  };
+
+  const exportExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(logs);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Logs");
+    XLSX.writeFile(wb, "History.xlsx");
+  };
+
+  return (
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-5xl">
+      {/* ส่วนหัวแอปพลิเคชัน */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800 text-center sm:text-left">ระบบบันทึกไฟฟ้า</h1>
+        <div className="grid grid-cols-2 sm:flex gap-2">
+          <Button onClick={exportExcel} variant="outline" className="w-full text-xs sm:text-sm"><FileSpreadsheet className="mr-1 sm:mr-2 h-4 w-4"/> Export</Button>
+          <Dialog>
+            <DialogTrigger asChild><Button className="w-full text-xs sm:text-sm"><Plus className="mr-1 sm:mr-2 h-4 w-4" /> เพิ่มสถานที่</Button></DialogTrigger>
+            <DialogContent className="max-w-[90vw] sm:max-w-[425px] rounded-xl">
+              <DialogHeader><DialogTitle>เพิ่มจุดติดตั้งใหม่</DialogTitle></DialogHeader>
+              <div className="space-y-3 pt-2">
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">ชื่อสถานที่</label>
+                  <Input placeholder="เช่น ร้านค้าสมาน" value={newMeter.name} onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">หมายเลขเครื่องมิเตอร์</label>
+                  <Input placeholder="เช่น 001" value={newMeter.serial} onChange={(e) => setNewMeter({...newMeter, serial: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">รหัสภายใน (ไม่จำเป็น)</label>
+                  <Input placeholder="เช่น ele-001" value={newMeter.code} onChange={(e) => setNewMeter({...newMeter, code: e.target.value})} />
+                </div>
+                <div className="bg-slate-50 p-2 rounded text-center border border-dashed border-slate-
