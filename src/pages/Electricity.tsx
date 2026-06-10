@@ -15,8 +15,8 @@ declare global { interface Window { Html5Qrcode: any; } }
 export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedMeterId, setSelectedMeterId] = useState(''); // เก็บ id จริงๆ ในระบบเพื่อใช้บันทึก log
-  const [meterDisplayName, setMeterDisplayName] = useState(''); // เก็บชื่อสถานที่ + S/N เพื่อแสดงผลให้ผู้ใช้เห็น
+  const [selectedMeterId, setSelectedMeterId] = useState(''); 
+  const [meterDisplayName, setMeterDisplayName] = useState(''); 
   const [currentValue, setCurrentValue] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
@@ -28,13 +28,11 @@ export default function Electricity() {
     document.body.appendChild(script);
   }, []);
 
-  // ดึงประวัติการบันทึกข้อมูล
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
-    queryFn: async () => (await supabase.from('electricity_logs').select('*')).data || [] 
+    queryFn: async () => (await supabase.from('electricity_logs').select('*').order('created_at', { ascending: false })).data || [] 
   });
 
-  // ฟังก์ชันเริ่มสแกน QR Code และทำการ Match ข้อมูลสถานที่อัตโนมัติ
   const startScanner = () => {
     setIsScanning(true);
     setTimeout(() => {
@@ -46,11 +44,12 @@ export default function Electricity() {
           setIsScanning(false); 
           html5QrCode.stop(); 
 
-          // นำลิงก์ URL หรือ รหัส QR ที่สแกนได้ ไปค้นหาข้อมูลสถานที่ในฐานข้อมูล
+          // แก้ไขจุดนี้: เปลี่ยนเป็นดึงรายการแรกที่เจอเพื่อป้องกัน Error Multiple Rows
           const { data: meterData, error } = await supabase
             .from('electricity_meters')
             .select('*')
             .or(`qr_url.eq."${decodedText}",location_code.eq."${decodedText}"`)
+            .limit(1)
             .maybeSingle();
 
           if (error) {
@@ -60,12 +59,10 @@ export default function Electricity() {
           }
 
           if (meterData) {
-            // หากพบข้อมูลในระบบ: นำค่า id ไปเก็บ และแสดงชื่อสถานที่พร้อมเลขประจำเครื่อง
             setSelectedMeterId(meterData.id);
             setMeterDisplayName(`${meterData.meter_name} (S/N: ${meterData.serial_number || 'ไม่มีข้อมูล'})`);
             toast({ title: "พบข้อมูลสถานที่", description: `ยินดีต้อนรับสู่: ${meterData.meter_name}` });
           } else {
-            // หากไม่พบข้อมูลในฐานข้อมูล
             setSelectedMeterId('');
             setMeterDisplayName('ไม่พบข้อมูลสถานที่นี้ในระบบ (กรุณาเพิ่มสถานที่ก่อน)');
             toast({ 
@@ -77,13 +74,12 @@ export default function Electricity() {
         }, 
         (err) => {}
       ).catch((err) => {
-        toast({ variant: "destructive", title: "ไม่สามารถเปิดกล้องได้", description: "กรุณาตรวจสอบการอนุญาตสิทธิ์สิทธิ์กล้อง" });
+        toast({ variant: "destructive", title: "ไม่สามารถเปิดกล้องได้" });
         setIsScanning(false);
       });
     }, 500);
   };
 
-  // ฟังก์ชันบันทึกข้อมูลมิเตอร์ไฟฟ้า
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
       toast({ variant: "destructive", title: "กรุณาสแกนรหัสที่ถูกต้องและระบุเลขมิเตอร์" });
@@ -91,28 +87,24 @@ export default function Electricity() {
     }
 
     try {
-      // 1. ดึงค่าวัดครั้งก่อนหน้าล่าสุดของสถานที่นั้นๆ มาคำนวณ
       const { data: lastLog } = await supabase
         .from('electricity_logs')
         .select('current_value')
-        .eq('meter_id', selectedMeterId) // ค้นหาด้วย id ที่ผูกไว้
+        .eq('meter_id', selectedMeterId) 
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       const prevVal = lastLog?.current_value || 0;
       const currentVal = parseFloat(currentValue);
-      
-      // ป้องกันค่าติดลบที่ส่งผลให้โดน Check Constraint ของ Database บล็อก
       const units = Math.max(0, currentVal - prevVal);
 
-      // 2. บันทึกข้อมูลลงตาราง electricity_logs ตามโครงสร้างที่ถูกต้อง
       const { error } = await supabase.from('electricity_logs').insert([{
         meter_id: selectedMeterId,
         previous_value: prevVal,
         current_value: currentVal,
         units_used: units,
-        meter_name: meterDisplayName.split(' (S/N:')[0] // จัดเก็บชื่อลง log เพื่อใช้แสดงผลในตารางประวัติ
+        meter_name: meterDisplayName.split(' (S/N:')[0] 
       }]);
 
       if (error) throw error;
@@ -127,12 +119,11 @@ export default function Electricity() {
       toast({ 
         variant: "destructive", 
         title: "บันทึกไม่สำเร็จ", 
-        description: err.message || "โปรดตรวจสอบโครงสร้างตารางและลองอีกครั้ง" 
+        description: err.message 
       });
     }
   };
 
-  // ฟังก์ชันบันทึกสถานที่ติดตั้งใหม่เข้าคลังข้อมูล
   const handleSaveMeter = async () => {
     if (!newMeter.name || !newMeter.qr_url) {
       toast({ variant: "destructive", title: "กรุณากรอกชื่อสถานที่และ URL สำหรับ QR Code" });
@@ -151,7 +142,6 @@ export default function Electricity() {
 
       toast({ title: "เพิ่มสถานที่ใหม่สำเร็จเรียบร้อย" });
       setNewMeter({ name: '', code: '', serial: '', qr_url: '' });
-      // สั่งปิดหรือรีเฟรชข้อมูลจุดติดตั้งเพิ่มเติมได้ที่นี่หากจำเป็น
     } catch (err: any) {
       toast({ variant: "destructive", title: "เพิ่มสถานที่ล้มเหลว", description: err.message });
     }
@@ -175,10 +165,10 @@ export default function Electricity() {
             <DialogContent>
               <DialogHeader><DialogTitle>เพิ่มจุดติดตั้งใหม่</DialogTitle></DialogHeader>
               <div className="space-y-3">
-                <Input placeholder="ชื่อสถานที่ (เช่น ร้านค้าสมาน)" value={newMeter.name} onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
-                <Input placeholder="รหัส QR (เช่น ele0789)" value={newMeter.code} onChange={(e) => setNewMeter({...newMeter, code: e.target.value})} />
-                <Input placeholder="หมายเลขเครื่องมิเตอร์ (เช่น 0789)" value={newMeter.serial} onChange={(e) => setNewMeter({...newMeter, serial: e.target.value})} />
-                <Input placeholder="URL สำหรับ QR Code (เช่น ลิงก์ที่นำมาสร้าง QR)" value={newMeter.qr_url} onChange={(e) => setNewMeter({...newMeter, qr_url: e.target.value})} />
+                <Input placeholder="ชื่อสถานที่" value={newMeter.name} onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
+                <Input placeholder="รหัส QR" value={newMeter.code} onChange={(e) => setNewMeter({...newMeter, code: e.target.value})} />
+                <Input placeholder="หมายเลขเครื่องมิเตอร์" value={newMeter.serial} onChange={(e) => setNewMeter({...newMeter, serial: e.target.value})} />
+                <Input placeholder="URL สำหรับ QR Code" value={newMeter.qr_url} onChange={(e) => setNewMeter({...newMeter, qr_url: e.target.value})} />
                 <Button className="w-full" onClick={handleSaveMeter}>บันทึกสถานที่</Button>
               </div>
             </DialogContent>
