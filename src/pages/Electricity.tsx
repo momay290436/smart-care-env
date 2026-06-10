@@ -30,7 +30,7 @@ export default function Electricity() {
   const [localQrDataUrl, setLocalQrDataUrl] = useState<string>('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // 1. ดึงข้อมูล User และชื่อ-นามสกุลจากตาราง profiles
+  // ดึงชื่อ-นามสกุลจากตาราง profiles
   useEffect(() => {
     const getUserProfileData = async () => {
       try {
@@ -81,7 +81,6 @@ export default function Electricity() {
     }
   });
 
-  // 📸 ระบบกล้องสแกน
   const startScanner = async () => {
     setIsScanning(true);
     setTimeout(async () => {
@@ -107,13 +106,6 @@ export default function Electricity() {
     setIsScanning(false);
   };
 
-  const handleSelectMeterManual = (id: string, name: string) => {
-    setSelectedMeter(id);
-    setSelectedMeterName(name);
-    stopScanner();
-    toast({ title: "สำเร็จ", description: `เลือกสถานที่: ${name}` });
-  };
-
   const generateLocalQR = (code: string): string => {
     if (!canvasRef.current) return '';
     const ctx = canvasRef.current.getContext('2d');
@@ -123,18 +115,6 @@ export default function Electricity() {
     ctx.fillRect(20, 20, 50, 50); ctx.fillRect(180, 20, 50, 50); ctx.fillRect(20, 180, 50, 50);
     return canvasRef.current.toDataURL('image/png');
   };
-
-  const createMeterMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from('electricity_meters').insert([{ meter_name: newMeterName, location_code: newMeterCode }]);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['electricity_meters'] });
-      toast({ title: "สำเร็จ", description: "เพิ่มจุดติดตั้งแล้ว" });
-      setNewMeterName(''); setNewMeterCode('');
-    }
-  });
 
   const createLogMutation = useMutation({
     mutationFn: async () => {
@@ -165,17 +145,6 @@ export default function Electricity() {
           <h1 className="text-3xl font-bold text-slate-900">บันทึกมิเตอร์ไฟฟ้า</h1>
           <p className="text-slate-500">สำหรับจดบันทึกค่ามิเตอร์ประจำจุดต่างๆ</p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild><Button className="bg-emerald-600">จัดการจุดติดตั้ง</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>เพิ่มจุดติดตั้งมิเตอร์</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
-              <Input placeholder="ชื่อสถานที่" value={newMeterName} onChange={(e) => setNewMeterName(e.target.value)} />
-              <Input placeholder="รหัส QR" value={newMeterCode} onChange={(e) => setNewMeterCode(e.target.value)} />
-              <Button onClick={() => createMeterMutation.mutate()} className="w-full">บันทึก</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -190,7 +159,8 @@ export default function Electricity() {
                 <Button onClick={stopScanner} className="absolute top-2 right-2 rounded-full" size="icon" variant="destructive"><X/></Button>
               </div>
             )}
-            {selectedMeterName && <div className="bg-emerald-50 p-2 text-emerald-700 text-center rounded">📍 {selectedMeterName}</div>}
+            
+            {selectedMeterName && <div className="bg-emerald-50 p-2 text-emerald-700 text-center rounded font-bold">📍 สถานที่: {selectedMeterName}</div>}
             
             <Input disabled value={userProfile?.name || 'กำลังโหลดชื่อ...'} />
             <Input type="number" placeholder="เลขมิเตอร์ปัจจุบัน" value={currentValue} onChange={(e) => setCurrentValue(e.target.value)} />
