@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Camera, X, Plus, FileSpreadsheet } from 'lucide-react';
+import { Camera, X, Plus, FileSpreadsheet, Calendar, MapPin, Zap } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 declare global { interface Window { Html5Qrcode: any; } }
@@ -16,12 +16,11 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // แยก state สำหรับใช้บันทึก (ID) และใช้แสดงผลให้ผู้ใช้เห็น (ชื่อ + เลขเครื่อง)
   const [selectedMeterId, setSelectedMeterId] = useState('');
   const [meterDisplayName, setMeterDisplayName] = useState('');
   const [currentValue, setCurrentValue] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
+  const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '' });
 
   useEffect(() => {
     const script = document.createElement('script');
@@ -36,7 +35,7 @@ export default function Electricity() {
     queryFn: async () => (await supabase.from('electricity_logs').select('*').order('created_at', { ascending: false })).data || [] 
   });
 
-  // ฟังก์ชันเริ่มสแกน QR Code และค้นหาแบบระมัดระวังเป็นพิเศษ
+  // ฟังก์ชันสแกน QR Code (รองรับการ Match ด้วยรูปแบบ หมายเลขเครื่อง.lovable.com)
   const startScanner = () => {
     setIsScanning(true);
     setTimeout(() => {
@@ -48,17 +47,20 @@ export default function Electricity() {
           setIsScanning(false); 
           html5QrCode.stop(); 
 
-          // แก้ไข: ใช้ .limit(1).maybeSingle() เพื่อตัดปัญหา Multiple Rows และรองรับการดึงข้อมูลจาก URL
+          // ทำความสะอาดข้อความ (ตัดช่องว่าง หรืออักษรพิมพ์ใหญ่พิมพ์เล็ก)
+          const cleanScannedText = decodedText.trim().toLowerCase();
+
+          // ค้นหาในฐานข้อมูลว่ามี qr_url หรือ location_code หรือ serial_number ตรงกับที่สแกนไหม
           const { data: meterData, error } = await supabase
             .from('electricity_meters')
             .select('*')
-            .or(`qr_url.eq."${decodedText}",location_code.eq."${decodedText}"`)
+            .or(`qr_url.eq."${cleanScannedText}",location_code.eq."${cleanScannedText}",serial_number.eq."${cleanScannedText}"`)
             .limit(1)
             .maybeSingle();
 
           if (error) {
             console.error("Error fetching meter:", error);
-            toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการตรวจสอบข้อมูลสถานที่" });
+            toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการตรวจสอบข้อมูล" });
             return;
           }
 
@@ -68,11 +70,11 @@ export default function Electricity() {
             toast({ title: "พบข้อมูลสถานที่", description: `เลือกจุดติดตั้ง: ${meterData.meter_name}` });
           } else {
             setSelectedMeterId('');
-            setMeterDisplayName('ไม่พบข้อมูลสถานที่นี้ในระบบ (โปรดลงทะเบียนก่อน)');
+            setMeterDisplayName('ไม่พบข้อมูลสถานที่นี้ในระบบ');
             toast({ 
               variant: "destructive", 
               title: "ไม่พบข้อมูล", 
-              description: "รหัสหรือ URL นี้ยังไม่ได้ทำการเพิ่มสถานที่" 
+              description: `ไม่พบสถานที่ที่ผูกกับรหัส: ${decodedText}` 
             });
           }
         }, 
@@ -84,15 +86,14 @@ export default function Electricity() {
     }, 500);
   };
 
-  // ฟังก์ชันบันทึกข้อมูลลงฐานข้อมูลประวัติ
+  // ฟังก์ชันบันทึกข้อมูลมิเตอร์ไฟฟ้า
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
-      toast({ variant: "destructive", title: "กรุณาสแกนรหัสสถานที่ที่ถูกต้องและระบุเลขมิเตอร์" });
+      toast({ variant: "destructive", title: "กรุณาสแกนรหัสสถานที่และระบุเลขมิเตอร์" });
       return;
     }
 
     try {
-      // ค้นหาค่าก่อนหน้าของมิเตอร์ไอดีนี้
       const { data: lastLog } = await supabase
         .from('electricity_logs')
         .select('current_value')
@@ -103,9 +104,8 @@ export default function Electricity() {
 
       const prevVal = lastLog?.current_value || 0;
       const currentVal = parseFloat(currentValue);
-      const units = Math.max(0, currentVal - prevVal); // ป้องกันค่าติดลบที่ทำให้ Check Constraint ใน Database บั๊ก
+      const units = Math.max(0, currentVal - prevVal);
 
-      // ดึงเฉพาะชื่อสถานที่เพียวๆ ออกมาเก็บในคอลัมน์ meter_name เพื่อใช้แสดงในตารางประวัติ
       const cleanMeterName = meterDisplayName.split(' (S/N:')[0];
 
       const { error } = await supabase.from('electricity_logs').insert([{
@@ -118,14 +118,7 @@ export default function Electricity() {
 
       if (error) throw error;
       
-      toast({ title: "บันทึกข้อมูลมิเตอร์สำเร็จแล้ว" });
+      toast({ title: "บันทึกข้อมูลสำเร็จ" });
       setCurrentValue('');
       setSelectedMeterId('');
       setMeterDisplayName('');
-      queryClient.invalidateQueries({ queryKey: ['logs'] });
-    } catch (err: any) {
-      console.error(err);
-      toast({ 
-        variant: "destructive", 
-        title: "บันทึกไม่สำเร็จ", 
-        description: err.message || "กรุณาตรวจสอบโครงสร้างของคอลัมน์ใหม่อีกครั้ง"
