@@ -30,42 +30,46 @@ import FireInfo from "./pages/FireInfo";
 import FireInfoPublic from "./pages/FireInfoPublic";
 import FireSafety from "./pages/FireSafety";
 import WayfindingAdmin from "./pages/WayfindingAdmin";
-import FiveSHub from "./pages/FiveSHub";
 import MapAligner from "./pages/MapAligner";
+import FiveSHub from "./pages/FiveSHub";
 import WaterManagement from "./pages/WaterManagement";
 import WaterMeter from "./pages/WaterMeter";
 import IssueManagement from "./pages/IssueManagement";
-import Settings from "./pages/Settings";
-import Electricity from "./pages/Electricity"; // ✨ จุดที่ 1: เพิ่มการดึงไฟล์ระบบไฟฟ้าเข้ามาในโซนบนสุดอย่างถูกต้อง
+import Electricity from "./pages/Electricity"; // ✨ เพิ่มการเปิดตัวดึงไฟล์ระบบไฟฟ้าเข้ามาร่วมกับกลุ่มเพื่อนๆ ด้านบนสุด
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 2,
+      gcTime: 1000 * 60 * 5,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <Toaster />
+      <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Toaster />
-          <Sonner />
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/fire-info-public/:id" element={<FireInfoPublic />} />
-            <Route path="/fire-info/:id" element={<ProtectedRoute><FireInfo /></ProtectedRoute>} />
-            
-            {/* App Layout Routes */}
             <Route path="/" element={<ProtectedRoute><AppLayout><HomePage /></AppLayout></ProtectedRoute>} />
             <Route path="/maintenance-hub" element={<ProtectedRoute><AppLayout><MaintenanceHub /></AppLayout></ProtectedRoute>} />
             <Route path="/map-hub" element={<ProtectedRoute><AppLayout><MapHub /></AppLayout></ProtectedRoute>} />
             <Route path="/safety-hub" element={<ProtectedRoute><AppLayout><SafetyHub /></AppLayout></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
-            <Route path="/audit-5s" element={<ProtectedRoute><AppLayout><Audit5S /></AppLayout></ProtectedRoute>} />
-            <Route path="/maintenance-request" element={<ProtectedRoute><AppLayout><MaintenanceRequest /></AppLayout></ProtectedRoute>} />
+            <Route path="/5s" element={<ProtectedRoute><AppLayout><Audit5S /></AppLayout></ProtectedRoute>} />
+            <Route path="/maintenance" element={<ProtectedRoute><AppLayout><MaintenanceRequest /></AppLayout></ProtectedRoute>} />
             <Route path="/repair-status" element={<ProtectedRoute><AppLayout><RepairStatus /></AppLayout></ProtectedRoute>} />
             <Route path="/technician-work" element={<ProtectedRoute><AppLayout><TechnicianWork /></AppLayout></ProtectedRoute>} />
             <Route path="/maintenance-admin" element={<ProtectedRoute><AppLayout><MaintenanceAdmin /></AppLayout></ProtectedRoute>} />
             <Route path="/waste" element={<ProtectedRoute><AppLayout><WasteLog /></AppLayout></ProtectedRoute>} />
             <Route path="/fire-check" element={<ProtectedRoute><AppLayout><FireCheck /></AppLayout></ProtectedRoute>} />
-            <Route path="/hospital-map" element={<ProtectedRoute><AppLayout><HospitalMap /></AppLayout></ProtectedRoute>} />
+            <Route path="/map" element={<ProtectedRoute><AppLayout><HospitalMap /></AppLayout></ProtectedRoute>} />
             <Route path="/wayfinding" element={<ProtectedRoute><AppLayout><Wayfinding /></AppLayout></ProtectedRoute>} />
             <Route path="/hazmat" element={<ProtectedRoute><AppLayout><HazmatInventory /></AppLayout></ProtectedRoute>} />
             <Route path="/env-round" element={<ProtectedRoute><AppLayout><EnvRound /></AppLayout></ProtectedRoute>} />
@@ -78,11 +82,11 @@ const App = () => (
             <Route path="/water" element={<ProtectedRoute><AppLayout><WaterManagement /></AppLayout></ProtectedRoute>} />
             <Route path="/water-meter" element={<ProtectedRoute><AppLayout><WaterMeter /></AppLayout></ProtectedRoute>} />
             <Route path="/issues" element={<ProtectedRoute><AppLayout><IssueManagement /></AppLayout></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
-            <Route path="/electricity" element={<ProtectedRoute><AppLayout><Electricity /></AppLayout></ProtectedRoute>} /> {/* ✨ จุดที่ 2: เปิดเส้นทางเมนู /electricity ให้ระบบเข้าใช้งานได้ */}
+            <Route path="/electricity" element={<ProtectedRoute><AppLayout><Electricity /></AppLayout></ProtectedRoute>} /> {/* เปิดเส้นทางเรียกใช้งานตามโครงสร้างไฟล์เดิมของคุณ */}
             <Route path="/fire-info/:id" element={<FireInfoPublic />} />
             <Route path="*" element={<NotFound />} />
-          </Routes>\n        </AuthProvider>
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
