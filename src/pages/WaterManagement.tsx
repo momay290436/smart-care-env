@@ -597,7 +597,7 @@ export default function WaterManagement() {
         </Button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-blue-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-blue-300/50" onClick={() => setShowMeterDialog(true)}>
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
@@ -626,8 +626,19 @@ export default function WaterManagement() {
               <Plus className="h-7 w-7 text-white font-bold" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🌿 ตรวจระบบบำบัดน้ำเสีย</p>
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🌿 ตรวจระบบบำบัดน้ำเสียประจำวัน</p>
               <p className="text-xs text-white/90 truncate">บันทึกการตรวจประจำวัน</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-orange-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-orange-300/50" onClick={() => setShowWastewaterStatsDialog(true)}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
+              <BarChart3 className="h-7 w-7 text-white font-bold" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">📊 บันทึกสถิติบำบัดน้ำเสีย</p>
+              <p className="text-xs text-white/90 truncate">สถิติและข้อมูลผลการทำงานของระบบ</p>
             </div>
           </CardContent>
         </Card>
