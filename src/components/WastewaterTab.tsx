@@ -35,11 +35,12 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
     check_time: format(new Date(), "HH:mm"),
     chlorine_residual: "",
     ph_value: "",
-    water_appearance: "ใส",
+    water_appearance_options: [] as string[],
     sediment_volume: "",
     sedimentation_char: "",
     electricity_meter: "",
-    treated_water_color: "",
+    treated_water_color: "สีน้ำตาล",
+    treated_water_color_custom: "",
     treatment_odor: "false",
     aerator_status: "normal",
     sludge_pump_status: "normal",
@@ -53,16 +54,24 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
   const insertLog = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
+      const finalColor = form.treated_water_color === "อื่นๆ"
+        ? (form.treated_water_color_custom.trim() || "อื่นๆ")
+        : form.treated_water_color;
+      const appearance = form.water_appearance_options.length
+        ? form.water_appearance_options.join(", ")
+        : null;
       const payload: any = {
         check_date: form.check_date,
         check_time: form.check_time,
         chlorine_residual: form.chlorine_residual ? Number(form.chlorine_residual) : null,
         ph_value: form.ph_value ? Number(form.ph_value) : null,
-        water_appearance: form.water_appearance || null,
+        water_appearance: appearance,
+        water_appearance_options: form.water_appearance_options.length ? form.water_appearance_options : null,
         sediment_volume: form.sediment_volume || null,
         sedimentation_char: form.sedimentation_char || null,
         electricity_meter: form.electricity_meter || null,
-        treated_water_color: form.treated_water_color || null,
+        treated_water_color: finalColor || null,
+        treated_water_color_custom: form.treated_water_color === "อื่นๆ" ? (form.treated_water_color_custom || null) : null,
         treatment_odor: form.treatment_odor === "true",
         aerator_status: form.aerator_status,
         sludge_pump_status: form.sludge_pump_status,
@@ -80,8 +89,9 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
       setForm({
         check_date: format(new Date(), "yyyy-MM-dd"),
         check_time: format(new Date(), "HH:mm"),
-        chlorine_residual: "", ph_value: "", water_appearance: "ใส",
-        sediment_volume: "", sedimentation_char: "", electricity_meter: "", treated_water_color: "", treatment_odor: "false",
+        chlorine_residual: "", ph_value: "", water_appearance_options: [],
+        sediment_volume: "", sedimentation_char: "", electricity_meter: "",
+        treated_water_color: "สีน้ำตาล", treated_water_color_custom: "", treatment_odor: "false",
         aerator_status: "normal", sludge_pump_status: "normal",
         notes: "", recorder_name: "",
       });
@@ -94,7 +104,7 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
       <DialogContent className="rounded-3xl max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
-            <FlaskConical className="h-5 w-5 text-emerald-600" /> ตรวจระบบบำบัดน้ำเสีย
+            <FlaskConical className="h-5 w-5 text-emerald-600" /> ตรวจระบบบำบัดน้ำเสียประจำวัน
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
@@ -125,16 +135,27 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
             </div>
           </div>
           <div>
-            <Label className="text-xs font-semibold">ลักษณะน้ำทิ้ง</Label>
-            <Select value={form.water_appearance} onValueChange={(v) => setForm({ ...form, water_appearance: v })}>
-              <SelectTrigger className="h-11 rounded-2xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ใส">ใส</SelectItem>
-                <SelectItem value="ขุ่น">ขุ่น</SelectItem>
-                <SelectItem value="มีตะกอน">มีตะกอน</SelectItem>
-                <SelectItem value="มีกลิ่น">มีกลิ่น</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-xs font-semibold">ลักษณะน้ำทิ้ง (เลือกได้หลายข้อ)</Label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              {["ใส", "ขุ่น", "มีตะกอน", "มีกลิ่น"].map((opt) => {
+                const checked = form.water_appearance_options.includes(opt);
+                return (
+                  <label key={opt} className={`flex items-center gap-2 rounded-2xl border p-3 cursor-pointer text-sm ${checked ? "border-emerald-500 bg-emerald-50" : "border-slate-200"}`}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        const set = new Set(form.water_appearance_options);
+                        if (e.target.checked) set.add(opt); else set.delete(opt);
+                        setForm({ ...form, water_appearance_options: Array.from(set) });
+                      }}
+                      className="w-4 h-4 accent-emerald-600"
+                    />
+                    <span>{opt}</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -153,7 +174,23 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
             </div>
             <div>
               <Label className="text-xs font-semibold">สีของน้ำบำบัด</Label>
-              <Input type="text" value={form.treated_water_color} onChange={(e) => setForm({ ...form, treated_water_color: e.target.value })} className="h-11 rounded-2xl" />
+              <Select value={form.treated_water_color} onValueChange={(v) => setForm({ ...form, treated_water_color: v })}>
+                <SelectTrigger className="h-11 rounded-2xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="สีน้ำตาล">สีน้ำตาล</SelectItem>
+                  <SelectItem value="สีดำ">สีดำ</SelectItem>
+                  <SelectItem value="อื่นๆ">อื่นๆ (ระบุ)</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.treated_water_color === "อื่นๆ" && (
+                <Input
+                  type="text"
+                  placeholder="ระบุสี"
+                  value={form.treated_water_color_custom}
+                  onChange={(e) => setForm({ ...form, treated_water_color_custom: e.target.value })}
+                  className="h-10 rounded-2xl mt-2"
+                />
+              )}
             </div>
           </div>
           <div>
