@@ -92,4 +92,53 @@ export default function Electricity() {
         .limit(1);
 
       const prevVal = lastLog && lastLog.length > 0 ? lastLog[0].current_value : 0;
-      const currVal = parseFloat
+      const currVal = parseFloat(currentValue);
+
+      if (currVal < prevVal) {
+        throw new Error("เลขมิเตอร์ปัจจุบันต้องไม่น้อยกว่าครั้งก่อนหน้า (" + prevVal + ")");
+      }
+
+      const { error } = await supabase.from('electricity_logs').insert([
+        {
+          meter_id: selectedMeter,
+          current_value: currVal,
+          previous_value: prevVal,
+          recorded_by: userProfile?.id,
+          recorded_by_name: userProfile?.name
+        }
+      ]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['electricity_logs'] });
+      toast({ title: "บันทึกสำเร็จ", description: "ระบบคำนวณหน่วยไฟที่ใช้เรียบร้อย" });
+      setCurrentValue('');
+    },
+    onError: (error: any) => {
+      toast({ variant: "destructive", title: "เกิดข้อผิดพลาด", description: error.message });
+    }
+  });
+
+  // ฟังก์ชัน Export Excel
+  const exportToExcel = () => {
+    const dataToExport = logs.map(log => ({
+      'วันที่-เวลาที่บันทึก': new Date(log.created_at).toLocaleString('th-TH'),
+      'สถานที่/จุดติดตั้ง': log.electricity_meters?.meter_name || 'ไม่ระบุ',
+      'รหัสสถานที่': log.electricity_meters?.location_code || '',
+      'เลขมิเตอร์ครั้งก่อน': log.previous_value,
+      'เลขมิเตอร์ปัจจุบัน': log.current_value,
+      'หน่วยที่ใช้จริง (Units)': log.units_used,
+      'ผู้จดบันทึก': log.recorded_by_name || 'ไม่ระบุ'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Electricity Logs");
+    XLSX.writeFile(workbook, `รายงานมิเตอร์ไฟฟ้า_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // ✨ ฟังก์ชันพิมพ์ QR Code เวอร์ชันอัปเกรดสูงสุด: ใช้ iframe ในการโหลด และแปลงผลเป็น canvas/image เพื่อหลีกเลี่ยง CSP บล็อกรูปภาพภายนอก
+  const printQRCode = (code: string, name: string) => {
+    const targetUrl = `${window.location.origin}/electricity?code=${encodeURIComponent(code)}`;
+    
+    // สร้างตู้คอนเทนเนอร์ลับสำหรับเจนภาพ QR Code ภายในโครงสร้างเว็บ โดยใช้โครงสร้างรูปภาพข้อมูล
