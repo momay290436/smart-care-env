@@ -854,38 +854,6 @@ export default function WasteLog() {
             </CardContent>
           </Card>
 
-          {/* Cost trend area chart */}
-          {chartData.lineData.length > 1 && (
-            <Card className="shadow-card border border-border/50 rounded-2xl">
-              <CardContent className="p-5">
-                <h3 className="text-base font-bold text-foreground mb-3">แนวโน้มค่าใช้จ่ายรายวัน</h3>
-                <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart data={chartData.lineData.map(d => {
-                    let dailyCost = 0;
-                    Object.entries(typesMap).forEach(([, v]) => {
-                      const w = (d as any)[v.label] || 0;
-                      const k = Object.entries(typesMap).find(([, vv]) => vv.label === v.label)?.[0] || "general";
-                      dailyCost += w * (costPerKg[k] || 0);
-                    });
-                    return { date: d.date, cost: Math.round(dailyCost * 100) / 100 };
-                  })}>
-                    <defs>
-                      <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(200 18% 90%)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}฿`} />
-                    <Tooltip formatter={(v: number) => [`${v} ฿`, "ค่าใช้จ่าย"]} />
-                    <Area type="monotone" dataKey="cost" stroke="hsl(var(--primary))" fill="url(#costGradient)" strokeWidth={2.5} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
-
           <Card className="shadow-card border border-border/50 rounded-2xl">
             <CardContent className="p-5 space-y-3">
               <h3 className="text-base font-bold text-foreground">ตั้งค่าราคาค่ากำจัด (บาท/กก.)</h3>
