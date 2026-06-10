@@ -587,9 +587,10 @@ export default function WasteLog() {
               </CardContent>
             </Card>
             {Object.entries(typesMap).map(([k, v]) => {
-              const typeWeight = k === "infectious"
+              const normalizedTypeKey = normalizeWasteType(k);
+              const typeWeight = normalizedTypeKey === "infectious"
                 ? infectiousFilteredTotal
-                : combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
+                : combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedTypeKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
               return (
                 <Card key={k} className="shadow-lg border-0 rounded-3xl bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
                   <CardContent className="p-4 text-center">
@@ -845,7 +846,8 @@ export default function WasteLog() {
               <h3 className="text-base font-bold text-foreground mb-3">กราฟค่าใช้จ่ายตามประเภทขยะ</h3>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={Object.entries(typesMap).map(([k, v]) => {
-                  const typeWeight = combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
+                  const normalizedTypeKey = normalizeWasteType(k);
+                  const typeWeight = combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedTypeKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
                   return { name: v.label, weight: Math.round(typeWeight * 100) / 100, cost: Math.round(typeWeight * (costPerKg[k] || 0) * 100) / 100, fill: v.chartColor };
                 })} layout="vertical" margin={{ left: 10, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(200 18% 90%)" />
@@ -886,7 +888,8 @@ export default function WasteLog() {
               <h3 className="text-base font-bold text-foreground mb-3">รายละเอียดค่าใช้จ่าย</h3>
               <div className="space-y-2">
                 {Object.entries(typesMap).map(([k, v]) => {
-                  const typeWeight = combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === k).reduce((s: number, l: any) => s + Number(l.weight), 0);
+                  const normalizedTypeKey = normalizeWasteType(k);
+                  const typeWeight = combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedTypeKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
                   const typeCost = typeWeight * (costPerKg[k] || 0);
                   const pct = totalCost > 0 ? Math.round((typeCost / totalCost) * 100) : 0;
                   return (
