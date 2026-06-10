@@ -988,6 +988,7 @@ export default function WaterManagement() {
               </Card>
             )}
 
+            {(meterContentTab === "meter" || meterContentTab === "disinfectant") && (
             <Card className="bg-white rounded-3xl shadow-elevated border border-slate-200">
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
