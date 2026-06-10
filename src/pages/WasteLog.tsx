@@ -351,7 +351,11 @@ export default function WasteLog() {
           waste_type: "infectious",
           weight,
           created_at: createdAt,
-        });
+          department_id: "",
+          recorded_by: "",
+          recorded_by_name: "",
+          departments: { name: "" },
+        } as any);
         existingKeys.add(key);
       }
     });
