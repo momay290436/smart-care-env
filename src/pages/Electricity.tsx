@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { Camera, X, Plus, FileSpreadsheet, Calendar, MapPin, Zap } from 'lucide-react';
@@ -29,13 +29,16 @@ export default function Electricity() {
     document.body.appendChild(script);
   }, []);
 
-  // ดึงประวัติการบันทึกข้อมูล
+  // ดึงประวัติการบันทึกข้อมูลล่าสุด
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
-    queryFn: async () => (await supabase.from('electricity_logs').select('*').order('created_at', { ascending: false })).data || [] 
+    queryFn: async () => {
+      const { data } = await supabase.from('electricity_logs').select('*').order('created_at', { ascending: false });
+      return data || [];
+    }
   });
 
-  // ฟังก์ชันสแกน QR Code ค้นหาแบบยืดหยุ่นเพื่อจับคู่กับหมายเลขเครื่อง
+  // ฟังก์ชันสแกนคิวอาร์โค้ดและตรวจหาหมายเลขเครื่องแฝงจาก URL
   const startScanner = () => {
     setIsScanning(true);
     setTimeout(() => {
@@ -47,13 +50,10 @@ export default function Electricity() {
           setIsScanning(false); 
           html5QrCode.stop(); 
 
-          // 1. ทำความสะอาดข้อความ ตัดช่องว่าง แปลงเป็นตัวพิมพ์เล็ก
           const rawText = decodedText.trim().toLowerCase();
-          
-          // 2. แกะเอาเฉพาะหมายเลขเครื่องออกมา (กรณีสแกนเจอรูปแบบ "001.lovable.com" จะดึงแค่ "001")
+          // คัดแยกดึงค่าเฉพาะส่วนนำหน้าก่อนจุด เช่น 001.lovable.com จะแกะได้เฉพาะ 001
           const extractedSerial = rawText.split('.')[0];
 
-          // 3. ยิง Query ตรวจสอบข้อมูลแบบยืดหยุ่นครอบคลุมทุกคอลัมน์
           const { data: meterData, error } = await supabase
             .from('electricity_meters')
             .select('*')
@@ -62,7 +62,7 @@ export default function Electricity() {
             .maybeSingle();
 
           if (error) {
-            console.error("Error fetching meter:", error);
+            console.error(error);
             toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล" });
             return;
           }
@@ -81,15 +81,15 @@ export default function Electricity() {
             });
           }
         }, 
-        (err) => {}
-      ).catch((err) => {
+        () => {}
+      ).catch(() => {
         toast({ variant: "destructive", title: "ไม่สามารถเปิดกล้องได้" });
         setIsScanning(false);
       });
     }, 500);
   };
 
-  // ฟังก์ชันบันทึกข้อมูลมิเตอร์ไฟฟ้า
+  // ฟังก์ชันบันทึกตัวเลขไฟฟ้าปัจจุบัน
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
       toast({ variant: "destructive", title: "กรุณาสแกนรหัสสถานที่และระบุเลขมิเตอร์" });
@@ -108,7 +108,6 @@ export default function Electricity() {
       const prevVal = lastLog?.current_value || 0;
       const currentVal = parseFloat(currentValue);
       const units = Math.max(0, currentVal - prevVal);
-
       const cleanMeterName = meterDisplayName.split(' (S/N:')[0];
 
       const { error } = await supabase.from('electricity_logs').insert([{
@@ -131,7 +130,7 @@ export default function Electricity() {
     }
   };
 
-  // ฟังก์ชันบันทึกสถานที่ติดตั้งใหม่
+  // ฟังก์ชันสร้างและตั้งค่าพิกัดสถานที่ติดตั้งใหม่แบบออโต้ URL
   const handleSaveMeter = async () => {
     if (!newMeter.name || !newMeter.serial) {
       toast({ variant: "destructive", title: "กรุณากรอกชื่อสถานที่และหมายเลขเครื่องมิเตอร์" });
@@ -167,26 +166,10 @@ export default function Electricity() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-5xl">
-      {/* ส่วนหัวแอปพลิเคชัน */}
+      {/* ส่วนหัวแสดงหัวข้อและตัวเลือกเสริม */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-800 text-center sm:text-left">ระบบบันทึกไฟฟ้า</h1>
         <div className="grid grid-cols-2 sm:flex gap-2">
           <Button onClick={exportExcel} variant="outline" className="w-full text-xs sm:text-sm"><FileSpreadsheet className="mr-1 sm:mr-2 h-4 w-4"/> Export</Button>
           <Dialog>
-            <DialogTrigger asChild><Button className="w-full text-xs sm:text-sm"><Plus className="mr-1 sm:mr-2 h-4 w-4" /> เพิ่มสถานที่</Button></DialogTrigger>
-            <DialogContent className="max-w-[90vw] sm:max-w-[425px] rounded-xl">
-              <DialogHeader><DialogTitle>เพิ่มจุดติดตั้งใหม่</DialogTitle></DialogHeader>
-              <div className="space-y-3 pt-2">
-                <div>
-                  <label className="text-xs text-gray-500 font-medium mb-1 block">ชื่อสถานที่</label>
-                  <Input placeholder="เช่น ร้านค้าสมาน" value={newMeter.name} onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 font-medium mb-1 block">หมายเลขเครื่องมิเตอร์</label>
-                  <Input placeholder="เช่น 001" value={newMeter.serial} onChange={(e) => setNewMeter({...newMeter, serial: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 font-medium mb-1 block">รหัสภายใน (ไม่จำเป็น)</label>
-                  <Input placeholder="เช่น ele-001" value={newMeter.code} onChange={(e) => setNewMeter({...newMeter, code: e.target.value})} />
-                </div>
-                <div className="bg-slate-50 p-2 rounded text-center border border-dashed border-slate-
+            <DialogTrigger asChild><Button className="w-full text-xs sm:text-sm
