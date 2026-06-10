@@ -83,3 +83,13 @@ export default function Electricity() {
 
   // 5. Mutation สำหรับบันทึกค่ามิเตอร์ (User)
   const createLogMutation = useMutation({
+    mutationFn: async () => {
+      const { data: lastLog } = await supabase
+        .from('electricity_logs')
+        .select('current_value')
+        .eq('meter_id', selectedMeter)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const prevVal = lastLog && lastLog.length > 0 ? lastLog[0].current_value : 0;
+      const currVal = parseFloat
