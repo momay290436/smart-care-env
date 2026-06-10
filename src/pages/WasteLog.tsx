@@ -186,6 +186,7 @@ export default function WasteLog() {
         weight: w,
         department_id: selectedDept || profile?.department_id || null,
         recorded_by: user.id,
+        recorded_by_name: (isAdmin && customRecorder.trim()) ? customRecorder.trim() : (profile?.full_name || ""),
       };
       if (isAdmin && customDateTime) {
         payload.created_at = new Date(customDateTime).toISOString();
