@@ -142,8 +142,6 @@ export default function Audit5S() {
   const resetForm = () => {
     setScores({ seiri: 50, seiton: 50, seiso: 50, seiketsu: 50, shitsuke: 50 });
     setNotes(""); setAuditorName(profile?.full_name || "");
-    setPhotoBefore(null); setPhotoDuring(null); setPhotoAfter(null);
-    setPhotoBefore(null); setPhotoAfter(null);
   };
 
   const deleteAudit = useMutation({
@@ -257,29 +255,6 @@ export default function Audit5S() {
               <div className="flex items-center gap-2">
                 <span className="text-xl font-bold text-primary">{totalScore}%</span>
                 <Badge className={getGrade(totalScore).color + " rounded-xl"}>{getGrade(totalScore).label}</Badge>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">ภาพก่อน (Before)</Label>
-                <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl border-2 border-dashed border-border p-4 transition-colors hover:border-primary">
-                  <span className="text-xs text-muted-foreground text-center">{photoBefore ? photoBefore.name.slice(0, 12) : "เลือกรูป"}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhotoBefore(e.target.files?.[0] || null)} />
-                </label>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">ขณะทำ (During)</Label>
-                <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl border-2 border-dashed border-amber-400 bg-amber-50/50 p-4 transition-colors hover:border-amber-500">
-                  <span className="text-xs text-muted-foreground text-center">{photoDuring ? photoDuring.name.slice(0, 12) : "เลือกรูป"}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhotoDuring(e.target.files?.[0] || null)} />
-                </label>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">ภาพหลัง (After)</Label>
-                <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl border-2 border-dashed border-border p-4 transition-colors hover:border-primary">
-                  <span className="text-xs text-muted-foreground text-center">{photoAfter ? photoAfter.name.slice(0, 12) : "เลือกรูป"}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhotoAfter(e.target.files?.[0] || null)} />
-                </label>
               </div>
             </div>
             <div className="space-y-2">
