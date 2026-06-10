@@ -114,8 +114,7 @@ export default function WasteLog() {
       const { data } = await supabase
         .from("waste_logs")
         .select("*, departments(name)")
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .order("created_at", { ascending: false });
       return data || [];
     },
   });
@@ -126,8 +125,7 @@ export default function WasteLog() {
       const { data } = await supabase
         .from("infectious_waste_records")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .order("created_at", { ascending: false });
       return data || [];
     },
   });
@@ -297,6 +295,11 @@ export default function WasteLog() {
   const getWasteTypeLabel = (rawType: string) => {
     const normalized = normalizeWasteType(rawType);
     return WASTE_TYPE_LABELS[normalized] || typesMap[normalized]?.label || rawType;
+  };
+
+  const getWasteTypeMeta = (rawType: string) => {
+    const normalized = normalizeWasteType(rawType);
+    return typesMap[rawType] || typesMap[normalized] || typesMap.general;
   };
 
   const filteredLogs = useMemo(() => {
@@ -727,7 +730,7 @@ export default function WasteLog() {
                   </thead>
                   <tbody>
                     {filteredLogs.map((log: any, i: number) => {
-                      const wt = typesMap[log.waste_type] || typesMap.general;
+                      const wt = getWasteTypeMeta(log.waste_type);
                       return (
                         <tr key={log.id} className={`${i % 2 ? "bg-slate-50/40" : "bg-white"} hover:bg-emerald-50/40 border-b border-slate-100 cursor-pointer transition-colors`} onClick={() => setSelectedLog(log)}>
                           <td className="px-3 py-3 text-xs whitespace-nowrap">
@@ -1084,7 +1087,10 @@ export default function WasteLog() {
           <DialogHeader><DialogTitle>รายละเอียดบันทึกขยะ</DialogTitle></DialogHeader>
           {selectedLog && (
             <div className="space-y-3 text-base">
-                  <div className="flex justify-between"><span className="text-muted-foreground">ประเภท:</span><Badge className={`${typesMap[selectedLog.waste_type]?.color} border`} variant="secondary">{typesMap[selectedLog.waste_type]?.label}</Badge></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">ประเภท:</span>{(() => {
+                    const wt = getWasteTypeMeta(selectedLog.waste_type);
+                    return <Badge className={`${wt.color} border`} variant="secondary">{wt.label}</Badge>;
+                  })()}</div>
                   <div className="flex justify-between"><span className="text-muted-foreground">น้ำหนัก:</span><span className="font-bold text-foreground">{selectedLog.weight} กก.</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">แผนก:</span><span className="text-foreground">{selectedLog.departments?.name || "-"}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">วันที่:</span><span className="text-foreground">{new Date(selectedLog.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span></div>
