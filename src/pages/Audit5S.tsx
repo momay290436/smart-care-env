@@ -46,9 +46,6 @@ export default function Audit5S() {
   });
   const [notes, setNotes] = useState("");
   const [auditorName, setAuditorName] = useState(profile?.full_name || "");
-  const [photoBefore, setPhotoBefore] = useState<File | null>(null);
-  const [photoDuring, setPhotoDuring] = useState<File | null>(null);
-  const [photoAfter, setPhotoAfter] = useState<File | null>(null);
   const [selectedAudit, setSelectedAudit] = useState<any>(null);
   const [filterDept, setFilterDept] = useState<string>("all");
   const [filterGrade, setFilterGrade] = useState<string>("all");
@@ -93,15 +90,10 @@ export default function Audit5S() {
     mutationFn: async () => {
       if (!user || !deptId) throw new Error("ข้อมูลไม่ครบ");
       const totalScore = Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / 5);
-      let photoBeforeUrl = null;
-      let photoAfterUrl = null;
-      if (photoBefore) photoBeforeUrl = await uploadPhoto(photoBefore, "5s-before");
-      if (photoAfter) photoAfterUrl = await uploadPhoto(photoAfter, "5s-after");
       const { data: inserted, error } = await supabase.from("audit_5s").insert({
         department_id: deptId, auditor_id: user.id,
         score_json: { ...scores, auditor_name: auditorName || profile?.full_name || "" },
         total_score: totalScore, notes,
-        photo_before: photoBeforeUrl, photo_after: photoAfterUrl,
       }).select("id").single();
       if (error) throw error;
       const dept = departments?.find((d) => d.id === deptId);
@@ -127,15 +119,9 @@ export default function Audit5S() {
               department: dept?.name || "", auditor: auditorName || profile?.full_name || "",
               scores, totalScore, grade: getGrade(totalScore).label,
               notes, date: new Date().toLocaleDateString("th-TH"),
-              photoBeforeUrl, photoAfterUrl,
             },
           },
         });
-      } catch {}
-      // Upload photos to Google Drive
-      try {
-        if (photoBeforeUrl) await supabase.functions.invoke("upload-google-drive", { body: { imageUrl: photoBeforeUrl, fileName: `5S_before_${dept?.name}_${Date.now()}.jpg`, subFolder: "5S Audit Photos" } });
-        if (photoAfterUrl) await supabase.functions.invoke("upload-google-drive", { body: { imageUrl: photoAfterUrl, fileName: `5S_after_${dept?.name}_${Date.now()}.jpg`, subFolder: "5S Audit Photos" } });
       } catch {}
       try {
         await supabase.functions.invoke("line-notify", {
