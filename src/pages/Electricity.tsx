@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Camera, X, Plus, FileSpreadsheet, Download, Calendar, MapPin, Zap } from 'lucide-react';
+import { Camera, X, Plus, FileSpreadsheet, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 declare global { interface Window { Html5Qrcode: any; } }
@@ -16,13 +16,13 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // States สำหรับจัดการการสแกนและการบันทึกค่ามิเตอร์
-  const [selectedMeterId, setSelectedMeterId] = useState('');
-  const [meterDisplayName, setMeterDisplayName] = useState('');
+  // States สำหรับการสแกนและบันทึกค่ามิเตอร์
+  const [selectedMeterId, setSelectedMeterId] = useState(''); // เก็บ ID จริงของมิเตอร์เพื่อบันทึกลงฐานข้อมูล
+  const [meterDisplayName, setMeterDisplayName] = useState(''); // เก็บชื่อสถานที่จริงเพื่อแสดงผลบนหน้าจอ
   const [currentValue, setCurrentValue] = useState('');
   const [isScanning, setIsScanning] = useState(false);
 
-  // States สำหรับฟอร์มเพิ่มสถานที่ใหม่และรับรูป QR Code
+  // States สำหรับการเพิ่มจุดติดตั้งและรับรูป QR Code
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '' });
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
 
@@ -33,19 +33,29 @@ export default function Electricity() {
     document.body.appendChild(script);
   }, []);
 
-  // ดึงประวัติการบันทึกทั้งหมดจากตาราง electricity_logs
+  // ดึงประวัติรายการบันทึก พร้อมผูกดึงชื่อมิเตอร์จากตารางสัมพันธ์กัน
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
     queryFn: async () => {
       const { data } = await supabase
         .from('electricity_logs')
-        .select('*')
+        .select(`
+          id,
+          meter_id,
+          current_value,
+          previous_value,
+          units_used,
+          created_at,
+          electricity_meters (
+            meter_name
+          )
+        `)
         .order('created_at', { ascending: false });
       return data || [];
     }
   });
 
-  // ฟังก์ชันสแกนและแปลงลิงก์ QR Code เป็นชื่อสถานที่ในระบบ
+  // ฟังก์ชันเริ่มสแกนเนอร์ และค้นหาชื่อสถานที่จริงจากลิงก์ QR Code
   const startScanner = () => {
     setIsScanning(true);
     setTimeout(() => {
@@ -59,50 +69,49 @@ export default function Electricity() {
 
           const rawText = decodedText.trim();
 
-          // ทำการค้นหาในตาราง electricity_meters ว่าลิงก์หรือรหัสที่สแกนได้ ตรงกับ qr_url หรือ location_code ไหน
+          // วิ่งไปค้นหาใน Database ว่า QR URL นี้ตรงกับจุดติดตั้งไหน
           const { data: meterData, error } = await supabase
             .from('electricity_meters')
             .select('*')
-            .or(`qr_url.eq."${rawText}",location_code.eq."${rawText}"`)
+            .eq('qr_url', rawText)
             .limit(1)
             .maybeSingle();
 
           if (error) {
             console.error(error);
-            toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล" });
+            toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการตรวจสอบฐานข้อมูล" });
             return;
           }
 
           if (meterData) {
-            // บันทึก ID ของมิเตอร์ และดึงชื่อสถานที่จริงมาโชว์ในกล่องข้อความ
-            setSelectedMeterId(meterData.id);
-            setMeterDisplayName(meterData.meter_name);
-            toast({ title: "พบข้อมูลจุดติดตั้ง", description: `สถานที่: ${meterData.meter_name}` });
+            setSelectedMeterId(meterData.id); // บันทึก id แฝงไว้ใช้ผูกตอนกดบันทึก log
+            setMeterDisplayName(meterData.meter_name); // นำชื่อสถานที่จริงมาแปะแทนตัวลิงก์
+            toast({ title: "เชื่อมต่อสถานที่สำเร็จ", description: `จุดติดตั้ง: ${meterData.meter_name}` });
           } else {
             setSelectedMeterId('');
             setMeterDisplayName('');
-            toast({ variant: "destructive", title: "ไม่พบข้อมูลสถานที่", description: `รหัสนี้ยังไม่ได้ผูกในระบบ: ${rawText}` });
+            toast({ variant: "destructive", title: "ไม่พบข้อมูลในระบบ", description: `ลิงก์ QR นี้ยังไม่ได้ผูกกับสถานที่ใดๆ: ${rawText}` });
           }
         }, 
         () => {}
       ).catch(() => {
-        toast({ variant: "destructive", title: "ไม่สามารถเข้าถึงกล้องถ่ายภาพได้" });
+        toast({ variant: "destructive", title: "ไม่สามารถเปิดกล้องได้" });
         setIsScanning(false);
       });
     }, 500);
   };
 
-  // ฟังก์ชันบันทึกตัวเลขมิเตอร์ไฟฟ้า พร้อมคำนวณผลต่างอัตโนมัติ
+  // ฟังก์ชันบันทึกข้อมูลมิเตอร์และคำนวณส่วนต่างอัตโนมัติ
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
-      toast({ variant: "destructive", title: "กรุณาสแกน QR และกรอกเลขมิเตอร์ปัจจุบันก่อนบันทึก" });
+      toast({ variant: "destructive", title: "กรุณาสแกน QR สถานที่ และระบุเลขมิเตอร์ปัจจุบัน" });
       return;
     }
 
     try {
       const currentVal = parseFloat(currentValue);
 
-      // 1. ดึงข้อมูลการบันทึกครั้งล่าสุดของมิเตอร์ตัวนี้เพื่อเอาค่าเก่ามาลบ
+      // 1. ค้นหาประวัติบันทึกล่าสุดของมิเตอร์ตัวนี้เพื่อดึงเลขครั้งก่อนหน้ามาคำนวณลบกัน
       const { data: lastLog, error: fetchError } = await supabase
         .from('electricity_logs')
         .select('current_value')
@@ -114,84 +123,44 @@ export default function Electricity() {
       if (fetchError) throw fetchError;
 
       const prevVal = lastLog?.current_value || 0;
-      // 2. คำนวณหน่วยที่ใช้: เลขปัจจุบัน - เลขครั้งก่อน (ถ้าไม่มีค่าเก่า ให้ถือว่าเป็น 0)
+      
+      // 2. คำนวณจำนวนหน่วยไฟฟ้าที่ใช้ไปโดยอัตโนมัติ
       const unitsUsed = currentVal - prevVal;
 
       if (unitsUsed < 0) {
-        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: "เลขมิเตอร์ปัจจุบันต้องไม่น้อยกว่าค่าครั้งก่อนหน้า" });
+        toast({ variant: "destructive", title: "ข้อมูลไม่ถูกต้อง", description: "เลขมิเตอร์ปัจจุบันค่าน้อยกว่าเลขมิเตอร์ครั้งก่อนหน้า" });
         return;
       }
 
-      // 3. บันทึกข้อมูลลงตาราง electricity_logs ตามโครงสร้างคอลัมน์จริงใน Database
+      // 3. บันทึกข้อมูลลงใน Table electricity_logs ตามโครงสร้างในระบบจริงของคุณ
       const { error: insertError } = await supabase.from('electricity_logs').insert([{
         meter_id: selectedMeterId,
         current_value: currentVal,
         previous_value: prevVal,
-        units_used: unitsUsed,
-        meter_name: meterDisplayName // เก็บชื่อสถานที่กำกับไว้เพื่อความสะดวกรวดเร็วในการดึงข้อมูล
+        units_used: unitsUsed
       }]);
 
       if (insertError) throw insertError;
       
-      toast({ title: "บันทึกข้อมูลเรียบร้อย", description: `ใช้ไปทั้งหมด ${unitsUsed} หน่วย` });
+      toast({ title: "บันทึกประวัติสำเร็จ", description: `คำนวณการใช้ไฟฟ้าสุทธิ: ${unitsUsed} หน่วย` });
       setCurrentValue('');
       setSelectedMeterId('');
       setMeterDisplayName('');
       queryClient.invalidateQueries({ queryKey: ['logs'] });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "บันทึกข้อมูลล้มเหลว", description: err.message });
+      toast({ variant: "destructive", title: "บันทึกไม่สำเร็จ", description: err.message });
     }
   };
 
-  // ฟังก์ชันสร้างจุดติดตั้งและสร้างลิงก์สำหรับสร้าง QR Code อัตโนมัติ
+  // ฟังก์ชันสร้างสถานที่ใหม่และออกลิงก์สำหรับ QR code สำเร็จรูป
   const handleSaveMeter = async () => {
     if (!newMeter.name || !newMeter.serial) {
-      toast({ variant: "destructive", title: "กรุณากรอกชื่อสถานที่และหมายเลขเครื่องมิเตอร์" });
+      toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และหมายเลขเครื่องมิเตอร์" });
       return;
     }
 
     const cleanSerial = newMeter.serial.trim().toLowerCase();
-    const generatedDomainUrl = `${cleanSerial}.lovable.com`;
+    const autoQrUrl = `${cleanSerial}.lovable.com`;
 
     try {
-      const { error } = await supabase.from('electricity_meters').insert([{ 
-        meter_name: newMeter.name, 
-        location_code: cleanSerial,
-        qr_url: generatedDomainUrl 
-      }]);
-      
-      if (error) throw error;
-
-      // เรียกใช้งาน API ฟรีในการแปลง URL ข้อความเป็นรูปภาพ QR Code ทันทีเพื่อให้ดาวน์โหลดได้
-      const qrCodeImgApi = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(generatedDomainUrl)}`;
-      setGeneratedQrUrl(qrCodeImgApi);
-
-      toast({ title: "เพิ่มสถานที่สำเร็จ", description: "ระบบสร้างคิวอาร์โค้ดให้แล้ว สามารถกดดาวน์โหลดได้ทันที" });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "เพิ่มสถานที่ล้มเหลว", description: err.message });
-    }
-  };
-
-  // ฟังก์ชันดาวน์โหลดภาพ QR Code ออกมาเป็นไฟล์นามสกุล .png
-  const downloadQrCode = async () => {
-    if (!generatedQrUrl) return;
-    try {
-      const response = await fetch(generatedQrUrl);
-      const blob = await response.blob();
-      const blobURL = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobURL;
-      link.download = `QR_${newMeter.name || 'meter'}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // ล้างข้อมูลฟอร์มหลังจากทำงานเสร็จ
-      setNewMeter({ name: '', code: '', serial: '' });
-      setGeneratedQrUrl('');
-    } catch (error) {
-      toast({ variant: "destructive", title: "ดาวน์โหลดล้มเหลว", description: "ไม่สามารถบันทึกภาพลงเครื่องได้ กรุณาลองอีกครั้ง" });
-    }
-  };
-
-  const exportExcel = () => {
+      const { error } = await supabase.from('electricity_meters').insert(
