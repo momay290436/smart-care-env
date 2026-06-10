@@ -1469,6 +1469,7 @@ export default function WaterManagement() {
 
       {/* Wastewater inspection insert dialog */}
       <WastewaterInsertDialog open={showWastewaterDialog} onOpenChange={setShowWastewaterDialog} />
+      <WastewaterStatsDialog open={showWastewaterStatsDialog} onOpenChange={setShowWastewaterStatsDialog} />
     </div>
   );
 }
