@@ -39,10 +39,15 @@ export default function Electricity() {
     }, 500);
   };
 
-  // --- โค้ดบันทึกตัวใหม่ที่แก้ Error แล้ว ---
+  // 1. ฟังก์ชันบันทึกข้อมูล (แก้ให้ทำงานจริง)
   const handleSave = async () => {
+    if (!selectedMeter || !currentValue) {
+      toast({ variant: "destructive", title: "กรุณาสแกนรหัสและใส่เลขมิเตอร์" });
+      return;
+    }
+
     try {
-      // 1. ดึงค่ามิเตอร์ล่าสุด
+      // ดึงค่าล่าสุดมาคำนวณ
       const { data: lastLog } = await supabase
         .from('electricity_logs')
         .select('current_value')
@@ -54,7 +59,6 @@ export default function Electricity() {
       const prevVal = lastLog?.current_value || 0;
       const currentVal = parseFloat(currentValue);
 
-      // 2. บันทึกข้อมูล
       const { error } = await supabase.from('electricity_logs').insert([{
         meter_name: selectedMeter,
         previous_value: prevVal,
@@ -63,12 +67,28 @@ export default function Electricity() {
       }]);
 
       if (error) throw error;
-      
       toast({ title: "บันทึกสำเร็จ" });
       setCurrentValue('');
       queryClient.invalidateQueries({ queryKey: ['logs'] });
     } catch (err) {
-      toast({ variant: "destructive", title: "บันทึกไม่สำเร็จ", description: "กรุณาตรวจสอบฐานข้อมูล" });
+      toast({ variant: "destructive", title: "บันทึกไม่สำเร็จ", description: "ตรวจสอบตาราง Database ว่ามีคอลัมน์ครบไหม" });
+    }
+  };
+
+  // 2. ฟังก์ชันบันทึกสถานที่ใหม่ (แก้ให้ต่อ Database จริง)
+  const handleSaveMeter = async () => {
+    const { error } = await supabase.from('electricity_meters').insert([{ 
+      meter_name: newMeter.name, 
+      location_code: newMeter.code,
+      serial_number: newMeter.serial,
+      qr_url: newMeter.qr_url 
+    }]);
+    
+    if (error) {
+      toast({ variant: "destructive", title: "เพิ่มสถานที่ล้มเหลว", description: error.message });
+    } else {
+      toast({ title: "เพิ่มสถานที่สำเร็จ" });
+      setNewMeter({ name: '', code: '', serial: '', qr_url: '' });
     }
   };
 
@@ -94,7 +114,7 @@ export default function Electricity() {
                 <Input placeholder="รหัส QR" onChange={(e) => setNewMeter({...newMeter, code: e.target.value})} />
                 <Input placeholder="หมายเลขเครื่องมิเตอร์" onChange={(e) => setNewMeter({...newMeter, serial: e.target.value})} />
                 <Input placeholder="URL สำหรับ QR Code" onChange={(e) => setNewMeter({...newMeter, qr_url: e.target.value})} />
-                <Button className="w-full" onClick={() => toast({title: "ฟังก์ชันบันทึกสถานที่ยังไม่ได้ต่อ DB"})}>บันทึก</Button>
+                <Button className="w-full" onClick={handleSaveMeter}>บันทึกสถานที่</Button>
               </div>
             </DialogContent>
           </Dialog>
