@@ -1080,6 +1080,24 @@ export type Database = {
         }
         Relationships: []
       }
+      waste_disposal_prices: {
+        Row: {
+          id: string
+          price_per_kg: number | null
+          waste_type_name: string
+        }
+        Insert: {
+          id: string
+          price_per_kg?: number | null
+          waste_type_name: string
+        }
+        Update: {
+          id?: string
+          price_per_kg?: number | null
+          waste_type_name?: string
+        }
+        Relationships: []
+      }
       waste_disposal_records: {
         Row: {
           certificate_url: string | null
@@ -1125,6 +1143,7 @@ export type Database = {
           department_id: string | null
           id: string
           recorded_by: string
+          recorded_by_name: string | null
           waste_type: string
           weight: number
         }
@@ -1133,6 +1152,7 @@ export type Database = {
           department_id?: string | null
           id?: string
           recorded_by: string
+          recorded_by_name?: string | null
           waste_type: string
           weight?: number
         }
@@ -1141,6 +1161,7 @@ export type Database = {
           department_id?: string | null
           id?: string
           recorded_by?: string
+          recorded_by_name?: string | null
           waste_type?: string
           weight?: number
         }
@@ -1236,6 +1257,7 @@ export type Database = {
           check_time: string | null
           chlorine_residual: number | null
           created_at: string
+          electricity_meter: string | null
           id: string
           inlet_meter: number | null
           notes: string | null
@@ -1243,7 +1265,11 @@ export type Database = {
           ph_value: number | null
           recorded_by: string | null
           recorder_name: string | null
+          sediment_volume: string | null
+          sedimentation_char: string | null
           sludge_pump_status: string | null
+          treated_water_color: string | null
+          treatment_odor: boolean | null
           updated_at: string
           wastewater_volume: number | null
           water_appearance: string | null
@@ -1254,6 +1280,7 @@ export type Database = {
           check_time?: string | null
           chlorine_residual?: number | null
           created_at?: string
+          electricity_meter?: string | null
           id?: string
           inlet_meter?: number | null
           notes?: string | null
@@ -1261,7 +1288,11 @@ export type Database = {
           ph_value?: number | null
           recorded_by?: string | null
           recorder_name?: string | null
+          sediment_volume?: string | null
+          sedimentation_char?: string | null
           sludge_pump_status?: string | null
+          treated_water_color?: string | null
+          treatment_odor?: boolean | null
           updated_at?: string
           wastewater_volume?: number | null
           water_appearance?: string | null
@@ -1272,6 +1303,7 @@ export type Database = {
           check_time?: string | null
           chlorine_residual?: number | null
           created_at?: string
+          electricity_meter?: string | null
           id?: string
           inlet_meter?: number | null
           notes?: string | null
@@ -1279,7 +1311,11 @@ export type Database = {
           ph_value?: number | null
           recorded_by?: string | null
           recorder_name?: string | null
+          sediment_volume?: string | null
+          sedimentation_char?: string | null
           sludge_pump_status?: string | null
+          treated_water_color?: string | null
+          treatment_odor?: boolean | null
           updated_at?: string
           wastewater_volume?: number | null
           water_appearance?: string | null
