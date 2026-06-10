@@ -60,6 +60,7 @@ export default function WaterManagement() {
   const [showMeterDialog, setShowMeterDialog] = useState(false);
   const [showDisinfectantDialog, setShowDisinfectantDialog] = useState(false);
   const [showWastewaterDialog, setShowWastewaterDialog] = useState(false);
+  const [showWastewaterStatsDialog, setShowWastewaterStatsDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showEditMeterDialog, setShowEditMeterDialog] = useState(false);
   const [showEditDisinfectantDialog, setShowEditDisinfectantDialog] = useState(false);
@@ -123,7 +124,7 @@ export default function WaterManagement() {
   const [disinfectantCustomRecorder, setDisinfectantCustomRecorder] = useState("");
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
-  const [meterContentTab, setMeterContentTab] = useState<"meter" | "disinfectant">("meter");
+  const [meterContentTab, setMeterContentTab] = useState<"meter" | "disinfectant" | "wastewater" | "wwstats">("meter");
 
   const { data: qualityLogs = [] } = useQuery({
     queryKey: ["water-quality-logs"],
