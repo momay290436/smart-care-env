@@ -732,7 +732,7 @@ export default function WasteLog() {
                           </td>
                           <td className="px-3 py-3 text-xs">{log.departments?.name || "-"}</td>
                           <td className="px-3 py-3 text-center font-bold text-base text-slate-900">{log.weight}</td>
-                          <td className="px-3 py-3 text-xs text-muted-foreground">{log.recorder_name || "-"}</td>
+                          <td className="px-3 py-3 text-xs text-muted-foreground">{log.recorded_by_name || "-"}</td>
                           {isAdmin && (
                             <td className="px-3 py-3 text-center">
                               <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm("ยืนยันลบ?")) deleteLog.mutate(log.id); }}>✕</Button>
