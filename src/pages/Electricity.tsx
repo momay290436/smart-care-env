@@ -18,8 +18,6 @@ export default function Electricity() {
   const [selectedMeter, setSelectedMeter] = useState('');
   const [currentValue, setCurrentValue] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  
-  // เพิ่ม state สำหรับเก็บ URL QR Code
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
 
   useEffect(() => {
@@ -41,18 +39,36 @@ export default function Electricity() {
     }, 500);
   };
 
-  // ปรับการบันทึกให้รองรับ qr_url
-  const saveMeter = async () => {
-    const { error } = await supabase.from('electricity_meters').insert([{ 
-      meter_name: newMeter.name, 
-      location_code: newMeter.code,
-      serial_number: newMeter.serial,
-      qr_url: newMeter.qr_url // บันทึก URL ลง Database
-    }]);
-    if (!error) {
-      toast({ title: "เพิ่มสถานที่สำเร็จ" });
-      setNewMeter({ name: '', code: '', serial: '', qr_url: '' });
-      queryClient.invalidateQueries({ queryKey: ['meters'] });
+  // --- โค้ดบันทึกตัวใหม่ที่แก้ Error แล้ว ---
+  const handleSave = async () => {
+    try {
+      // 1. ดึงค่ามิเตอร์ล่าสุด
+      const { data: lastLog } = await supabase
+        .from('electricity_logs')
+        .select('current_value')
+        .eq('meter_name', selectedMeter)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const prevVal = lastLog?.current_value || 0;
+      const currentVal = parseFloat(currentValue);
+
+      // 2. บันทึกข้อมูล
+      const { error } = await supabase.from('electricity_logs').insert([{
+        meter_name: selectedMeter,
+        previous_value: prevVal,
+        current_value: currentVal,
+        units_used: currentVal - prevVal,
+      }]);
+
+      if (error) throw error;
+      
+      toast({ title: "บันทึกสำเร็จ" });
+      setCurrentValue('');
+      queryClient.invalidateQueries({ queryKey: ['logs'] });
+    } catch (err) {
+      toast({ variant: "destructive", title: "บันทึกไม่สำเร็จ", description: "กรุณาตรวจสอบฐานข้อมูล" });
     }
   };
 
@@ -77,9 +93,8 @@ export default function Electricity() {
                 <Input placeholder="ชื่อสถานที่" onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
                 <Input placeholder="รหัส QR" onChange={(e) => setNewMeter({...newMeter, code: e.target.value})} />
                 <Input placeholder="หมายเลขเครื่องมิเตอร์" onChange={(e) => setNewMeter({...newMeter, serial: e.target.value})} />
-                {/* เพิ่มช่องใส่ URL ตรงนี้ */}
                 <Input placeholder="URL สำหรับ QR Code" onChange={(e) => setNewMeter({...newMeter, qr_url: e.target.value})} />
-                <Button className="w-full" onClick={saveMeter}>บันทึก</Button>
+                <Button className="w-full" onClick={() => toast({title: "ฟังก์ชันบันทึกสถานที่ยังไม่ได้ต่อ DB"})}>บันทึก</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -100,7 +115,7 @@ export default function Electricity() {
             )}
             <Input value={selectedMeter} placeholder="รหัสที่สแกนได้" readOnly />
             <Input type="number" placeholder="เลขมิเตอร์" onChange={(e) => setCurrentValue(e.target.value)} />
-            <Button className="w-full">บันทึก</Button>
+            <Button onClick={handleSave} className="w-full">บันทึก</Button>
           </CardContent>
         </Card>
 
@@ -113,7 +128,7 @@ export default function Electricity() {
                   <TableRow key={log.id}>
                     <TableCell>{log.created_at}</TableCell>
                     <TableCell>{log.meter_name}</TableCell>
-                    <TableCell>{log.value}</TableCell>
+                    <TableCell>{log.current_value}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
