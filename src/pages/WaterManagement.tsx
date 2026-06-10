@@ -26,7 +26,9 @@ import WaterMaintenanceTab from "@/components/WaterMaintenanceTab";
 import WaterSystemTab from "@/components/WaterSystemTab";
 import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
 import WastewaterTab, { WastewaterInsertDialog } from "@/components/WastewaterTab";
+import WastewaterStatsHistory, { WastewaterStatsDialog } from "@/components/WastewaterStatsTab";
 import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon, Eye, Edit, Trash2, Check, X, FlaskConical } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const CHECK_POINTS = ["อาคาร OPD", "อาคาร IPD ชาย", "อาคาร IPD หญิง", "อาคารอำนวยการ", "ห้องผ่าตัด", "ห้องปฏิบัติการ", "โรงครัว"];
@@ -58,6 +60,7 @@ export default function WaterManagement() {
   const [showMeterDialog, setShowMeterDialog] = useState(false);
   const [showDisinfectantDialog, setShowDisinfectantDialog] = useState(false);
   const [showWastewaterDialog, setShowWastewaterDialog] = useState(false);
+  const [showWastewaterStatsDialog, setShowWastewaterStatsDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showEditMeterDialog, setShowEditMeterDialog] = useState(false);
   const [showEditDisinfectantDialog, setShowEditDisinfectantDialog] = useState(false);
@@ -121,7 +124,7 @@ export default function WaterManagement() {
   const [disinfectantCustomRecorder, setDisinfectantCustomRecorder] = useState("");
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
-  const [meterContentTab, setMeterContentTab] = useState<"meter" | "disinfectant">("meter");
+  const [meterContentTab, setMeterContentTab] = useState<"meter" | "disinfectant" | "wastewater" | "wwstats">("meter");
 
   const { data: qualityLogs = [] } = useQuery({
     queryKey: ["water-quality-logs"],
@@ -594,7 +597,7 @@ export default function WaterManagement() {
         </Button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-blue-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-blue-300/50" onClick={() => setShowMeterDialog(true)}>
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
@@ -623,8 +626,19 @@ export default function WaterManagement() {
               <Plus className="h-7 w-7 text-white font-bold" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🌿 ตรวจระบบบำบัดน้ำเสีย</p>
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🌿 ตรวจระบบบำบัดน้ำเสียประจำวัน</p>
               <p className="text-xs text-white/90 truncate">บันทึกการตรวจประจำวัน</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-orange-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-orange-300/50" onClick={() => setShowWastewaterStatsDialog(true)}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
+              <BarChart3 className="h-7 w-7 text-white font-bold" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">📊 บันทึกสถิติบำบัดน้ำเสีย</p>
+              <p className="text-xs text-white/90 truncate">สถิติและข้อมูลผลการทำงานของระบบ</p>
             </div>
           </CardContent>
         </Card>
@@ -762,7 +776,7 @@ export default function WaterManagement() {
 
       {/* Tabs: คุณภาพน้ำ / ระบบ / บำรุงรักษา */}
       <Tabs defaultValue="quality" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
           <TabsTrigger value="quality" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
             <Droplets className="h-4 w-4 mr-1" /> คุณภาพน้ำ
           </TabsTrigger>
@@ -771,9 +785,6 @@ export default function WaterManagement() {
           </TabsTrigger>
           <TabsTrigger value="emergency" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-red-500 data-[state=active]:text-white">
             <AlertTriangle className="h-4 w-4 mr-1" /> เหตุฉุกเฉิน
-          </TabsTrigger>
-          <TabsTrigger value="wastewater" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-            <FlaskConical className="h-4 w-4 mr-1" /> บำบัดน้ำเสีย
           </TabsTrigger>
           <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Settings className="h-4 w-4 mr-1" /> บริหารระบบ
@@ -785,10 +796,6 @@ export default function WaterManagement() {
 
         <TabsContent value="system" className="mt-4">
           <WaterSystemTab />
-        </TabsContent>
-
-        <TabsContent value="wastewater" className="mt-4">
-          <WastewaterTab />
         </TabsContent>
 
         <TabsContent value="emergency" className="mt-4">
@@ -933,10 +940,23 @@ export default function WaterManagement() {
                     <Button size="sm" className="rounded-2xl bg-amber-500 hover:bg-amber-600 text-black" onClick={() => { setMeterContentTab("disinfectant"); }}>
                       ประวัติสารเคมี
                     </Button>
+                    <Button size="sm" className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { setMeterContentTab("wastewater"); }}>
+                      ประวัติบำบัดน้ำเสียประจำวัน
+                    </Button>
+                    <Button size="sm" className="rounded-2xl bg-orange-600 hover:bg-orange-700 text-white" onClick={() => { setMeterContentTab("wwstats"); }}>
+                      ประวัติสถิติบำบัดน้ำเสีย
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            {meterContentTab === "wastewater" && (
+              <WastewaterTab />
+            )}
+            {meterContentTab === "wwstats" && (
+              <WastewaterStatsHistory />
+            )}
 
             {meterContentTab === "meter" && usageChart.length > 0 && (
               <Card className="bg-white rounded-3xl shadow-elevated border border-slate-200">
@@ -968,6 +988,7 @@ export default function WaterManagement() {
               </Card>
             )}
 
+            {(meterContentTab === "meter" || meterContentTab === "disinfectant") && (
             <Card className="bg-white rounded-3xl shadow-elevated border border-slate-200">
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1104,6 +1125,7 @@ export default function WaterManagement() {
                 </div>
               </CardContent>
             </Card>
+            )}
           </div>
         </TabsContent>
 
@@ -1447,6 +1469,7 @@ export default function WaterManagement() {
 
       {/* Wastewater inspection insert dialog */}
       <WastewaterInsertDialog open={showWastewaterDialog} onOpenChange={setShowWastewaterDialog} />
+      <WastewaterStatsDialog open={showWastewaterStatsDialog} onOpenChange={setShowWastewaterStatsDialog} />
     </div>
   );
 }

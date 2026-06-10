@@ -46,9 +46,6 @@ export default function Audit5S() {
   });
   const [notes, setNotes] = useState("");
   const [auditorName, setAuditorName] = useState(profile?.full_name || "");
-  const [photoBefore, setPhotoBefore] = useState<File | null>(null);
-  const [photoDuring, setPhotoDuring] = useState<File | null>(null);
-  const [photoAfter, setPhotoAfter] = useState<File | null>(null);
   const [selectedAudit, setSelectedAudit] = useState<any>(null);
   const [filterDept, setFilterDept] = useState<string>("all");
   const [filterGrade, setFilterGrade] = useState<string>("all");
@@ -93,15 +90,10 @@ export default function Audit5S() {
     mutationFn: async () => {
       if (!user || !deptId) throw new Error("ข้อมูลไม่ครบ");
       const totalScore = Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / 5);
-      let photoBeforeUrl = null;
-      let photoAfterUrl = null;
-      if (photoBefore) photoBeforeUrl = await uploadPhoto(photoBefore, "5s-before");
-      if (photoAfter) photoAfterUrl = await uploadPhoto(photoAfter, "5s-after");
       const { data: inserted, error } = await supabase.from("audit_5s").insert({
         department_id: deptId, auditor_id: user.id,
         score_json: { ...scores, auditor_name: auditorName || profile?.full_name || "" },
         total_score: totalScore, notes,
-        photo_before: photoBeforeUrl, photo_after: photoAfterUrl,
       }).select("id").single();
       if (error) throw error;
       const dept = departments?.find((d) => d.id === deptId);
@@ -127,15 +119,9 @@ export default function Audit5S() {
               department: dept?.name || "", auditor: auditorName || profile?.full_name || "",
               scores, totalScore, grade: getGrade(totalScore).label,
               notes, date: new Date().toLocaleDateString("th-TH"),
-              photoBeforeUrl, photoAfterUrl,
             },
           },
         });
-      } catch {}
-      // Upload photos to Google Drive
-      try {
-        if (photoBeforeUrl) await supabase.functions.invoke("upload-google-drive", { body: { imageUrl: photoBeforeUrl, fileName: `5S_before_${dept?.name}_${Date.now()}.jpg`, subFolder: "5S Audit Photos" } });
-        if (photoAfterUrl) await supabase.functions.invoke("upload-google-drive", { body: { imageUrl: photoAfterUrl, fileName: `5S_after_${dept?.name}_${Date.now()}.jpg`, subFolder: "5S Audit Photos" } });
       } catch {}
       try {
         await supabase.functions.invoke("line-notify", {
@@ -156,8 +142,6 @@ export default function Audit5S() {
   const resetForm = () => {
     setScores({ seiri: 50, seiton: 50, seiso: 50, seiketsu: 50, shitsuke: 50 });
     setNotes(""); setAuditorName(profile?.full_name || "");
-    setPhotoBefore(null); setPhotoDuring(null); setPhotoAfter(null);
-    setPhotoBefore(null); setPhotoAfter(null);
   };
 
   const deleteAudit = useMutation({
@@ -271,29 +255,6 @@ export default function Audit5S() {
               <div className="flex items-center gap-2">
                 <span className="text-xl font-bold text-primary">{totalScore}%</span>
                 <Badge className={getGrade(totalScore).color + " rounded-xl"}>{getGrade(totalScore).label}</Badge>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">ภาพก่อน (Before)</Label>
-                <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl border-2 border-dashed border-border p-4 transition-colors hover:border-primary">
-                  <span className="text-xs text-muted-foreground text-center">{photoBefore ? photoBefore.name.slice(0, 12) : "เลือกรูป"}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhotoBefore(e.target.files?.[0] || null)} />
-                </label>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">ขณะทำ (During)</Label>
-                <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl border-2 border-dashed border-amber-400 bg-amber-50/50 p-4 transition-colors hover:border-amber-500">
-                  <span className="text-xs text-muted-foreground text-center">{photoDuring ? photoDuring.name.slice(0, 12) : "เลือกรูป"}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhotoDuring(e.target.files?.[0] || null)} />
-                </label>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">ภาพหลัง (After)</Label>
-                <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl border-2 border-dashed border-border p-4 transition-colors hover:border-primary">
-                  <span className="text-xs text-muted-foreground text-center">{photoAfter ? photoAfter.name.slice(0, 12) : "เลือกรูป"}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhotoAfter(e.target.files?.[0] || null)} />
-                </label>
               </div>
             </div>
             <div className="space-y-2">

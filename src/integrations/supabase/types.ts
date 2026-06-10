@@ -1269,10 +1269,12 @@ export type Database = {
           sedimentation_char: string | null
           sludge_pump_status: string | null
           treated_water_color: string | null
+          treated_water_color_custom: string | null
           treatment_odor: boolean | null
           updated_at: string
           wastewater_volume: number | null
           water_appearance: string | null
+          water_appearance_options: string[] | null
         }
         Insert: {
           aerator_status?: string | null
@@ -1292,10 +1294,12 @@ export type Database = {
           sedimentation_char?: string | null
           sludge_pump_status?: string | null
           treated_water_color?: string | null
+          treated_water_color_custom?: string | null
           treatment_odor?: boolean | null
           updated_at?: string
           wastewater_volume?: number | null
           water_appearance?: string | null
+          water_appearance_options?: string[] | null
         }
         Update: {
           aerator_status?: string | null
@@ -1315,10 +1319,90 @@ export type Database = {
           sedimentation_char?: string | null
           sludge_pump_status?: string | null
           treated_water_color?: string | null
+          treated_water_color_custom?: string | null
           treatment_odor?: boolean | null
           updated_at?: string
           wastewater_volume?: number | null
           water_appearance?: string | null
+          water_appearance_options?: string[] | null
+        }
+        Relationships: []
+      }
+      wastewater_statistics_logs: {
+        Row: {
+          aerator_status: string | null
+          chemical_amount: number | null
+          chemical_substances: string | null
+          created_at: string
+          discharge_method: string | null
+          electricity_usage: number | null
+          excess_sludge_volume: number | null
+          id: string
+          mixer_chemical_status: string | null
+          mixer_wastewater_status: string | null
+          notes: string | null
+          other_equipment_status: string | null
+          problems_and_solutions: string | null
+          record_date: string
+          recorded_by: string | null
+          recorder_name: string | null
+          sludge_pump_status: string | null
+          sludge_pump_used: boolean | null
+          treatment_system_status: string | null
+          updated_at: string
+          wastewater_volume: number | null
+          water_pump_status: string | null
+          water_usage: number | null
+        }
+        Insert: {
+          aerator_status?: string | null
+          chemical_amount?: number | null
+          chemical_substances?: string | null
+          created_at?: string
+          discharge_method?: string | null
+          electricity_usage?: number | null
+          excess_sludge_volume?: number | null
+          id?: string
+          mixer_chemical_status?: string | null
+          mixer_wastewater_status?: string | null
+          notes?: string | null
+          other_equipment_status?: string | null
+          problems_and_solutions?: string | null
+          record_date: string
+          recorded_by?: string | null
+          recorder_name?: string | null
+          sludge_pump_status?: string | null
+          sludge_pump_used?: boolean | null
+          treatment_system_status?: string | null
+          updated_at?: string
+          wastewater_volume?: number | null
+          water_pump_status?: string | null
+          water_usage?: number | null
+        }
+        Update: {
+          aerator_status?: string | null
+          chemical_amount?: number | null
+          chemical_substances?: string | null
+          created_at?: string
+          discharge_method?: string | null
+          electricity_usage?: number | null
+          excess_sludge_volume?: number | null
+          id?: string
+          mixer_chemical_status?: string | null
+          mixer_wastewater_status?: string | null
+          notes?: string | null
+          other_equipment_status?: string | null
+          problems_and_solutions?: string | null
+          record_date?: string
+          recorded_by?: string | null
+          recorder_name?: string | null
+          sludge_pump_status?: string | null
+          sludge_pump_used?: boolean | null
+          treatment_system_status?: string | null
+          updated_at?: string
+          wastewater_volume?: number | null
+          water_pump_status?: string | null
+          water_usage?: number | null
         }
         Relationships: []
       }
