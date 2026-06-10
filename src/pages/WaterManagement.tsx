@@ -940,10 +940,23 @@ export default function WaterManagement() {
                     <Button size="sm" className="rounded-2xl bg-amber-500 hover:bg-amber-600 text-black" onClick={() => { setMeterContentTab("disinfectant"); }}>
                       ประวัติสารเคมี
                     </Button>
+                    <Button size="sm" className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { setMeterContentTab("wastewater"); }}>
+                      ประวัติบำบัดน้ำเสียประจำวัน
+                    </Button>
+                    <Button size="sm" className="rounded-2xl bg-orange-600 hover:bg-orange-700 text-white" onClick={() => { setMeterContentTab("wwstats"); }}>
+                      ประวัติสถิติบำบัดน้ำเสีย
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            {meterContentTab === "wastewater" && (
+              <WastewaterTab />
+            )}
+            {meterContentTab === "wwstats" && (
+              <WastewaterStatsHistory />
+            )}
 
             {meterContentTab === "meter" && usageChart.length > 0 && (
               <Card className="bg-white rounded-3xl shadow-elevated border border-slate-200">
