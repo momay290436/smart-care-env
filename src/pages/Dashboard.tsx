@@ -45,8 +45,11 @@ const WASTE_TYPE_LABELS: Record<string, string> = {
 const normalizeWasteType = (type: string) => {
   const key = String(type || "").trim().toLowerCase();
   if (key === "recyclable") return "recycle";
-  if (key === "organic waste" || key === "organic") return "organic";
-  if (key === "general waste") return "general";
+  if (key === "organic waste" || key === "organic" || key === "ขยะเปียก") return "organic";
+  if (key === "general waste" || key === "ขยะทั่วไป") return "general";
+  if (key === "ขยะรีไซเคิล") return "recycle";
+  if (key === "ขยะติดเชื้อ") return "infectious";
+  if (key === "ขยะอันตราย") return "hazardous";
   return key || "other";
 };
 
