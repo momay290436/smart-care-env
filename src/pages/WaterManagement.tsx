@@ -776,7 +776,7 @@ export default function WaterManagement() {
 
       {/* Tabs: คุณภาพน้ำ / ระบบ / บำรุงรักษา */}
       <Tabs defaultValue="quality" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
           <TabsTrigger value="quality" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
             <Droplets className="h-4 w-4 mr-1" /> คุณภาพน้ำ
           </TabsTrigger>
@@ -785,9 +785,6 @@ export default function WaterManagement() {
           </TabsTrigger>
           <TabsTrigger value="emergency" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-red-500 data-[state=active]:text-white">
             <AlertTriangle className="h-4 w-4 mr-1" /> เหตุฉุกเฉิน
-          </TabsTrigger>
-          <TabsTrigger value="wastewater" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-            <FlaskConical className="h-4 w-4 mr-1" /> บำบัดน้ำเสีย
           </TabsTrigger>
           <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Settings className="h-4 w-4 mr-1" /> บริหารระบบ
@@ -799,10 +796,6 @@ export default function WaterManagement() {
 
         <TabsContent value="system" className="mt-4">
           <WaterSystemTab />
-        </TabsContent>
-
-        <TabsContent value="wastewater" className="mt-4">
-          <WastewaterTab />
         </TabsContent>
 
         <TabsContent value="emergency" className="mt-4">
