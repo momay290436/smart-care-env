@@ -881,7 +881,6 @@ export default function WaterManagement() {
                 )}
               </CardContent>
             </Card>
-            )}
           </div>
         </TabsContent>
 
