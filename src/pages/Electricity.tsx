@@ -49,7 +49,7 @@ export default function Electricity() {
     }, 500);
   };
 
-  // 1. ฟังก์ชันบันทึกข้อมูล
+  // 1. ฟังก์ชันบันทึกข้อมูลมิเตอร์
   const handleSave = async () => {
     if (!selectedMeter || !currentValue) {
       toast({ variant: "destructive", title: "กรุณาสแกนรหัสและใส่เลขมิเตอร์" });
@@ -84,22 +84,20 @@ export default function Electricity() {
     }
   };
 
-  // 2. ฟังก์ชันบันทึกสถานที่ใหม่ลงฐานข้อมูล
+  // 2. ฟังก์ชันบันทึกสถานที่ติดตั้งใหม่
   const handleSaveMeter = async () => {
-    try {
-      const { error } = await supabase.from('electricity_meters').insert([{ 
-        meter_name: newMeter.name, 
-        location_code: newMeter.code,
-        serial_number: newMeter.serial,
-        qr_url: newMeter.qr_url 
-      }]);
-      
-      if (error) throw error;
-      
+    const { error } = await supabase.from('electricity_meters').insert([{ 
+      meter_name: newMeter.name, 
+      location_code: newMeter.code,
+      serial_number: newMeter.serial,
+      qr_url: newMeter.qr_url 
+    }]);
+    
+    if (error) {
+      toast({ variant: "destructive", title: "เพิ่มสถานที่ล้มเหลว", description: error.message });
+    } else {
       toast({ title: "เพิ่มสถานที่สำเร็จ" });
       setNewMeter({ name: '', code: '', serial: '', qr_url: '' });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "เพิ่มสถานที่ล้มเหลว", description: err.message });
     }
   };
 
@@ -116,3 +114,6 @@ export default function Electricity() {
         <h1 className="text-2xl font-bold">ระบบบันทึกไฟฟ้า</h1>
         <div className="flex gap-2">
           <Button onClick={exportExcel} variant="outline"><FileSpreadsheet className="mr-2"/> Export</Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button><Plus
