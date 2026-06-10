@@ -23,7 +23,7 @@ export default function Electricity() {
   const [newMeterName, setNewMeterName] = useState('');
   const [newMeterCode, setNewMeterCode] = useState('');
 
-  // ข้อมูลสำหรับเปิดใบพิมพ์ในหน้านี้
+  // ข้อมูลสำหรับเปิดใบพิมพ์และการดาวน์โหลดในหน้านี้
   const [printTarget, setPrintTarget] = useState<{ code: string; name: string } | null>(null);
 
   // 1. ดึงข้อมูลผู้ใช้งานปัจจุบันที่ล็อกอิน
@@ -139,49 +139,72 @@ export default function Electricity() {
     XLSX.writeFile(workbook, `รายงานมิเตอร์ไฟฟ้า_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // ฟังก์ชันสั่งพิมพ์ภายในตัวหน้าต่างเดิม (แก้ปัญหาเรื่อง CSP บล็อกหน้าต่างใหม่)
-  const handlePrint = (code: string, name: string) => {
-    setPrintTarget({ code, name });
-    // รอภาพ QR โหลดแว๊บหนึ่งแล้วเปิดคำสั่งปริ้นท์ของวินโดว์
-    setTimeout(() => {
-      window.print();
-    }, 500);
+  // ดึงลิงก์รูปภาพ QR Code (ใช้ของ Google Charts ปลอดภัย สูงสุด)
+  const getQrUrl = (code: string) => {
+    const targetUrl = `${window.location.origin}/electricity?code=${encodeURIComponent(code)}`;
+    return `https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(targetUrl)}&choe=UTF-8`;
   };
 
-  // สร้างลิงก์ปลายทางที่จะให้คนสแกน
-  const encodeUrl = printTarget ? encodeURIComponent(`${window.location.origin}/electricity?code=${printTarget.code}`) : '';
-  // เรียกใช้ Google Charts API (เสถียรที่สุด ไม่ติด Content Security Policy แน่นอน)
-  const qrImageUrl = printTarget ? `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeUrl}&choe=UTF-8` : '';
+  // ฟังก์ชันกดพิมพ์ป้ายมิเตอร์
+  const handlePrint = (code: string, name: string) => {
+    setPrintTarget({ code, name });
+    // รอให้รูปโหลดเสร็จชัวร์ ๆ 800ms ป้องกันหน้ากระดาษพัง
+    setTimeout(() => {
+      window.print();
+    }, 800);
+  };
+
+  // ✨ ฟังก์ชันสำหรับดาวน์โหลดภาพ QR Code ตรงเข้าเครื่องคอมพิวเตอร์/มือถือ
+  const handleDownloadQR = async (code: string, name: string) => {
+    try {
+      const response = await fetch(getQrUrl(code));
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `QRCode-${name}-${code}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+
+      toast({ title: "ดาวน์โหลดสำเร็จ", description: "บันทึกไฟล์ภาพคิวอาร์โค้ดลงในเครื่องแล้ว" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "ไม่สามารถดาวน์โหลดได้", description: "กรุณาใช้ฟังก์ชันสั่งพิมพ์หรือแคปหน้าจอแทน" });
+    }
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* 🖨️ สไตล์กำหนดการพิมพ์บนหน้าจอ: เวลาปกติจะถูกซ่อนไว้ แต่เมื่อกดปุ่มพิมพ์จะเปิดเผยเฉพาะการ์ด QR นี้ขึ้นมา */}
+      {/* 🖨️ สไตล์กำหนดการพิมพ์แบบเด็ดขาด: ล้างหน้าเว็บเดิมออก และบังคับให้การ์ดอยู่ตรงกลางกึ่งกลาง */}
       <style>{`
         @media print {
-          body * { visibility: hidden !important; background: white !important; }
-          .printable-area, .printable-area * { visibility: visible !important; }
-          .printable-area { position: absolute !important; left: 50% !important; top: 10% !important; transform: translate(-50%, 0) !important; width: 100% !important; display: flex !important; justify-content: center !important; }
-          .print-card { border: 2px solid #cbd5e1 !important; border-radius: 12px !important; padding: 20px !important; width: 260px !important; text-align: center !important; background: white !important; box-sizing: border-box !important; }
-          .print-tag { font-size: 13px !important; font-weight: 800 !important; color: #4f46e5 !important; letter-spacing: 1px !important; margin-bottom: 4px !important; }
-          .print-title { font-size: 16px !important; font-weight: bold !important; margin-bottom: 12px !important; color: #1e293b !important; }
-          .print-qr-img { margin: 10px auto !important; width: 180px !important; height: 180px !important; display: block !important; }
-          .print-label { font-size: 14px !important; font-weight: bold !important; background: #f1f5f9 !important; color: #334155 !important; padding: 4px 12px !important; border-radius: 6px !important; display: inline-block !important; margin-top: 10px !important; border: 1px solid #e2e8f0 !important; font-family: monospace !important; }
+          body, html { background: #ffffff !important; margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; }
+          #root, header, main, nav, div:not(.printable-area), section, button { display: none !important; visibility: hidden !important; }
+          .printable-area, .printable-area * { display: block !important; visibility: visible !important; }
+          .printable-area { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; display: flex !important; justify-content: center !important; align-items: center !important; background: white !important; }
+          .print-card { border: 3px solid #64748b !important; border-radius: 24px !important; padding: 32px !important; width: 320px !important; text-align: center !important; background: white !important; box-shadow: none !important; margin: auto !important; }
+          .print-tag { font-size: 15px !important; font-weight: 800 !important; color: #4f46e5 !important; letter-spacing: 1.5px !important; margin-bottom: 8px !important; text-align: center !important; }
+          .print-title { font-size: 20px !important; font-weight: bold !important; margin-bottom: 20px !important; color: #0f172a !important; text-align: center !important; }
+          .print-qr-img { margin: 15px auto !important; width: 220px !important; height: 220px !important; display: block !important; }
+          .print-label { font-size: 16px !important; font-weight: bold !important; background: #f1f5f9 !important; color: #1e293b !important; padding: 6px 20px !important; border-radius: 8px !important; display: inline-block !important; margin-top: 16px !important; border: 1px solid #cbd5e1 !important; font-family: monospace !important; text-align: center !important; width: 80% !important; margin-left: auto !important; margin-right: auto !important; }
         }
       `}</style>
 
-      {/* บล็อกพรีวิวสำหรับส่งเข้าเครื่องพิมพ์ (ปกติซ่อนอยู่บนเว็บจอคอม) */}
+      {/* บล็อกสำหรับส่งไปที่เครื่องพิมพ์เท่านั้น */}
       {printTarget && (
         <div className="hidden printable-area">
           <div className="print-card">
             <div className="print-tag">⚡ ELECTRIC METER</div>
             <div className="print-title">{printTarget.name}</div>
-            <img src={qrImageUrl} className="print-qr-img" alt="QR Code" />
+            <img src={getQrUrl(printTarget.code)} className="print-qr-img" alt="QR Code" />
             <div className="print-label">ID: {printTarget.code}</div>
           </div>
         </div>
       )}
 
-      {/* หน้าจอแสดงผลปกติ */}
+      {/* หน้าจอส่วนแสดงผลปกติบนระบบ */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">ระบบจัดการและบันทึกมิเตอร์ไฟฟ้า</h1>
@@ -194,7 +217,7 @@ export default function Electricity() {
               <Plus className="w-4 h-4 mr-2" /> จัดการสถานที่ & QR
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>เพิ่มจุดติดตั้งมิเตอร์ไฟฟ้า</DialogTitle>
               <DialogDescription>เพิ่มสถานที่เพื่อให้ระบบสร้าง QR Code ประจำตู้ไฟ</DialogDescription>
@@ -212,14 +235,19 @@ export default function Electricity() {
                 บันทึกสถานที่
               </Button>
             </div>
-            <div className="border-t pt-4 max-h-[200px] overflow-y-auto space-y-2">
-              <p className="text-xs font-semibold text-slate-500">รายชื่อจุดที่เปิดใช้งานแล้ว:</p>
+            <div className="border-t pt-4 max-h-[250px] overflow-y-auto space-y-2">
+              <p className="text-xs font-semibold text-slate-500">รายชื่อจุดที่เปิดใช้งานแล้ว (พิมพ์หรือดาวน์โหลด):</p>
               {meters.map((m: any) => (
-                <div key={m.id} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm">
-                  <span>{m.meter_name} ({m.location_code})</span>
-                  <Button size="sm" variant="outline" onClick={() => handlePrint(m.location_code, m.meter_name)}>
-                    <Printer className="w-3 h-3 mr-1" /> พิมพ์ QR
-                  </Button>
+                <div key={m.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-2.5 rounded text-sm gap-2">
+                  <span className="font-medium">{m.meter_name} ({m.location_code})</span>
+                  <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => handlePrint(m.location_code, m.meter_name)}>
+                      <Printer className="w-3 h-3 mr-1" /> พิมพ์
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50" onClick={() => handleDownloadQR(m.location_code, m.meter_name)}>
+                      <Download className="w-3 h-3 mr-1" /> โหลดรูป
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
