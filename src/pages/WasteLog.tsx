@@ -302,6 +302,12 @@ export default function WasteLog() {
     return typesMap[rawType] || typesMap[normalized] || typesMap.general;
   };
 
+  const getWasteTypeLabelByKey = (key: string) => {
+    const normalized = normalizeWasteType(key);
+    if (key === "all") return "ทุกประเภท";
+    return typesMap[key]?.label || typesMap[normalized]?.label || key;
+  };
+
   const filteredLogs = useMemo(() => {
     return logs.filter((log: any) => {
       if (filterType !== "all" && normalizeWasteType(log.waste_type) !== normalizeWasteType(filterType)) return false;
@@ -533,7 +539,7 @@ export default function WasteLog() {
           <CardContent className="p-4 space-y-2">
             <div className="flex flex-wrap gap-2">
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="h-10 text-sm w-32 rounded-2xl"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10 text-sm w-32 rounded-2xl">{getWasteTypeLabelByKey(filterType)}</SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">ทุกประเภท</SelectItem>
                   {Object.entries(typesMap).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
@@ -549,7 +555,7 @@ export default function WasteLog() {
                   <SelectItem value="custom">เลือกวันที่</SelectItem>
                 </SelectContent>
               </Select>
-              <Badge variant="secondary" className="h-10 px-4 flex items-center text-sm rounded-2xl">{filteredLogs.length} รายการ</Badge>
+              <Badge variant="secondary" className="h-10 px-4 flex items-center text-sm rounded-2xl">{combinedLogs.length} รายการ</Badge>
             </div>
             {filterPeriod === "custom" && (
               <div className="flex flex-wrap gap-2">
@@ -730,7 +736,7 @@ export default function WasteLog() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredLogs.map((log: any, i: number) => {
+                    {combinedLogs.map((log: any, i: number) => {
                       const wt = getWasteTypeMeta(log.waste_type);
                       return (
                         <tr key={log.id} className={`${i % 2 ? "bg-slate-50/40" : "bg-white"} hover:bg-emerald-50/40 border-b border-slate-100 cursor-pointer transition-colors`} onClick={() => setSelectedLog(log)}>
@@ -751,7 +757,7 @@ export default function WasteLog() {
                         </tr>
                       );
                     })}
-                    {filteredLogs.length === 0 && (
+                    {combinedLogs.length === 0 && (
                       <tr><td colSpan={isAdmin ? 6 : 5} className="py-10 text-center text-muted-foreground">ไม่มีบันทึกขยะในช่วงที่เลือก</td></tr>
                     )}
                   </tbody>
