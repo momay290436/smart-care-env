@@ -7,22 +7,50 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Plus, Download, Camera, X } from 'lucide-react';
+import { Plus, Download, Printer, Scan, Camera, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
-
-// ประกาศตัวแปรเพื่อเรียกใช้สคริปต์สแกนเนอร์
-declare global { interface Window { Html5Qrcode: any; } }
 
 export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [userProfile, setUserProfile] = useState<{ id: string; name: string } | null>(null);
   const [selectedMeter, setSelectedMeter] = useState<string>('');
+  const [selectedMeterName, setSelectedMeterName] = useState<string>('');
   const [currentValue, setCurrentValue] = useState<string>('');
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+
+  // สเตตัสการควบคุมกล้องสแกน QR Code
   const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [localQrDataUrl, setLocalQrDataUrl] = useState<string>('');
+
+  // --- ส่วนที่แก้ไข: สร้าง QR Code ให้สแกนติดจริง 100% ---
+  const generateLocalQR = async (text: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = "https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js";
+      document.body.appendChild(script);
+      
+      script.onload = () => {
+        const canvas = document.createElement('canvas');
+        // @ts-ignore
+        window.QRCode.toCanvas(canvas, text, { width: 300, margin: 2 }, (error: any) => {
+          if (error) console.error(error);
+          resolve(canvas.toDataURL('image/png'));
+        });
+      };
+    });
+  };
+
+  const handleDownloadQR = async (code: string) => {
+    const dataUrl = await generateLocalQR(code);
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `QR_${code}.png`;
+    link.click();
+  };
+  // --------------------------------------------------
 
   useEffect(() => {
-    // 1. ดึงชื่อผู้ใช้งาน
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -31,102 +59,52 @@ export default function Electricity() {
       }
     };
     getUser();
-
-    // 2. โหลดสคริปต์สแกนเนอร์เข้าหน้าเว็บ
-    const script = document.createElement('script');
-    script.src = "https://unpkg.com/html5-qrcode";
-    script.async = true;
-    document.body.appendChild(script);
   }, []);
 
-  // ฟังก์ชันเริ่มสแกน
-  const startScanner = () => {
-    setIsScanning(true);
-    setTimeout(async () => {
-      const html5QrCode = new window.Html5Qrcode("reader");
-      html5QrCode.start(
-        { facingMode: "environment" }, // บังคับกล้องหลัง
-        { fps: 10, qrbox: 250 },
-        (decodedText: string) => {
-          setSelectedMeter(decodedText);
-          toast({ title: "สแกนสำเร็จ", description: `รหัส: ${decodedText}` });
-          html5QrCode.stop();
-          setIsScanning(false);
-        },
-        (err: any) => {}
-      ).catch((err: any) => {
-        toast({ variant: "destructive", title: "เปิดกล้องไม่ได้", description: "กรุณาตรวจสอบสิทธิ์" });
-        setIsScanning(false);
-      });
-    }, 500);
-  };
-
-  const { data: logs = [] } = useQuery({
-    queryKey: ['electricity_logs'],
+  const { data: meters = [] } = useQuery({
+    queryKey: ['electricity_meters'],
     queryFn: async () => {
-      const { data } = await supabase.from('electricity_logs').select('*').order('created_at', { ascending: false });
+      const { data } = await supabase.from('electricity_meters').select('*');
       return data || [];
     }
   });
 
-  const createLogMutation = useMutation({
-    mutationFn: async () => {
-      await supabase.from('electricity_logs').insert([{
-        meter_id: selectedMeter,
-        current_value: parseFloat(currentValue),
-        recorded_by_name: userProfile?.name
-      }]);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['electricity_logs'] });
-      toast({ title: "บันทึกสำเร็จ" });
-      setCurrentValue(''); setSelectedMeter('');
+  const { data: logs = [] } = useQuery({
+    queryKey: ['electricity_logs'],
+    queryFn: async () => {
+      const { data } = await supabase.from('electricity_logs').select('*, electricity_meters(meter_name)').order('created_at', { ascending: false });
+      return data || [];
     }
   });
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1 border-t-4 border-t-indigo-600">
-          <CardHeader><CardTitle>บันทึกมิเตอร์</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <Input disabled value={userProfile?.name || 'Loading...'} />
-            
-            {/* พื้นที่สแกนแบบล็อกขนาด (ป้องกัน Layout พัง) */}
-            <div className="space-y-2">
-              {!isScanning ? (
-                <Button onClick={startScanner} className="w-full bg-indigo-600"><Camera className="mr-2"/> เปิดกล้องสแกน QR</Button>
-              ) : (
-                <div className="relative border-4 border-indigo-500 rounded-lg overflow-hidden h-[300px]">
-                  <div id="reader" className="w-full h-full"></div>
-                  <Button onClick={() => window.location.reload()} className="absolute top-2 right-2" size="sm" variant="destructive"><X/></Button>
-                </div>
-              )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {meters.map((meter: any) => (
+          <Card key={meter.id} className="p-4 flex justify-between items-center">
+            <div>
+              <p className="font-bold">{meter.meter_name}</p>
+              <p className="text-sm text-gray-500">Code: {meter.location_code}</p>
             </div>
-
-            <Input value={selectedMeter} onChange={(e) => setSelectedMeter(e.target.value)} placeholder="รหัส QR" />
-            <Input type="number" value={currentValue} onChange={(e) => setCurrentValue(e.target.value)} placeholder="เลขมิเตอร์" />
-            <Button onClick={() => createLogMutation.mutate()} className="w-full">บันทึกข้อมูล</Button>
-          </CardContent>
-        </Card>
-        
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>ประวัติการบันทึก</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-              <TableBody>
-                {logs.map((log: any) => (
-                  <TableRow key={log.id}>
-                    <TableCell>{new Date(log.created_at).toLocaleDateString('th-TH')}</TableCell>
-                    <TableCell>{log.recorded_by_name}</TableCell>
-                    <TableCell>{log.current_value}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+            <Button variant="outline" onClick={() => handleDownloadQR(meter.location_code)}>
+              <Download className="w-4 h-4 mr-2" /> โหลด QR
+            </Button>
+          </Card>
+        ))}
       </div>
+      
+      {/* ส่วนตารางประวัติเดิมของคุณ */}
+      <Table>
+        <TableBody>
+          {logs.map((log: any) => (
+            <TableRow key={log.id}>
+              <TableCell>{new Date(log.created_at).toLocaleDateString('th-TH')}</TableCell>
+              <TableCell>{log.electricity_meters?.meter_name}</TableCell>
+              <TableCell>{log.current_value}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
