@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { BarChart3, ClipboardCheck, Home, Wrench, Shield } from "lucide-react";
+import { BarChart3, ClipboardCheck, Home, Wrench, Shield, Zap } from "lucide-react"; // ✨ ดึงไอคอน Zap (สายฟ้า) เข้ามาใช้งาน
 
 const navItems = [
   { path: "/", label: "หน้าหลัก", icon: Home },
@@ -7,6 +7,7 @@ const navItems = [
   { path: "/5s", label: "5ส", icon: ClipboardCheck },
   { path: "/maintenance-hub", label: "ซ่อมบำรุง", icon: Wrench },
   { path: "/safety-hub", label: "ความปลอดภัย", icon: Shield },
+  { path: "/electricity", label: "ระบบไฟฟ้า", icon: Zap }, // ✨ จุดที่เพิ่ม: เพิ่มปุ่มกดลิงก์ไปหน้าระบบไฟฟ้าบนแถบเมนู
 ];
 
 export default function BottomNav() {
