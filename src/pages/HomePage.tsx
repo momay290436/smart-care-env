@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Settings, BarChart3, Wrench, Trash2, Shield, Map, FlaskConical, Search, ChevronRight, Clipboard, Droplets, AlertTriangle } from "lucide-react";
+import { Settings, BarChart3, Wrench, Trash2, Shield, Map, FlaskConical, Search, ChevronRight, Clipboard, Droplets, AlertTriangle, Zap } from "lucide-react"; // ✨ ดึงไอคอน Zap (สายฟ้า) เข้ามาใช้งาน
 import StaffShortcutHome from "@/components/StaffShortcutHome";
 
 const menuCards = [
@@ -17,6 +17,7 @@ const menuCards = [
   { path: "/hazmat", label: "คลัง HAZMAT", desc: "จัดการวัตถุอันตราย สารเคมี และ SDS", icon: FlaskConical, borderColor: "border-t-amber-500", iconBg: "bg-amber-500", statusDot: "bg-amber-400", statusText: "คลังสารเคมี", badgeKey: "chemicals" },
   { path: "/env-round", label: "ENV Round", desc: "เดินตรวจสิ่งแวดล้อมและความปลอดภัยประจำจุด", icon: Search, borderColor: "border-t-cyan-500", iconBg: "bg-cyan-500", statusDot: "bg-cyan-400", statusText: "เดินตรวจ", badgeKey: "envRounds" },
   { path: "/water", label: "ระบบจัดการน้ำประปา", desc: "ตรวจคุณภาพน้ำ มิเตอร์น้ำ และระบบ FMS ตามมาตรฐาน สรพ.", icon: Droplets, borderColor: "border-t-blue-500", iconBg: "bg-blue-500", statusDot: "bg-blue-400", statusText: "Water & FMS", badgeKey: null },
+  { path: "/electricity", label: "ระบบจัดการไฟฟ้า", desc: "บันทึกและตรวจสอบมิเตอร์ไฟฟ้า คำนวณหน่วยย้อนหลัง และสแกนตรวจด้วย QR Code", icon: Zap, borderColor: "border-t-yellow-500", iconBg: "bg-yellow-500", statusDot: "bg-yellow-400", statusText: "Electric & QR", badgeKey: "electricityMeters" }, // ✨ จุดที่เพิ่ม: เพิ่มกล่องการ์ดเมนูระบบไฟฟ้าเข้าสู่หน้าแรกอย่างสมบูรณ์
   { path: "/issues", label: "จัดการปัญหา", desc: "รวบรวมปัญหาจากทุกระบบ เรียงตามความเสี่ยง และอัพเดตสถานะ", icon: AlertTriangle, borderColor: "border-t-red-500", iconBg: "bg-red-500", statusDot: "bg-red-400", statusText: "Issue Management", badgeKey: null },
 ];
 
@@ -32,15 +33,24 @@ export default function HomePage() {
   const { data: badges } = useQuery({
     queryKey: ["home-badges"],
     queryFn: async () => {
-      const [audits, tickets, waste, fireChecks, chemicals, envRounds] = await Promise.all([
+      const [audits, tickets, waste, fireChecks, chemicals, envRounds, electricityMeters] = await Promise.all([
         supabase.from("audit_5s").select("id", { count: "exact", head: true }),
         supabase.from("maintenance_tickets").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("waste_logs").select("id", { count: "exact", head: true }),
         supabase.from("fire_extinguisher_checks").select("id", { count: "exact", head: true }),
         supabase.from("chemicals").select("id", { count: "exact", head: true }),
         supabase.from("env_rounds").select("id", { count: "exact", head: true }),
+        supabase.from("electricity_meters").select("id", { count: "exact", head: true }), // ✨ เพิ่มการนับจำนวนมิเตอร์ไฟฟ้าเพื่อแสดงผล
       ]);
-      return { audits: audits.count || 0, tickets: tickets.count || 0, waste: waste.count || 0, fireChecks: fireChecks.count || 0, chemicals: chemicals.count || 0, envRounds: envRounds.count || 0 };
+      return { 
+        audits: audits.count || 0, 
+        tickets: tickets.count || 0, 
+        waste: waste.count || 0, 
+        fireChecks: fireChecks.count || 0, 
+        chemicals: chemicals.count || 0, 
+        envRounds: envRounds.count || 0,
+        electricityMeters: electricityMeters.count || 0 
+      };
     },
     staleTime: 30000,
   });
