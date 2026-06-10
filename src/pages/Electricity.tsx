@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,40 +6,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { Camera, X } from 'lucide-react';
 
 export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  // ตั้งค่าเริ่มต้นเป็นข้อความรอโหลด
-  const [userName, setUserName] = useState<string>('กำลังดึงชื่อผู้ใช้งาน...'); 
-  const [userId, setUserId] = useState<string>('');
+  const [userName, setUserName] = useState<string>('กำลังโหลดชื่อ...');
   const [currentValue, setCurrentValue] = useState<string>('');
-  const [isScanning, setIsScanning] = useState<boolean>(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
-  // ดึงข้อมูลชื่อ-นามสกุลจากตาราง profiles ทันทีที่เข้าหน้าเว็บ
+  // ดึงชื่อโดยตรงจากตาราง profiles
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchUserProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      setUserId(user.id);
 
-      // ดึงข้อมูลจากตาราง profiles คอลัมน์ full_name
+      // Query เฉพาะคอลัมน์ full_name จากตาราง profiles โดยอ้างอิงจาก id
       const { data, error } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (data && data.full_name) {
-        setUserName(data.full_name); // อัปเดตชื่อเมื่อพบข้อมูลในตาราง
+      if (error) {
+        console.error("Error:", error);
+      } else if (data && data.full_name) {
+        setUserName(data.full_name); // ดึงชื่อจริงมาแสดง
       } else {
-        setUserName(user.email?.split('@')[0] || 'ผู้ใช้งาน');
+        setUserName(user.email || 'ไม่พบชื่อ');
       }
     };
-    fetchProfile();
+    fetchUserProfile();
   }, []);
 
   const { data: logs = [] } = useQuery({
@@ -58,13 +53,13 @@ export default function Electricity() {
     mutationFn: async () => {
       const { error } = await supabase.from('electricity_logs').insert([{
         current_value: parseFloat(currentValue),
-        recorded_by_name: userName // ใช้ชื่อที่ได้จาก useEffect
+        recorded_by_name: userName // ใช้ชื่อที่ดึงมาได้จาก state
       }]);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['electricity_logs'] });
-      toast({ title: "บันทึกสำเร็จ", description: `บันทึกโดย: ${userName}` });
+      toast({ title: "บันทึกสำเร็จ", description: `ผู้บันทึก: ${userName}` });
       setCurrentValue('');
     }
   });
@@ -72,17 +67,15 @@ export default function Electricity() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1 border-t-4 border-t-indigo-600">
+        <Card className="lg:col-span-1">
           <CardHeader><CardTitle>บันทึกข้อมูล</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700">ชื่อผู้บันทึก</label>
-              {/* แสดงชื่อที่ดึงจากตาราง profiles */}
-              <Input disabled value={userName} className="font-semibold text-indigo-700 bg-indigo-50" />
+            <div>
+              <label className="text-sm text-gray-500">ผู้บันทึก:</label>
+              <Input disabled value={userName} className="bg-gray-50 font-bold text-black" />
             </div>
-            
             <Input type="number" placeholder="เลขมิเตอร์ปัจจุบัน" value={currentValue} onChange={(e) => setCurrentValue(e.target.value)} />
-            <Button onClick={() => createLogMutation.mutate()} className="w-full" disabled={!currentValue}>บันทึกข้อมูล</Button>
+            <Button onClick={() => createLogMutation.mutate()} className="w-full">บันทึก</Button>
           </CardContent>
         </Card>
 
@@ -93,7 +86,7 @@ export default function Electricity() {
               <TableHeader>
                 <TableRow>
                   <TableHead>วันเวลา</TableHead>
-                  <TableHead>ชื่อผู้บันทึก</TableHead>
+                  <TableHead>ผู้บันทึก</TableHead>
                   <TableHead>เลขมิเตอร์</TableHead>
                 </TableRow>
               </TableHeader>
@@ -101,7 +94,7 @@ export default function Electricity() {
                 {logs.map((log: any) => (
                   <TableRow key={log.id}>
                     <TableCell>{new Date(log.created_at).toLocaleDateString('th-TH')}</TableCell>
-                    <TableCell className="font-medium">{log.recorded_by_name}</TableCell>
+                    <TableCell>{log.recorded_by_name}</TableCell>
                     <TableCell>{log.current_value}</TableCell>
                   </TableRow>
                 ))}
