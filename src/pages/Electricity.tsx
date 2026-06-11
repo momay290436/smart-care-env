@@ -115,7 +115,7 @@ export default function Electricity() {
     };
   }, [logs]);
 
-  // ฟังก์ชันสแกนคิวอาร์และตรวจสอบสิทธิ์สถานที่
+  // ฟังก์ชันสแกนคิวอาร์และตรวจสอบสิทธิ์สถานที่ (ปรับกรอบเป็นสี่เหลี่ยมจัตุรัสตามสั่ง)
   const startScanner = () => {
     setIsScanning(true);
     setCurrentWaterValue('');
@@ -127,6 +127,7 @@ export default function Electricity() {
           fps: 10, 
           aspectRatio: 1.0, // บังคับสัดส่วนช่องพรีวิวภาพกล้องเป็น 1:1 จัตุรัส
           qrbox: (viewfinderWidth, viewfinderHeight) => {
+            // คำนวณหาด้านที่สั้นที่สุดของกรอบ เพื่อทำเป็นสี่เหลี่ยมจัตุรัสที่พอดีกับหน้าจอมือถือ
             const minDimension = Math.min(viewfinderWidth, viewfinderHeight);
             const boxSize = Math.floor(minDimension * 0.72); // ขนาดกล่องเล็งสีขาวกว้างยาวเท่ากัน 72%
             return { width: boxSize, height: boxSize };
@@ -162,7 +163,7 @@ export default function Electricity() {
     }, 500);
   };
 
-  // จัดเก็บข้อมูลลงฐานข้อมูล (แก้ไขโดยการเอาคอลัมน์ units_used ออก เพื่อป้องกันข้อผิดพลาดชนกับระบบฐานข้อมูล)
+  // จัดเก็บข้อมูลลงฐานข้อมูล (คำนวณส่วนต่างหน่วยให้เรียบร้อย)
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
       toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
@@ -193,11 +194,11 @@ export default function Electricity() {
         return;
       }
 
-      // นำคอลัมน์ units_used ออกจากชุดคำสั่ง เพื่อแก้ปัญหาตามรูปภาพที่ระบุ
       const insertData: any = {
         meter_id: selectedMeterId,
         current_value: currentVal,
-        previous_value: prevVal
+        previous_value: prevVal,
+        units_used: currentVal - prevVal 
       };
 
       if (isShop) {
@@ -367,8 +368,149 @@ export default function Electricity() {
         </div>
       </div>
 
-      {/* ส่วนกล่องลงบันทึกค่างวดมิเตอร์ / กล้องสแกน (สี่เหลี่ยมจัตุรัสและปิดกล้องได้สมบูรณ์) */}
+      {/* ส่วนกล่องลงบันทึกค่างวดมิเตอร์ / กล้องสแกน (ปรับปรุงเป็นจัตุรัสและปิดกล้องได้สมบูรณ์) */}
       <div className="w-full">
         <Card className="w-full shadow-sm border border-slate-200/80 bg-white rounded-2xl overflow-hidden">
           <CardHeader className="bg-slate-50 border-b border-slate-100 py-2.5 px-4">
-            <CardTitle className="text-xs sm:text-sm font-
+            <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2"><Calendar className="h-4 w-4 text-indigo-500"/>ลงบันทึกค่างวดมิเตอร์</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-3 px-4 pb-4">
+            {!isScanning ? (
+              <Button onClick={startScanner} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
+                <Camera className="mr-2 h-4 w-4"/> เปิดกล้องสแกนคิวอาร์
+              </Button>
+            ) : (
+              <div className="relative max-w-[320px] mx-auto aspect-square w-full border-4 border-indigo-500 rounded-2xl overflow-hidden shadow-md bg-black">
+                {/* เจาะคำสั่ง CSS ครอบตัววิดีโอของ html5-qrcode ให้แสดงแบบเต็มจัตุรัส ไม่แบนเป็นแถบยาว */}
+                <div id="reader" className="w-full h-full [&_video]:object-cover [&_video]:w-full [&_video]:h-full"></div>
+                <Button 
+                  onClick={() => setIsScanning(false)} 
+                  className="absolute top-3 right-3 rounded-full h-8 w-8 p-0 z-50 shadow-md bg-rose-500 hover:bg-rose-600 transition-colors" 
+                  size="sm" 
+                  variant="destructive"
+                >
+                  <X className="h-4 w-4 text-white"/>
+                </Button>
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-0.5">
+                <label className="text-[10px] font-semibold text-slate-500">สถานที่ปฏิบัติงานที่ตรวจจับได้</label>
+                <Input value={meterDisplayName} placeholder="ชื่อสถานที่จากการสแกน" readOnly className="bg-slate-50 text-center font-bold text-slate-800 border-slate-200 text-xs sm:text-sm h-9" />
+              </div>
+
+              <div className="space-y-0.5">
+                <label className="text-[10px] font-semibold text-amber-600 flex items-center gap-1"><Zap className="h-3 w-3"/> เลขมิเตอร์ไฟฟ้าปัจจุบัน</label>
+                <Input type="number" value={currentValue} placeholder="ระบุตัวเลขไฟฟ้าล่าสุด" onChange={(e) => setCurrentValue(e.target.value)} className="text-center text-sm sm:text-base font-bold border-slate-300 focus:ring-2 focus:ring-indigo-500 h-9" />
+              </div>
+
+              <div className="space-y-0.5">
+                {isShop && (
+                  <div className="space-y-0.5 p-1 bg-blue-50/70 border border-blue-100 rounded-lg">
+                    <label className="text-[10px] font-bold text-blue-600 flex items-center gap-1"><Droplet className="h-3 w-3"/> เลขมิเตอร์น้ำปัจจุบัน</label>
+                    <Input type="number" value={currentWaterValue} placeholder="กรอกเลขมิเตอร์น้ำล่าสุด" onChange={(e) => setCurrentWaterValue(e.target.value)} className="text-center text-sm font-bold border-blue-300 bg-white focus:ring-2 focus:ring-blue-500 text-blue-700 h-8" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-xs sm:text-sm shadow-sm active:scale-[0.98] transition-all">ยืนยันและบันทึกข้อมูล</Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ส่วนสรุปสถิติความก้าวหน้า (KPI Dashboards และ ตัวกรองวันที่) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+        <Card className="border-l-4 border-l-amber-500 shadow-sm rounded-xl bg-white border border-slate-100">
+          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ยอดรวมใช้ไฟฟ้าประจำเดือน</p>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-800">{currentMonthStats.electric} <span className="text-xs font-normal text-slate-500">หน่วย</span></h3>
+              <p className="text-[10px] sm:text-[11px] text-amber-600 font-medium flex items-center gap-1 mt-0.5"><TrendingUp className="h-3 w-3"/> รอบบิล: {currentMonthStats.monthName}</p>
+            </div>
+            <div className="p-2.5 bg-amber-50 rounded-xl text-amber-600"><Zap className="h-5 w-5" /></div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-blue-500 shadow-sm rounded-xl bg-white border border-slate-100">
+          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ยอดรวมใช้น้ำประปา (ร้านค้า)</p>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-800">{currentMonthStats.water} <span className="text-xs font-normal text-slate-500">หน่วย</span></h3>
+              <p className="text-[10px] sm:text-[11px] text-blue-600 font-medium flex items-center gap-1 mt-0.5"><TrendingUp className="h-3 w-3"/> รอบบิล: {currentMonthStats.monthName}</p>
+            </div>
+            <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600"><Droplet className="h-5 w-5" /></div>
+          </CardContent>
+        </Card>
+
+        <Card className="sm:col-span-2 lg:col-span-1 shadow-sm rounded-xl bg-white border border-slate-200/60 p-3 flex flex-col justify-center space-y-2">
+          <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1"><Calendar className="h-3.5 w-3.5 text-slate-400" /> ค้นหาตามช่วงเวลาบันทึก</span>
+          <div className="grid grid-cols-2 gap-2">
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 text-xs bg-slate-50/50" />
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 text-xs bg-slate-50/50" />
+          </div>
+          {(startDate || endDate) && (
+            <Button size="sm" variant="ghost" onClick={() => { setStartDate(''); setEndDate(''); }} className="h-6 text-[11px] text-rose-500 hover:text-rose-600 p-0 self-end">ล้างตัวกรอง</Button>
+          )}
+        </Card>
+      </div>
+
+      {/* ส่วนแสดงตารางประวัติบันทึกข้อมูล */}
+      <Card className="shadow-sm border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+        <CardHeader className="bg-slate-50 border-b border-slate-100 py-3 px-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2">
+            ประวัติการจดบันทึกย้อนหลัง
+          </CardTitle>
+          <span className="text-[11px] text-slate-500 bg-slate-200/60 px-2.5 py-0.5 rounded-full font-medium">
+            ทั้งหมด {filteredLogs.length} รายการ
+          </span>
+        </CardHeader>
+        <div className="overflow-x-auto w-full">
+          <Table>
+            <TableHeader className="bg-slate-50/70">
+              <TableRow>
+                <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">วัน-เวลาที่บันทึก</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">สถานที่ติดตั้ง</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">เลขไฟงวดก่อน</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">เลขไฟล่าสุด</TableHead>
+                <TableHead className="text-xs font-bold text-indigo-600 py-3 text-right whitespace-nowrap">ไฟฟ้าที่ใช้ (หน่วย)</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">เลขน้ำงวดก่อน</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">เลขน้ำล่าสุด</TableHead>
+                <TableHead className="text-xs font-bold text-blue-600 py-3 text-right whitespace-nowrap">น้ำที่ใช้ (หน่วย)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredLogs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-400">ไม่พบประวัติข้อมูลตามเงื่อนไข</TableCell>
+                </TableRow>
+              ) : (
+                filteredLogs.map((log: any) => (
+                  <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                    <TableCell className="text-xs text-slate-600 py-2.5 whitespace-nowrap">
+                      {new Date(log.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
+                    </TableCell>
+                    <TableCell className="text-xs font-semibold text-slate-800 py-2.5 whitespace-nowrap">
+                      {log.electricity_meters?.meter_name || 'ไม่ทราบสถานที่'}
+                    </TableCell>
+                    <TableCell className="text-xs text-right text-slate-500 py-2.5">{log.previous_value}</TableCell>
+                    <TableCell className="text-xs text-right font-medium text-slate-700 py-2.5">{log.current_value}</TableCell>
+                    <TableCell className="text-xs text-right font-bold text-indigo-600 bg-indigo-50/30 py-2.5">
+                      {log.units_used?.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-xs text-right text-slate-500 py-2.5">{log.previous_water_value || '-'}</TableCell>
+                    <TableCell className="text-xs text-right font-medium text-slate-700 py-2.5">{log.current_water_value || '-'}</TableCell>
+                    <TableCell className="text-xs text-right font-bold text-blue-600 bg-blue-50/30 py-2.5">
+                      {log.current_water_value && log.previous_water_value ? (log.current_water_value - log.previous_water_value).toLocaleString() : '-'}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+    </div>
+  );
+}
