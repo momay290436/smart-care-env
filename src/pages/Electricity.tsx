@@ -86,4 +86,91 @@ export default function Electricity() {
 
       if (logYear === currentYear && logDate.getMonth() === currentMonth) {
         totalElectricUnits += log.units_used || 0;
-        if (log.current_water_
+        if (log.current_water_value && log.previous_water_value) {
+          const waterDiff = log.current_water_value - log.previous_water_value;
+          if (waterDiff > 0) totalWaterUnits += waterDiff;
+        }
+      }
+    });
+
+    return {
+      electric: totalElectricUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
+      water: totalWaterUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
+      monthName: now.toLocaleString('th-TH', { month: 'long', year: 'numeric' })
+    };
+  }, [logs]);
+
+  const startScanner = () => {
+    setIsScanning(true);
+    setCurrentWaterValue('');
+    setTimeout(() => {
+      const html5QrCode = new window.Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" }, 
+        { fps: 10, qrbox: 250 }, 
+        async (decodedText: string) => { 
+          setIsScanning(false); 
+          html5QrCode.stop(); 
+
+          const rawText = decodedText.trim();
+          const { data: meterData } = await supabase
+            .from('electricity_meters')
+            .select('*')
+            .eq('qr_url', rawText)
+            .limit(1)
+            .maybeSingle();
+
+          if (meterData) {
+            setSelectedMeterId(meterData.id); 
+            setMeterDisplayName(meterData.meter_name); 
+            toast({ title: "เชื่อมต่อสำเร็จ", description: `จุดติดตั้ง: ${meterData.meter_name}` });
+          } else {
+            setSelectedMeterId('');
+            setMeterDisplayName('');
+            toast({ variant: "destructive", title: "ไม่พบข้อมูล", description: `ลิงก์ QR นี้ยังไม่ได้ผูกในระบบ: ${rawText}` });
+          }
+        }, 
+        () => {}
+      ).catch(() => {
+        toast({ variant: "destructive", title: "ไม่สามารถเปิดกล้องได้" });
+        setIsScanning(false);
+      });
+    }, 500);
+  };
+
+  const handleSave = async () => {
+    if (!selectedMeterId || !currentValue) {
+      toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
+      return;
+    }
+
+    if (isShop && !currentWaterValue) {
+      toast({ variant: "destructive", title: "กรุณาระบุเลขมิเตอร์น้ำของร้านค้าด้วยครับ" });
+      return;
+    }
+
+    try {
+      const currentVal = parseFloat(currentValue);
+
+      const { data: lastLog } = await supabase
+        .from('electricity_logs')
+        .select('current_value, current_water_value')
+        .eq('meter_id', selectedMeterId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const prevVal = lastLog?.current_value || 0;
+      const prevWaterVal = lastLog?.current_water_value || 0;
+
+      if (currentVal < prevVal) {
+        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขไฟน้อยกว่าครั้งก่อน (${prevVal})` });
+        return;
+      }
+
+      const insertData: any = {
+        meter_id: selectedMeterId,
+        current_value: currentVal,
+        previous_value: prevVal,
+        units_used: currentVal - prevVal 
+      };
