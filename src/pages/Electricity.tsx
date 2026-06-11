@@ -16,30 +16,32 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // States สำหรับเก็บข้อมูลมิเตอร์ไฟและน้ำ
   const [selectedMeterId, setSelectedMeterId] = useState(''); 
   const [meterDisplayName, setMeterDisplayName] = useState(''); 
   const [currentValue, setCurrentValue] = useState(''); 
   const [currentWaterValue, setCurrentWaterValue] = useState(''); 
   const [isScanning, setIsScanning] = useState(false);
 
+  // States สำหรับระบุช่วงวันที่เพื่อใช้กรองข้อมูลด้านบนตารางประวัติ
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // States สำหรับสร้างจุดติดตั้งและคิวอาร์โค้ด
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
 
-  // ย้ายมาประกาศด้านบนสุดตรงนี้ เพื่อให้ฟังก์ชัน handleSave เรียกใช้งานได้ไม่มี Error
+  // ตรวจสอบความเป็นประเภทร้านค้าหรือไม่
   const isShop = meterDisplayName.includes('(ร้านค้า)');
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-
     const script = document.createElement('script');
     script.src = "https://unpkg.com/html5-qrcode";
     script.async = true;
     document.body.appendChild(script);
   }, []);
 
+  // ดึงประวัติการบันทึกทั้งหมด
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
     queryFn: async () => {
@@ -63,6 +65,7 @@ export default function Electricity() {
     }
   });
 
+  // 1. ตัวกรองข้อมูล (Filter Data) ตามช่วงวันที่เลือก
   const filteredLogs = logs.filter((log: any) => {
     if (!startDate && !endDate) return true;
     const logDate = new Date(log.created_at).toISOString().split('T')[0];
@@ -72,21 +75,27 @@ export default function Electricity() {
     return true;
   });
 
+  // 2. คำนวณยอด KPI สรุปของเดือนปัจจุบัน (รองรับการแปลงปี พ.ศ. และ ค.ศ. อย่างปลอดภัย)
   const currentMonthStats = React.useMemo(() => {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
+    let currentYear = now.getFullYear();
+    if (currentYear > 2500) currentYear -= 543; // ดักแปลงถ้าเครื่องผู้ใช้เป็นปี พ.ศ.
+    const currentMonth = now.getMonth(); 
 
     let totalElectricUnits = 0;
     let totalWaterUnits = 0;
 
     logs.forEach((log: any) => {
+      if (!log.created_at) return;
       const logDate = new Date(log.created_at);
       let logYear = logDate.getFullYear();
-      if (logYear > 2500) logYear = logYear - 543;
+      if (logYear > 2500) logYear -= 543; // แปลงให้เป็น ค.ศ. เท่ากันเพื่อเทียบค่า
 
       if (logYear === currentYear && logDate.getMonth() === currentMonth) {
+        // รวมหน่วยไฟฟ้าที่ใช้ประจำงวด
         totalElectricUnits += log.units_used || 0;
+        
+        // รวมหน่วยค่าน้ำประจำงวด (ล่าสุด - ครั้งก่อน)
         if (log.current_water_value && log.previous_water_value) {
           const waterDiff = log.current_water_value - log.previous_water_value;
           if (waterDiff > 0) totalWaterUnits += waterDiff;
@@ -98,51 +107,3 @@ export default function Electricity() {
       electric: totalElectricUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
       water: totalWaterUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
       monthName: now.toLocaleString('th-TH', { month: 'long', year: 'numeric' })
-    };
-  }, [logs]);
-
-  const startScanner = () => {
-    setIsScanning(true);
-    setCurrentWaterValue('');
-    setTimeout(() => {
-      const html5QrCode = new window.Html5Qrcode("reader");
-      html5QrCode.start(
-        { facingMode: "environment" }, 
-        { fps: 10, qrbox: 250 }, 
-        async (decodedText: string) => { 
-          setIsScanning(false); 
-          html5QrCode.stop(); 
-
-          const rawText = decodedText.trim();
-          const { data: meterData } = await supabase
-            .from('electricity_meters')
-            .select('*')
-            .eq('qr_url', rawText)
-            .limit(1)
-            .maybeSingle();
-
-          if (meterData) {
-            setSelectedMeterId(meterData.id); 
-            setMeterDisplayName(meterData.meter_name); 
-            toast({ title: "เชื่อมต่อสำเร็จ", description: `จุดติดตั้ง: ${meterData.meter_name}` });
-          } else {
-            setSelectedMeterId('');
-            setMeterDisplayName('');
-            toast({ variant: "destructive", title: "ไม่พบข้อมูล", description: `ลิงก์ QR นี้ยังไม่ได้ผูกในระบบ: ${rawText}` });
-          }
-        }, 
-        () => {}
-      ).catch(() => {
-        toast({ variant: "destructive", title: "ไม่สามารถเปิดกล้องได้" });
-        setIsScanning(false);
-      });
-    }, 500);
-  };
-
-  const handleSave = async () => {
-    if (!selectedMeterId || !currentValue) {
-      toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
-      return;
-    }
-
-    if (isShop && !currentWaterValue
