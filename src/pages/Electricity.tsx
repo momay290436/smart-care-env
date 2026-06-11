@@ -211,11 +211,11 @@ export default function Electricity() {
         return;
       }
 
+      // ปรับเปลี่ยนตรงนี้: ถอนหน่วย units_used ออก เพื่อป้องกัน Error และให้ระบบหลังบ้านคำนวณแทน
       const insertData: any = {
         meter_id: selectedMeterId,
         current_value: currentVal,
-        previous_value: prevVal,
-        units_used: currentVal - prevVal 
+        previous_value: prevVal
       };
 
       if (isShop) {
