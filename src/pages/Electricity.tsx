@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp, Clock } from 'lucide-react';
+import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 declare global { interface Window { Html5Qrcode: any; } }
@@ -17,14 +17,16 @@ export default function Electricity() {
   const queryClient = useQueryClient();
   
   // States สำหรับเก็บข้อมูลมิเตอร์ไฟและน้ำ
-  const [selectedMeterId, setSelectedMeterId] = useState('');
-  const [meterDisplayName, setMeterDisplayName] = useState('');
-  const [currentValue, setCurrentValue] = useState('');
-  const [currentWaterValue, setCurrentWaterValue] = useState('');
+  const [selectedMeterId, setSelectedMeterId] = useState(''); 
+  const [meterDisplayName, setMeterDisplayName] = useState(''); 
+  const [currentValue, setCurrentValue] = useState(''); 
+  const [currentWaterValue, setCurrentWaterValue] = useState(''); 
   const [isScanning, setIsScanning] = useState(false);
 
-  // State ใหม่: สำหรับระบุวัน-เวลาลงบันทึก (รองรับการใส่ข้อมูลย้อนหลัง)
-  const [customDate, setCustomDate] = useState('');
+  // States พิเศษสำหรับกรอก "ค่าเริ่มต้น" ในกรณีจดครั้งแรกในระบบ
+  const [isFirstRecord, setIsFirstRecord] = useState(false);
+  const [customPrevValue, setCustomPrevValue] = useState('');
+  const [customPrevWaterValue, setCustomPrevWaterValue] = useState('');
 
   // States สำหรับระบุช่วงวันที่เพื่อใช้กรองข้อมูลด้านบนตารางประวัติ
   const [startDate, setStartDate] = useState('');
@@ -37,19 +39,11 @@ export default function Electricity() {
   // ตรวจสอบความเป็นประเภทร้านค้าหรือไม่
   const isShop = meterDisplayName.includes('(ร้านค้า)');
 
-  // ฟังก์ชันตั้งค่าวันเวลาปัจจุบันในฟอร์มย้อนหลังแบบอัตโนมัติ
-  const setToCurrentDateTime = () => {
-    const tzoffset = (new Date()).getTimezoneOffset() * 60000; // แปลงเวลาให้ตรงกับ Local Timezone
-    const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
-    setCustomDate(localISOTime);
-  };
-
   useEffect(() => {
     const script = document.createElement('script');
     script.src = "https://unpkg.com/html5-qrcode";
     script.async = true;
     document.body.appendChild(script);
-    setToCurrentDateTime(); // เรียกใช้วันเวลาปัจจุบันตอนเปิดหน้าเว็บ
   }, []);
 
   // ดึงหน้าจอขึ้นไปส่วนบนสุดทันทีเมื่อโหลดเข้าหน้าระบบไฟฟ้านี้
@@ -58,8 +52,8 @@ export default function Electricity() {
   }, []);
 
   // ดึงประวัติการบันทึกทั้งหมด
-  const { data: logs = [] } = useQuery({
-    queryKey: ['logs'],
+  const { data: logs = [] } = useQuery({ 
+    queryKey: ['logs'], 
     queryFn: async () => {
       const { data } = await supabase
         .from('electricity_logs')
@@ -96,7 +90,7 @@ export default function Electricity() {
     const now = new Date();
     let currentYear = now.getFullYear();
     if (currentYear > 2500) currentYear -= 543; // ดักแปลงถ้าเครื่องผู้ใช้เป็นปี พ.ศ.
-    const currentMonth = now.getMonth();
+    const currentMonth = now.getMonth(); 
 
     let totalElectricUnits = 0;
     let totalWaterUnits = 0;
@@ -126,6 +120,32 @@ export default function Electricity() {
     };
   }, [logs]);
 
+  // ฟังก์ชันตรวจสอบประวัติการบันทึกของมิเตอร์ที่เลือก
+  const checkMeterHistory = async (meterId: string) => {
+    try {
+      const { data: lastLog } = await supabase
+        .from('electricity_logs')
+        .select('current_value, current_water_value')
+        .eq('meter_id', meterId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!lastLog) {
+        // หากไม่มีประวัติในระบบเลย ให้เปิดโหมดกรอกค่าเริ่มต้นเอง
+        setIsFirstRecord(true);
+        setCustomPrevValue('0');
+        setCustomPrevWaterValue('0');
+      } else {
+        setIsFirstRecord(false);
+        setCustomPrevValue(lastLog.current_value.toString());
+        setCustomPrevWaterValue(lastLog.current_water_value ? lastLog.current_water_value.toString() : '0');
+      }
+    } catch (err) {
+      console.error("Error checking meter history:", err);
+    }
+  };
+
   // ฟังก์ชันสแกนคิวอาร์และตรวจสอบสิทธิ์สถานที่
   const startScanner = () => {
     setIsScanning(true);
@@ -136,7 +156,36 @@ export default function Electricity() {
         { facingMode: "environment" }, 
         { 
           fps: 10, 
-          aspectRatio: 1.0, // บังคับสัดส่วนช่องพรีวิวภาพกล้องเป็น 1:1 จัตุรัส
+          aspectRatio: 1.0, 
           qrbox: (viewfinderWidth, viewfinderHeight) => {
             const minDimension = Math.min(viewfinderWidth, viewfinderHeight);
-            const boxSize = Math.floor(minDimension * 0.72); // ขนาดกล่องเล็งสีขาวกว้างยาวเท่ากัน 72%
+            const boxSize = Math.floor(minDimension * 0.72); 
+            return { width: boxSize, height: boxSize };
+          }
+        }, 
+        async (decodedText: string) => { 
+          setIsScanning(false); 
+          html5QrCode.stop(); 
+
+          const rawText = decodedText.trim();
+          const { data: meterData } = await supabase
+            .from('electricity_meters')
+            .select('*')
+            .eq('qr_url', rawText)
+            .limit(1)
+            .maybeSingle();
+
+          if (meterData) {
+            setSelectedMeterId(meterData.id); 
+            setMeterDisplayName(meterData.meter_name); 
+            await checkMeterHistory(meterData.id);
+            toast({ title: "เชื่อมต่อสำเร็จ", description: `จุดติดตั้ง: ${meterData.meter_name}` });
+          } else {
+            setSelectedMeterId('');
+            setMeterDisplayName('');
+            toast({ variant: "destructive", title: "ไม่พบข้อมูล", description: `ลิงก์ QR นี้ยังไม่ได้ผูกในระบบ: ${rawText}` });
+          }
+        }, 
+        () => {}
+      ).catch(() => {
+        toast({ variant: "destructive", title: "ไม่สามารถ
