@@ -16,27 +16,35 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // States สำหรับบันทึกข้อมูลหลัก
+  // States สำหรับบันทึกข้อมูลหลัก[cite: 3]
   const [selectedMeterId, setSelectedMeterId] = useState(''); 
   const [meterDisplayName, setMeterDisplayName] = useState(''); 
   const [currentValue, setCurrentValue] = useState(''); 
   const [currentWaterValue, setCurrentWaterValue] = useState(''); 
   const [isScanning, setIsScanning] = useState(false);
 
-  // States พิเศษสำหรับจัดการข้อมูลครั้งแรกที่ดึงมาจากกระดาษ
+  // เพิ่ม State สำหรับปฏิทินลงข้อมูลย้อนหลัง (ค่าเริ่มต้นเป็นวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD)
+  const [recordDate, setRecordDate] = useState(() => {
+    const today = new Date();
+    const offset = today.getTimezoneOffset();
+    const localToday = new Date(today.getTime() - (offset * 60 * 1000));
+    return localToday.toISOString().split('T')[0];
+  });
+
+  // States พิเศษสำหรับจัดการข้อมูลครั้งแรกที่ดึงมาจากกระดาษ[cite: 3]
   const [isFirstRecord, setIsFirstRecord] = useState(false);
   const [customPrevValue, setCustomPrevValue] = useState('');
   const [customPrevWaterValue, setCustomPrevWaterValue] = useState('');
 
-  // States สำหรับระบบคัดกรองปฏิทิน
+  // States สำหรับระบบคัดกรองปฏิทิน[cite: 3]
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // States สำหรับการลงทะเบียนเครื่องมิเตอร์ใหม่
+  // States สำหรับการลงทะเบียนเครื่องมิเตอร์ใหม่[cite: 3]
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
 
-  // ตัวแปรเช็กกลุ่มร้านค้า
+  // ตัวแปรเช็กกลุ่มร้านค้า[cite: 3]
   const isShop = meterDisplayName.includes('(ร้านค้า)');
 
   useEffect(() => {
@@ -50,7 +58,7 @@ export default function Electricity() {
     window.scrollTo(0, 0);
   }, []);
 
-  // ดึงประวัติรายการทั้งหมดจาก Supabase
+  // ดึงประวัติรายการทั้งหมดจาก Supabase[cite: 3]
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
     queryFn: async () => {
@@ -74,7 +82,7 @@ export default function Electricity() {
     }
   });
 
-  // ระบบคัดกรองข้อมูลประวัติด้วยวันที่
+  // ระบบคัดกรองข้อมูลประวัติด้วยวันที่[cite: 3]
   const filteredLogs = logs.filter((log: any) => {
     if (!startDate && !endDate) return true;
     const logDate = new Date(log.created_at).toISOString().split('T')[0];
@@ -84,7 +92,7 @@ export default function Electricity() {
     return true;
   });
 
-  // คำนวณสรุปหน่วยประจำเดือนล่าสุด (รองรับปฏิทิน พ.ศ. / ค.ศ.)
+  // คำนวณสรุปหน่วยประจำเดือนล่าสุด (รองรับปฏิทิน พ.ศ. / ค.ศ.)[cite: 3]
   const currentMonthStats = React.useMemo(() => {
     const now = new Date();
     let currentYear = now.getFullYear();
@@ -117,7 +125,7 @@ export default function Electricity() {
     };
   }, [logs]);
 
-  // ฟังก์ชันวิเคราะห์ประวัติย้อนหลังของมิเตอร์เพื่อเปิดฟอร์มแก้เลขตั้งต้น
+  // ฟังก์ชันวิเคราะห์ประวัติย้อนหลังของมิเตอร์เพื่อเปิดฟอร์มแก้เลขตั้งต้น[cite: 3]
   const checkMeterHistory = async (meterId: string) => {
     try {
       const { data: lastLog } = await supabase
@@ -142,7 +150,7 @@ export default function Electricity() {
     }
   };
 
-  // เรียกใช้งานโมดูลกล้องเพื่อสแกน QR Code หน้างาน
+  // เรียกใช้งานโมดูลกล้องเพื่อสแกน QR Code หน้างาน[cite: 3]
   const startScanner = () => {
     setIsScanning(true);
     setCurrentWaterValue('');
@@ -190,7 +198,7 @@ export default function Electricity() {
     }, 500);
   };
 
-  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล
+  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล[cite: 3]
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
       toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
@@ -211,11 +219,15 @@ export default function Electricity() {
         return;
       }
 
-      // ปรับเปลี่ยนตรงนี้: ถอนหน่วย units_used ออก เพื่อป้องกัน Error และให้ระบบหลังบ้านคำนวณแทน
+      // สร้าง Timestamp จากวันที่แอดมินเลือกในปฏิทินลงข้อมูลย้อนหลัง
+      const currentTimeStr = new Date().toTimeString().split(' ')[0]; // ดึงเวลาปัจจุบันมาด้วยเพื่อให้ข้อมูลเรียงลำดับถูกต้องตามจริง
+      const finalCreatedAt = new Date(`${recordDate}T${currentTimeStr}`).toISOString();
+
       const insertData: any = {
         meter_id: selectedMeterId,
         current_value: currentVal,
-        previous_value: prevVal
+        previous_value: prevVal,
+        created_at: finalCreatedAt // นำเข้าวันที่ที่เลือกย้อนหลัง
       };
 
       if (isShop) {
@@ -239,13 +251,20 @@ export default function Electricity() {
       setSelectedMeterId('');
       setMeterDisplayName('');
       setIsFirstRecord(false);
+      
+      // รีเซ็ตปฏิทินแอดมินกลับมาวันที่ปัจจุบัน
+      const today = new Date();
+      const offset = today.getTimezoneOffset();
+      const localToday = new Date(today.getTime() - (offset * 60 * 1000));
+      setRecordDate(localToday.toISOString().split('T')[0]);
+
       queryClient.invalidateQueries({ queryKey: ['logs'] });
     } catch (err: any) {
       toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการบันทึก", description: err.message });
     }
   };
 
-  // เพิ่มจุดจดบันทึกตัวใหม่เข้าระบบ
+  // เพิ่มจุดจดบันทึกตัวใหม่เข้าระบบ[cite: 3]
   const handleSaveMeter = async () => {
     if (!newMeter.name || !newMeter.serial) {
       toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และรหัสมิเตอร์" });
@@ -291,7 +310,7 @@ export default function Electricity() {
     }
   };
 
-  // ส่งออกไฟล์รายงานสรุปแยกหมวดหมู่ตามวงเล็บท้ายชื่อ
+  // ส่งออกไฟล์รายงานสรุปแยกหมวดหมู่ตามวงเล็บท้ายชื่อ[cite: 3]
   const exportExcel = () => {
     const formatLogItem = (log: any) => ({
       'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
@@ -336,7 +355,7 @@ export default function Electricity() {
   return (
     <div className="w-full max-w-full md:max-w-[100vw] px-3 sm:px-6 md:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 bg-slate-50/50 min-h-screen box-border overflow-x-hidden">
       
-      {/* ส่วนหัวของระบบหน้าเว็บ */}
+      {/* ส่วนหัวของระบบหน้าเว็บ[cite: 3] */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">ระบบบริหารจัดการมิเตอร์</h1>
@@ -388,7 +407,7 @@ export default function Electricity() {
         </div>
       </div>
 
-      {/* ส่วนกล่องลงบันทึกค่างวดมิเตอร์ / กล้องสแกน */}
+      {/* ส่วนกล่องลงบันทึกค่างวดมิเตอร์ / กล้องสแกน[cite: 3] */}
       <div className="w-full">
         <Card className="w-full shadow-sm border border-slate-200/80 bg-white rounded-2xl overflow-hidden">
           <CardHeader className="bg-slate-50 border-b border-slate-100 py-2.5 px-4">
@@ -413,14 +432,28 @@ export default function Electricity() {
               </div>
             )}
 
-            {/* ส่วนฟอร์มกรอกข้อมูลมิเตอร์ */}
+            {/* ส่วนฟอร์มกรอกข้อมูลมิเตอร์[cite: 3] */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/50 p-3 sm:p-4 rounded-xl border border-slate-100">
+              
+              {/* ปฏิทินสำหรับแอดมินเลือกบันทึกวันที่ย้อนหลัง */}
+              <div className="space-y-1 md:col-span-2 bg-indigo-50/40 p-3 border border-indigo-100 rounded-xl">
+                <label className="text-[11px] font-bold text-indigo-700 flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5"/> วันที่จดบันทึกข้อมูล (ปรับเปลี่ยนเพื่อลงข้อมูลย้อนหลังได้)
+                </label>
+                <Input 
+                  type="date" 
+                  value={recordDate} 
+                  onChange={(e) => setRecordDate(e.target.value)} 
+                  className="bg-white border-indigo-200 focus:ring-2 focus:ring-indigo-500 h-10 text-sm font-semibold" 
+                />
+              </div>
+
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-slate-500">สถานที่ปฏิบัติงานที่ตรวจจับได้</label>
                 <Input value={meterDisplayName} placeholder="ชื่อสถานที่จากการสแกน" readOnly className="bg-white text-center font-bold text-slate-800 border-slate-200 h-10 text-sm" />
               </div>
 
-              {/* บันทึกระบบไฟฟ้า */}
+              {/* บันทึกระบบไฟฟ้า[cite: 3] */}
               <div className="p-3 bg-amber-50/40 border border-amber-100 rounded-xl space-y-2">
                 <span className="text-[11px] font-bold text-amber-700 flex items-center gap-1"><Zap className="h-3.5 w-3.5"/> ระบบบันทึกมิเตอร์ไฟฟ้า</span>
                 <div className="grid grid-cols-2 gap-2">
@@ -436,14 +469,14 @@ export default function Electricity() {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-amber-600 block mb-0.5">เลขล่าสุด (เมษายน)</label>
+                    <label className="text-[10px] font-bold text-amber-600 block mb-0.5">เลขล่าสุด</label>
                     <Input type="number" value={currentValue} placeholder="ระบุเลขล่าสุด" onChange={(e) => setCurrentValue(e.target.value)} className="text-center text-xs font-bold border-slate-300 focus:ring-2 focus:ring-indigo-500 h-9 bg-white" />
                   </div>
                 </div>
                 {isFirstRecord && <p className="text-[9px] text-amber-600 font-medium">* บันทึกครั้งแรก: สามารถแก้ไขเลขงวดก่อนหน้าได้</p>}
               </div>
 
-              {/* บันทึกระบบน้ำประปา (ถ้ามีวงเล็บคำว่าร้านค้าท้ายชื่อ) */}
+              {/* บันทึกระบบน้ำประปา (ถ้ามีวงเล็บคำว่าร้านค้าท้ายชื่อ)[cite: 3] */}
               {isShop && (
                 <div className="p-3 bg-blue-50/40 border border-blue-100 rounded-xl space-y-2 md:col-span-2">
                   <span className="text-[11px] font-bold text-blue-700 flex items-center gap-1"><Droplet className="h-3.5 w-3.5"/> ระบบบันทึกมิเตอร์น้ำประปา (เฉพาะร้านค้า)</span>
@@ -460,7 +493,7 @@ export default function Electricity() {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-blue-600 block mb-0.5">เลขล่าสุด (เมษายน)</label>
+                      <label className="text-[10px] font-bold text-blue-600 block mb-0.5">เลขล่าสุด</label>
                       <Input type="number" value={currentWaterValue} placeholder="ระบุเลขล่าสุด" onChange={(e) => setCurrentWaterValue(e.target.value)} className="text-center text-xs font-bold border-blue-300 focus:ring-2 focus:ring-blue-500 h-9 bg-white text-blue-700" />
                     </div>
                   </div>
@@ -473,7 +506,7 @@ export default function Electricity() {
         </Card>
       </div>
 
-      {/* ส่วนสรุปสถิติความก้าวหน้า (KPI Dashboards และ ตัวกรองวันที่) */}
+      {/* ส่วนสรุปสถิติความก้าวหน้า (KPI Dashboards และ ตัวกรองวันที่)[cite: 3] */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
         <Card className="border-l-4 border-l-amber-500 shadow-sm rounded-xl bg-white border border-slate-100">
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
@@ -509,7 +542,7 @@ export default function Electricity() {
         </Card>
       </div>
 
-      {/* ส่วนแสดงตารางประวัติบันทึกข้อมูล */}
+      {/* ส่วนแสดงตารางประวัติบันทึกข้อมูล[cite: 3] */}
       <Card className="shadow-sm border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
         <CardHeader className="bg-slate-50 border-b border-slate-100 py-3 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2">
