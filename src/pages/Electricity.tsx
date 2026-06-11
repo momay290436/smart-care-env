@@ -16,27 +16,27 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // States สำหรับเก็บข้อมูลมิเตอร์ไฟและน้ำ
+  // States สำหรับบันทึกข้อมูลหลัก
   const [selectedMeterId, setSelectedMeterId] = useState(''); 
   const [meterDisplayName, setMeterDisplayName] = useState(''); 
   const [currentValue, setCurrentValue] = useState(''); 
   const [currentWaterValue, setCurrentWaterValue] = useState(''); 
   const [isScanning, setIsScanning] = useState(false);
 
-  // States พิเศษสำหรับกรอก "ค่าเริ่มต้น" ในกรณีจดครั้งแรกในระบบ
+  // States พิเศษสำหรับจัดการข้อมูลครั้งแรกที่ดึงมาจากกระดาษ
   const [isFirstRecord, setIsFirstRecord] = useState(false);
   const [customPrevValue, setCustomPrevValue] = useState('');
   const [customPrevWaterValue, setCustomPrevWaterValue] = useState('');
 
-  // States สำหรับระบุช่วงวันที่เพื่อใช้กรองข้อมูลด้านบนตารางประวัติ
+  // States สำหรับระบบคัดกรองปฏิทิน
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // States สำหรับสร้างจุดติดตั้งและคิวอาร์โค้ด
+  // States สำหรับการลงทะเบียนเครื่องมิเตอร์ใหม่
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
 
-  // ตรวจสอบความเป็นประเภทร้านค้าหรือไม่
+  // ตัวแปรเช็กกลุ่มร้านค้า
   const isShop = meterDisplayName.includes('(ร้านค้า)');
 
   useEffect(() => {
@@ -46,12 +46,11 @@ export default function Electricity() {
     document.body.appendChild(script);
   }, []);
 
-  // ดึงหน้าจอขึ้นไปส่วนบนสุดทันทีเมื่อโหลดเข้าหน้าระบบไฟฟ้านี้
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  // ดึงประวัติการบันทึกทั้งหมด
+  // ดึงประวัติรายการทั้งหมดจาก Supabase
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
     queryFn: async () => {
@@ -75,7 +74,7 @@ export default function Electricity() {
     }
   });
 
-  // 1. ตัวกรองข้อมูล (Filter Data) ตามช่วงวันที่เลือก
+  // ระบบคัดกรองข้อมูลประวัติด้วยวันที่
   const filteredLogs = logs.filter((log: any) => {
     if (!startDate && !endDate) return true;
     const logDate = new Date(log.created_at).toISOString().split('T')[0];
@@ -85,11 +84,11 @@ export default function Electricity() {
     return true;
   });
 
-  // 2. คำนวณยอด KPI สรุปของเดือนปัจจุบัน (รองรับการแปลงปี พ.ศ. และ ค.ศ. อย่างปลอดภัย)
+  // คำนวณสรุปหน่วยประจำเดือนล่าสุด (รองรับปฏิทิน พ.ศ. / ค.ศ.)
   const currentMonthStats = React.useMemo(() => {
     const now = new Date();
     let currentYear = now.getFullYear();
-    if (currentYear > 2500) currentYear -= 543; // ดักแปลงถ้าเครื่องผู้ใช้เป็นปี พ.ศ.
+    if (currentYear > 2500) currentYear -= 543;
     const currentMonth = now.getMonth(); 
 
     let totalElectricUnits = 0;
@@ -99,13 +98,11 @@ export default function Electricity() {
       if (!log.created_at) return;
       const logDate = new Date(log.created_at);
       let logYear = logDate.getFullYear();
-      if (logYear > 2500) logYear -= 543; // แปลงให้เป็น ค.ศ. เท่ากันเพื่อเทียบค่า
+      if (logYear > 2500) logYear -= 543;
 
       if (logYear === currentYear && logDate.getMonth() === currentMonth) {
-        // รวมหน่วยไฟฟ้าที่ใช้ประจำงวด
         totalElectricUnits += log.units_used || 0;
         
-        // รวมหน่วยค่าน้ำประจำงวด (ล่าสุด - ครั้งก่อน)
         if (log.current_water_value && log.previous_water_value) {
           const waterDiff = log.current_water_value - log.previous_water_value;
           if (waterDiff > 0) totalWaterUnits += waterDiff;
@@ -120,7 +117,7 @@ export default function Electricity() {
     };
   }, [logs]);
 
-  // ฟังก์ชันตรวจสอบประวัติการบันทึกของมิเตอร์ที่เลือก
+  // ฟังก์ชันวิเคราะห์ประวัติย้อนหลังของมิเตอร์เพื่อเปิดฟอร์มแก้เลขตั้งต้น
   const checkMeterHistory = async (meterId: string) => {
     try {
       const { data: lastLog } = await supabase
@@ -132,7 +129,6 @@ export default function Electricity() {
         .maybeSingle();
 
       if (!lastLog) {
-        // หากไม่มีประวัติในระบบเลย ให้เปิดโหมดกรอกค่าเริ่มต้นเอง
         setIsFirstRecord(true);
         setCustomPrevValue('0');
         setCustomPrevWaterValue('0');
@@ -142,11 +138,11 @@ export default function Electricity() {
         setCustomPrevWaterValue(lastLog.current_water_value ? lastLog.current_water_value.toString() : '0');
       }
     } catch (err) {
-      console.error("Error checking meter history:", err);
+      console.error("History verification error:", err);
     }
   };
 
-  // ฟังก์ชันสแกนคิวอาร์และตรวจสอบสิทธิ์สถานที่
+  // เรียกใช้งานโมดูลกล้องเพื่อสแกน QR Code หน้างาน
   const startScanner = () => {
     setIsScanning(true);
     setCurrentWaterValue('');
@@ -183,18 +179,18 @@ export default function Electricity() {
           } else {
             setSelectedMeterId('');
             setMeterDisplayName('');
-            toast({ variant: "destructive", title: "ไม่พบข้อมูล", description: `ลิงก์ QR นี้ยังไม่ได้ผูกในระบบ: ${rawText}` });
+            toast({ variant: "destructive", title: "ไม่พบข้อมูล", description: "ลิงก์คิวอาร์โค้ดนี้ยังไม่ได้ผูกในระบบ" });
           }
         }, 
         () => {}
       ).catch(() => {
-        toast({ variant: "destructive", title: "ไม่สามารถเปิดกล้องได้" });
+        toast({ variant: "destructive", title: "ไม่สามารถเปิดใช้งานกล้องได้" });
         setIsScanning(false);
       });
     }, 500);
   };
 
-  // จัดเก็บข้อมูลลงฐานข้อมูล
+  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
       toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
@@ -202,7 +198,7 @@ export default function Electricity() {
     }
 
     if (isShop && !currentWaterValue) {
-      toast({ variant: "destructive", title: "กรุณาระบุเลขมิเตอร์น้ำของร้านค้าด้วยครับ" });
+      toast({ variant: "destructive", title: "กรุณาระบุเลขมิเตอร์น้ำของร้านค้า" });
       return;
     }
 
@@ -211,7 +207,7 @@ export default function Electricity() {
       const prevVal = parseFloat(customPrevValue) || 0;
 
       if (currentVal < prevVal) {
-        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขไฟน้อยกว่าครั้งก่อน (${prevVal})` });
+        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์ไฟฟ้าน้อยกว่าครั้งก่อนหน้า (${prevVal})` });
         return;
       }
 
@@ -227,7 +223,7 @@ export default function Electricity() {
         const prevWaterVal = parseFloat(customPrevWaterValue) || 0;
         
         if (currentWaterVal < prevWaterVal) {
-          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขน้ำน้อยกว่าครั้งก่อน (${prevWaterVal})` });
+          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์น้ำน้อยกว่าครั้งก่อนหน้า (${prevWaterVal})` });
           return;
         }
         insertData.current_water_value = currentWaterVal;
@@ -237,7 +233,7 @@ export default function Electricity() {
       const { error } = await supabase.from('electricity_logs').insert([insertData]);
       if (error) throw error;
       
-      toast({ title: "บันทึกข้อมูลเสร็จสิ้น" });
+      toast({ title: "บันทึกข้อมูลสำเร็จเรียบร้อย" });
       setCurrentValue('');
       setCurrentWaterValue('');
       setSelectedMeterId('');
@@ -245,11 +241,11 @@ export default function Electricity() {
       setIsFirstRecord(false);
       queryClient.invalidateQueries({ queryKey: ['logs'] });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "บันทึกไม่สำเร็จ", description: err.message });
+      toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการบันทึก", description: err.message });
     }
   };
 
-  // เพิ่มสถานที่ปฏิบัติงานใหม่
+  // เพิ่มจุดจดบันทึกตัวใหม่เข้าระบบ
   const handleSaveMeter = async () => {
     if (!newMeter.name || !newMeter.serial) {
       toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และรหัสมิเตอร์" });
@@ -270,9 +266,9 @@ export default function Electricity() {
 
       const qrCodeImgApi = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(autoQrUrl)}`;
       setGeneratedQrUrl(qrCodeImgApi);
-      toast({ title: "เพิ่มสถานที่สำเร็จ" });
+      toast({ title: "เพิ่มจุดตรวจสอบสำเร็จ" });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "เพิ่มสถานที่ล้มเหลว", description: err.message });
+      toast({ variant: "destructive", title: "การบันทึกจุดจดล้มเหลว", description: err.message });
     }
   };
 
@@ -291,11 +287,11 @@ export default function Electricity() {
       setNewMeter({ name: '', code: '', serial: '', qr_url: '' });
       setGeneratedQrUrl('');
     } catch {
-      toast({ variant: "destructive", title: "ดาวน์โหลดคิวอาร์ผิดพลาด" });
+      toast({ variant: "destructive", title: "ดาวน์โหลดรูปคิวอาร์โค้ดไม่สำเร็จ" });
     }
   };
 
-  // ฟังก์ชัน Export รายงานแยกแผ่นงาน
+  // ส่งออกไฟล์รายงานสรุปแยกหมวดหมู่ตามวงเล็บท้ายชื่อ
   const exportExcel = () => {
     const formatLogItem = (log: any) => ({
       'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
@@ -424,7 +420,7 @@ export default function Electricity() {
                 <Input value={meterDisplayName} placeholder="ชื่อสถานที่จากการสแกน" readOnly className="bg-white text-center font-bold text-slate-800 border-slate-200 h-10 text-sm" />
               </div>
 
-              {/* มิเตอร์ไฟฟ้า */}
+              {/* บันทึกระบบไฟฟ้า */}
               <div className="p-3 bg-amber-50/40 border border-amber-100 rounded-xl space-y-2">
                 <span className="text-[11px] font-bold text-amber-700 flex items-center gap-1"><Zap className="h-3.5 w-3.5"/> ระบบบันทึกมิเตอร์ไฟฟ้า</span>
                 <div className="grid grid-cols-2 gap-2">
@@ -435,7 +431,7 @@ export default function Electricity() {
                       value={customPrevValue} 
                       onChange={(e) => setCustomPrevValue(e.target.value)} 
                       disabled={!isFirstRecord} 
-                      className={`text-center font-semibold h-9 text-xs bg-white ${isFirstRecord ? 'border-amber-400 focus:ring-amber-500' : 'text-slate-400 bg-slate-100'}`} 
+                      className={isFirstRecord ? "text-center font-semibold h-9 text-xs bg-white border-amber-400 focus:ring-amber-500" : "text-center font-semibold h-9 text-xs text-slate-400 bg-slate-100"} 
                       placeholder="อิงตามระบบ"
                     />
                   </div>
@@ -447,7 +443,7 @@ export default function Electricity() {
                 {isFirstRecord && <p className="text-[9px] text-amber-600 font-medium">* บันทึกครั้งแรก: สามารถแก้ไขเลขงวดก่อนหน้าได้</p>}
               </div>
 
-              {/* มิเตอร์น้ำ (เปิดเฉพาะร้านค้า) */}
+              {/* บันทึกระบบน้ำประปา (ถ้ามีวงเล็บคำว่าร้านค้าท้ายชื่อ) */}
               {isShop && (
                 <div className="p-3 bg-blue-50/40 border border-blue-100 rounded-xl space-y-2 md:col-span-2">
                   <span className="text-[11px] font-bold text-blue-700 flex items-center gap-1"><Droplet className="h-3.5 w-3.5"/> ระบบบันทึกมิเตอร์น้ำประปา (เฉพาะร้านค้า)</span>
@@ -459,7 +455,7 @@ export default function Electricity() {
                         value={customPrevWaterValue} 
                         onChange={(e) => setCustomPrevWaterValue(e.target.value)} 
                         disabled={!isFirstRecord} 
-                        className={`text-center font-semibold h-9 text-xs bg-white ${isFirstRecord ? 'border-blue-400 focus:ring-blue-500' : 'text-slate-400 bg-slate-100'}`} 
+                        className={isFirstRecord ? "text-center font-semibold h-9 text-xs bg-white border-blue-400 focus:ring-blue-500" : "text-center font-semibold h-9 text-xs text-slate-400 bg-slate-100"} 
                         placeholder="อิงตามระบบ"
                       />
                     </div>
