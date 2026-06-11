@@ -174,3 +174,16 @@ export default function Electricity() {
         previous_value: prevVal,
         units_used: currentVal - prevVal 
       };
+
+      if (isShop) {
+        const currentWaterVal = parseFloat(currentWaterValue);
+        if (currentWaterVal < prevWaterVal) {
+          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขน้ำน้อยกว่าครั้งก่อน (${prevWaterVal})` });
+          return;
+        }
+        insertData.current_water_value = currentWaterVal;
+        insertData.previous_water_value = prevWaterVal;
+      }
+
+      const { error } = await supabase.from('electricity_logs').insert([insertData]);
+      if (error) throw error;
