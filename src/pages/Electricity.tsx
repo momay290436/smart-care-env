@@ -28,6 +28,7 @@ export default function Electricity() {
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
 
+  // ย้ายมาประกาศด้านบนสุดตรงนี้ เพื่อให้ฟังก์ชัน handleSave เรียกใช้งานได้ไม่มี Error
   const isShop = meterDisplayName.includes('(ร้านค้า)');
 
   useEffect(() => {
@@ -96,4 +97,52 @@ export default function Electricity() {
     return {
       electric: totalElectricUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
       water: totalWaterUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
-      monthName: now.
+      monthName: now.toLocaleString('th-TH', { month: 'long', year: 'numeric' })
+    };
+  }, [logs]);
+
+  const startScanner = () => {
+    setIsScanning(true);
+    setCurrentWaterValue('');
+    setTimeout(() => {
+      const html5QrCode = new window.Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" }, 
+        { fps: 10, qrbox: 250 }, 
+        async (decodedText: string) => { 
+          setIsScanning(false); 
+          html5QrCode.stop(); 
+
+          const rawText = decodedText.trim();
+          const { data: meterData } = await supabase
+            .from('electricity_meters')
+            .select('*')
+            .eq('qr_url', rawText)
+            .limit(1)
+            .maybeSingle();
+
+          if (meterData) {
+            setSelectedMeterId(meterData.id); 
+            setMeterDisplayName(meterData.meter_name); 
+            toast({ title: "เชื่อมต่อสำเร็จ", description: `จุดติดตั้ง: ${meterData.meter_name}` });
+          } else {
+            setSelectedMeterId('');
+            setMeterDisplayName('');
+            toast({ variant: "destructive", title: "ไม่พบข้อมูล", description: `ลิงก์ QR นี้ยังไม่ได้ผูกในระบบ: ${rawText}` });
+          }
+        }, 
+        () => {}
+      ).catch(() => {
+        toast({ variant: "destructive", title: "ไม่สามารถเปิดกล้องได้" });
+        setIsScanning(false);
+      });
+    }, 500);
+  };
+
+  const handleSave = async () => {
+    if (!selectedMeterId || !currentValue) {
+      toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
+      return;
+    }
+
+    if (isShop && !currentWaterValue
