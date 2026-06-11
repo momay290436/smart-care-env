@@ -16,18 +16,18 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // States สำหรับสแกนและบันทึกค่ามิเตอร์
+  // States สำหรับเก็บข้อมูลมิเตอร์ไฟและน้ำ
   const [selectedMeterId, setSelectedMeterId] = useState(''); 
   const [meterDisplayName, setMeterDisplayName] = useState(''); 
-  const [currentValue, setCurrentValue] = useState(''); // เลขไฟปัจจุบัน
-  const [currentWaterValue, setCurrentWaterValue] = useState(''); // เลขน้ำปัจจุบัน (สำหรับร้านค้า)
+  const [currentValue, setCurrentValue] = useState(''); 
+  const [currentWaterValue, setCurrentWaterValue] = useState(''); // เพิ่ม State ค่าน้ำ
   const [isScanning, setIsScanning] = useState(false);
 
-  // States สำหรับการเพิ่มจุดติดตั้งและรับรูป QR Code
+  // States สำหรับสร้างจุดติดตั้งและคิวอาร์โค้ด
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
 
-  // ตรวจสอบอัตโนมัติว่าสถานที่สแกนได้เป็น "ร้านค้า" หรือไม่
+  // ตรวจสอบว่าเป็นประเภทร้านค้าหรือไม่ เพื่อเปิดช่องกรอกเลขมิเตอร์น้ำ
   const isShop = meterDisplayName.includes('(ร้านค้า)');
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export default function Electricity() {
     document.body.appendChild(script);
   }, []);
 
-  // ดึงประวัติรายการบันทึก พร้อมแสดงเลขน้ำปัจจุบันเพิ่มในตาราง
+  // ดึงประวัติการบันทึกพร้อมดึงโครงสร้างชื่อสถานที่มาใช้งานร่วมกัน
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
     queryFn: async () => {
@@ -60,10 +60,10 @@ export default function Electricity() {
     }
   });
 
-  // เปิดกล้องสแกน QR Code
+  // ฟังก์ชันสแกนคิวอาร์และตรวจสอบสิทธิ์สถานที่
   const startScanner = () => {
     setIsScanning(true);
-    setCurrentWaterValue(''); 
+    setCurrentWaterValue('');
     setTimeout(() => {
       const html5QrCode = new window.Html5Qrcode("reader");
       html5QrCode.start(
@@ -74,28 +74,21 @@ export default function Electricity() {
           html5QrCode.stop(); 
 
           const rawText = decodedText.trim();
-
-          const { data: meterData, error } = await supabase
+          const { data: meterData } = await supabase
             .from('electricity_meters')
             .select('*')
             .eq('qr_url', rawText)
             .limit(1)
             .maybeSingle();
 
-          if (error) {
-            console.error(error);
-            toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการตรวจสอบฐานข้อมูล" });
-            return;
-          }
-
           if (meterData) {
             setSelectedMeterId(meterData.id); 
             setMeterDisplayName(meterData.meter_name); 
-            toast({ title: "เชื่อมต่อสถานที่สำเร็จ", description: `จุดติดตั้ง: ${meterData.meter_name}` });
+            toast({ title: "เชื่อมต่อสำเร็จ", description: `จุดติดตั้ง: ${meterData.meter_name}` });
           } else {
             setSelectedMeterId('');
             setMeterDisplayName('');
-            toast({ variant: "destructive", title: "ไม่พบข้อมูลในระบบ", description: `ลิงก์ QR นี้ยังไม่ได้ผูกกับสถานที่ใดๆ: ${rawText}` });
+            toast({ variant: "destructive", title: "ไม่พบข้อมูล", description: `ลิงก์ QR นี้ยังไม่ได้ผูกในระบบ: ${rawText}` });
           }
         }, 
         () => {}
@@ -106,23 +99,23 @@ export default function Electricity() {
     }, 500);
   };
 
-  // บันทึกข้อมูลลงฐานข้อมูล (รองรับทั้งไฟปกติ และพ่วงน้ำสำหรับร้านค้า)
+  // จัดเก็บข้อมูลลง Supabase (รองรับทั้งไฟและน้ำ)
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
-      toast({ variant: "destructive", title: "กรุณาสแกน QR สถานที่ และระบุเลขมิเตอร์ไฟ" });
+      toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
       return;
     }
 
     if (isShop && !currentWaterValue) {
-      toast({ variant: "destructive", title: "กรุณาระบุเลขมิเตอร์น้ำสำหรับร้านค้าด้วยครับ" });
+      toast({ variant: "destructive", title: "กรุณาระบุเลขมิเตอร์น้ำของร้านค้าด้วยครับ" });
       return;
     }
 
     try {
       const currentVal = parseFloat(currentValue);
 
-      // ค้นหาประวัติบันทึกล่าสุดเพื่อนำเลขไฟและเลขน้ำครั้งก่อนหน้ามาเปรียบเทียบ
-      const { data: lastLog, error: fetchError } = await supabase
+      // ค้นหาประวัติบันทึกล่าสุดเพื่อดึงค่าเดิมมาคำนวณส่วนต่างหน่วยที่ใช้
+      const { data: lastLog } = await supabase
         .from('electricity_logs')
         .select('current_value, current_water_value')
         .eq('meter_id', selectedMeterId)
@@ -130,38 +123,36 @@ export default function Electricity() {
         .limit(1)
         .maybeSingle();
 
-      if (fetchError) throw fetchError;
-
       const prevVal = lastLog?.current_value || 0;
       const prevWaterVal = lastLog?.current_water_value || 0;
 
       if (currentVal < prevVal) {
-        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขไฟปัจุบันน้อยกว่าครั้งก่อน (${prevVal})` });
+        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขไฟน้อยกว่าครั้งก่อน (${prevVal})` });
         return;
       }
 
-      // ตระเตรียมข้อมูลก่อน Insert ลงใน Table
       const insertData: any = {
         meter_id: selectedMeterId,
         current_value: currentVal,
-        previous_value: prevVal
+        previous_value: prevVal,
+        units_used: currentVal - prevVal
       };
 
-      // หากเป็นร้านค้า ให้ส่งข้อมูลมิเตอร์น้ำปัจจุบันและอดีตไปเก็บบันทึกเพิ่มในฐานข้อมูลด้วย
+      // บันทึกน้ำเพิ่มเติมหากเป็นร้านค้า
       if (isShop) {
         const currentWaterVal = parseFloat(currentWaterValue);
         if (currentWaterVal < prevWaterVal) {
-          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์น้ำปัจจุบันน้อยกว่าครั้งก่อน (${prevWaterVal})` });
+          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขน้ำน้อยกว่าครั้งก่อน (${prevWaterVal})` });
           return;
         }
         insertData.current_water_value = currentWaterVal;
         insertData.previous_water_value = prevWaterVal;
       }
 
-      const { error: insertError } = await supabase.from('electricity_logs').insert([insertData]);
-      if (insertError) throw insertError;
+      const { error } = await supabase.from('electricity_logs').insert([insertData]);
+      if (error) throw error;
       
-      toast({ title: "บันทึกประวัติสำเร็จ", description: isShop ? "บันทึกข้อมูลไฟฟ้าและมิเตอร์น้ำเรียบร้อย" : "บันทึกข้อมูลไฟฟ้าเรียบร้อย" });
+      toast({ title: "บันทึกข้อมูลเสร็จสิ้น" });
       setCurrentValue('');
       setCurrentWaterValue('');
       setSelectedMeterId('');
@@ -172,10 +163,10 @@ export default function Electricity() {
     }
   };
 
-  // บันทึกสถานที่ตั้งชุดติดตั้งใหม่
+  // เพิ่มสถานที่ปฏิบัติงานใหม่
   const handleSaveMeter = async () => {
     if (!newMeter.name || !newMeter.serial) {
-      toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และหมายเลขเครื่องมิเตอร์" });
+      toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และรหัสมิเตอร์" });
       return;
     }
 
@@ -195,7 +186,7 @@ export default function Electricity() {
       setGeneratedQrUrl(qrCodeImgApi);
       toast({ title: "เพิ่มสถานที่สำเร็จ" });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "เพิ่มจุดติดตั้งล้มเหลว", description: err.message });
+      toast({ variant: "destructive", title: "เพิ่มสถานที่ล้มเหลว", description: err.message });
     }
   };
 
@@ -218,27 +209,62 @@ export default function Electricity() {
     }
   };
 
+  // ✨ ฟังก์ชัน Export แยกหน้าแผ่นงาน (Tabs) ตามรูปแบบคำในวงเล็บ
   const exportExcel = () => {
-    const flattenLogs = logs.map((log: any) => ({
+    // 1. ฟอร์แมตข้อมูลรูปแบบกลางเพื่อใช้ในแผ่นงาน "รวมทุกสถานที่"
+    const formatLogItem = (log: any) => ({
       'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
       'สถานที่ติดตั้ง': log.electricity_meters?.meter_name || 'ไม่พบข้อมูล',
       'เลขมิเตอร์ไฟครั้งก่อน': log.previous_value,
       'เลขมิเตอร์ไฟล่าสุด': log.current_value,
       'จำนวนหน่วยไฟที่ใช้ประจำงวด': log.units_used,
       'เลขมิเตอร์น้ำปัจจุบัน (ถ้ามี)': log.current_water_value || '-'
-    }));
-    const ws = XLSX.utils.json_to_sheet(flattenLogs);
+    });
+
+    const allRecords = logs.map(formatLogItem);
+
+    // กำหนดประเภทแท็บชีตตามเงื่อนไขวงเล็บท้ายชื่อสถานที่
+    const categories = [
+      { key: 'ร้านค้า', label: 'ร้านค้า' },
+      { key: 'บ้านพัก', label: 'บ้านพัก' },
+      { key: 'แฟลต1', label: 'แฟลต1' },
+      { key: 'แฟลต2', label: 'แฟลต2' },
+      { key: 'แฟลต3', label: 'แฟลต3' },
+      { key: 'แฟลต4', label: 'แฟลต4' }
+    ];
+
+    // สร้าง Workbook กลางของ Excel
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Electricity_Report");
-    XLSX.writeFile(wb, "Meter_Report.xlsx");
+
+    // แผ่นงานแท็บที่ 1: รวมทุกสถานที่
+    const wsAll = XLSX.utils.json_to_sheet(allRecords);
+    XLSX.utils.book_append_sheet(wb, wsAll, "รวมทุกสถานที่");
+
+    // แผ่นงานแท็บย่อยๆ: คัดกรองแยกเฉพาะกลุ่มตามวงเล็บท้ายชื่อสถานที่
+    categories.forEach(category => {
+      const filteredLogs = logs.filter((log: any) => {
+        const name = log.electricity_meters?.meter_name || '';
+        return name.includes(`(${category.key})`);
+      });
+
+      // นำข้อมูลกลุ่มที่คัดกรองแปลงเป็นตาราง Row
+      const filteredRecords = filteredLogs.map(formatLogItem);
+      const wsFiltered = XLSX.utils.json_to_sheet(filteredRecords);
+      
+      // บันทึกลงในหน้าแผ่นงานแต่ละประเภท
+      XLSX.utils.book_append_sheet(wb, wsFiltered, category.label);
+    });
+
+    // ดำเนินการดาวน์โหลดออกมาเป็นไฟล์ Excel สู่เครื่องผู้ใช้
+    XLSX.writeFile(wb, "Meter_Report_Separated.xlsx");
   };
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6 max-w-5xl">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">ระบบบันทึกไฟฟ้า & ร้านค้า</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">ระบบบันทึกไฟฟ้า & มิเตอร์น้ำ</h1>
         <div className="grid grid-cols-2 sm:flex gap-2">
-          <Button onClick={exportExcel} variant="outline" className="text-xs sm:text-sm"><FileSpreadsheet className="mr-2 h-4 w-4"/> Export</Button>
+          <Button onClick={exportExcel} variant="outline" className="text-xs sm:text-sm"><FileSpreadsheet className="mr-2 h-4 w-4"/> Export แยกหมวดหมู่</Button>
           <Dialog onOpenChange={(open) => { if(!open) { setGeneratedQrUrl(''); setNewMeter({name:'', code:'', serial:'', qr_url:''}); } }}>
             <DialogTrigger asChild>
               <Button className="text-xs sm:text-sm"><Plus className="mr-2 h-4 w-4" /> เพิ่มสถานที่</Button>
@@ -249,8 +275,8 @@ export default function Electricity() {
                 {!generatedQrUrl ? (
                   <>
                     <div>
-                      <label className="text-xs text-gray-500 font-medium mb-1 block">ชื่อสถานที่ (เช่น สมาน(ร้านค้า) เพื่อเปิดช่องค่าน้ำได้)</label>
-                      <Input placeholder="เช่น สมาน(ร้านค้า) หรือ โรงอาหาร" value={newMeter.name} onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
+                      <label className="text-xs text-gray-500 font-medium mb-1 block">ชื่อสถานที่ (กรุณาใส่วงเล็บ เช่น ร้านค้าสมาน(ร้านค้า), บ้านพัด(บ้านพัก))</label>
+                      <Input placeholder="เช่น สมชาย(ร้านค้า) หรือ อาคารA(แฟลต1)" value={newMeter.name} onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
                     </div>
                     <div>
                       <label className="text-xs text-gray-500 font-medium mb-1 block">หมายเลขเครื่องมิเตอร์</label>
@@ -264,12 +290,12 @@ export default function Electricity() {
                   </>
                 ) : (
                   <div className="flex flex-col items-center justify-center p-4 space-y-4 text-center">
-                    <span className="text-sm font-semibold text-emerald-600">สำเร็จ! ระบบสร้างคิวอาร์เรียบร้อย</span>
+                    <span className="text-sm font-semibold text-emerald-600">ระบบสร้างคิวอาร์สำเร็จ</span>
                     <div className="border p-2 bg-white rounded-lg shadow-sm">
                       <img src={generatedQrUrl} alt="Generated QR" className="w-48 h-48 object-contain" />
                     </div>
                     <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center" onClick={downloadQrCode}>
-                      <Download className="mr-2 h-4 w-4" /> ดาวน์โหลดภาพคิวอาร์ (.png)
+                      <Download className="mr-2 h-4 w-4" /> ดาวน์โหลดคิวอาร์ (.png)
                     </Button>
                   </div>
                 )}
@@ -282,7 +308,7 @@ export default function Electricity() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1 shadow-sm border border-gray-100 rounded-xl overflow-hidden">
           <CardHeader className="bg-gray-50/50 border-b border-gray-100 py-3">
-            <CardTitle className="text-sm sm:text-base text-gray-700">จดบันทึกค่ามิเตอร์พลังงาน</CardTitle>
+            <CardTitle className="text-sm sm:text-base text-gray-700">จดบันทึกค่ามิเตอร์</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
             {!isScanning ? (
@@ -295,30 +321,29 @@ export default function Electricity() {
             )}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-gray-500">สถานที่ปฏิบัติงาน</label>
-              <Input value={meterDisplayName} placeholder="ชื่อสถานที่ปฏิบัติงานจะขึ้นที่นี่" readOnly className="bg-gray-100 text-center font-bold text-gray-800 border-gray-200 text-sm" />
+              <Input value={meterDisplayName} placeholder="ชื่อสถานที่สแกนจะแสดงตรงนี้" readOnly className="bg-gray-100 text-center font-bold text-gray-800 border-gray-200 text-sm" />
             </div>
 
-            {/* ส่วนมิเตอร์ไฟเดิม */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-amber-600 flex items-center gap-1"><Zap className="h-3 w-3"/> เลขมิเตอร์ไฟฟ้าปัจจุบัน</label>
               <Input type="number" value={currentValue} placeholder="ระบุตัวเลขไฟฟ้าล่าสุด" onChange={(e) => setCurrentValue(e.target.value)} className="text-center text-lg font-bold border-gray-300 focus:ring-2 focus:ring-indigo-500" />
             </div>
 
-            {/* ✨ ส่วนมิเตอร์น้ำเพิ่มเข้ามาอัตโนมัติเฉพาะร้านค้าที่มีคำว่า (ร้านค้า) */}
+            {/* ส่วนมิเตอร์น้ำเพิ่มเติมสำหรับร้านค้า */}
             {isShop && (
-              <div className="space-y-1 p-3 bg-blue-50 border border-blue-100 rounded-lg animate-in fade-in duration-200">
-                <label className="text-xs font-bold text-blue-600 flex items-center gap-1"><Droplet className="h-3 w-3"/> เลขมิเตอร์น้ำปัจจุบัน (ฟอร์มเฉพาะร้านค้า)</label>
+              <div className="space-y-1 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                <label className="text-xs font-bold text-blue-600 flex items-center gap-1"><Droplet className="h-3 w-3"/> เลขมิเตอร์น้ำปัจจุบัน (เฉพาะกลุ่มร้านค้า)</label>
                 <Input type="number" value={currentWaterValue} placeholder="กรอกเลขหน้าปัดมิเตอร์น้ำ" onChange={(e) => setCurrentWaterValue(e.target.value)} className="text-center text-base font-bold border-blue-300 bg-white focus:ring-2 focus:ring-blue-500 text-blue-700" />
               </div>
             )}
 
-            <Button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg shadow-sm">ยืนยันและบันทึก</Button>
+            <Button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg shadow-sm">ยืนยันและบันทึกข้อมูล</Button>
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-2 shadow-sm border border-gray-100 rounded-xl overflow-hidden">
           <CardHeader className="bg-gray-50/50 border-b border-gray-100 py-3">
-            <CardTitle className="text-sm sm:text-base text-gray-700">ประวัติจัดเก็บข้อมูลในระบบ</CardTitle>
+            <CardTitle className="text-sm sm:text-base text-gray-700">ประวัติบันทึกในระบบ</CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-4">
             <div className="overflow-x-auto">
@@ -333,7 +358,6 @@ export default function Electricity() {
                         <TableCell className="font-bold text-gray-700">{log.electricity_meters?.meter_name || 'ไม่พบจุดติดตั้ง'}</TableCell>
                         <TableCell className="text-right text-gray-700 font-medium">ไฟ: {log.current_value}</TableCell>
                         <TableCell className="text-right text-emerald-600 font-bold bg-emerald-50/40 rounded-md">ใช้ไป: +{log.units_used ?? 0} หน่วย</TableCell>
-                        {/* แสดงค่าน้ำในตารางประวัติถ้าแถวนั้นๆ มีบันทึกไว้ครับ */}
                         <TableCell className="text-right text-blue-600 font-bold">
                           {log.current_water_value ? `น้ำ: ${log.current_water_value}` : '-'}
                         </TableCell>
