@@ -41,7 +41,7 @@ export default function Electricity() {
     document.body.appendChild(script);
   }, []);
 
-  // จุดแก้ไขที่ 2: ดึงหน้าจอขึ้นไปส่วนบนสุดทันทีเมื่อโหลดเข้าหน้าระบบไฟฟ้านี้
+  // ดึงหน้าจอขึ้นไปส่วนบนสุดทันทีเมื่อโหลดเข้าหน้าระบบไฟฟ้านี้
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -115,7 +115,7 @@ export default function Electricity() {
     };
   }, [logs]);
 
-  // ฟังก์ชันสแกนคิวอาร์และตรวจสอบสิทธิ์สถานที่
+  // ฟังก์ชันสแกนคิวอาร์และตรวจสอบสิทธิ์สถานที่ (ปรับกรอบเป็นสี่เหลี่ยมจัตุรัสตามสั่ง)
   const startScanner = () => {
     setIsScanning(true);
     setCurrentWaterValue('');
@@ -123,7 +123,16 @@ export default function Electricity() {
       const html5QrCode = new window.Html5Qrcode("reader");
       html5QrCode.start(
         { facingMode: "environment" }, 
-        { fps: 10, qrbox: 250 }, 
+        { 
+          fps: 10, 
+          aspectRatio: 1.0, // บังคับสัดส่วนช่องพรีวิวภาพกล้องเป็น 1:1 จัตุรัส
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            // คำนวณหาด้านที่สั้นที่สุดของกรอบ เพื่อทำเป็นสี่เหลี่ยมจัตุรัสที่พอดีกับหน้าจอมือถือ
+            const minDimension = Math.min(viewfinderWidth, viewfinderHeight);
+            const boxSize = Math.floor(minDimension * 0.72); // ขนาดกล่องเล็งสีขาวกว้างยาวเท่ากัน 72%
+            return { width: boxSize, height: boxSize };
+          }
+        }, 
         async (decodedText: string) => { 
           setIsScanning(false); 
           html5QrCode.stop(); 
@@ -359,7 +368,7 @@ export default function Electricity() {
         </div>
       </div>
 
-      {/* จุดแก้ไขที่ 1: ย้ายส่วนกล่องลงบันทึกค่างวดมิเตอร์ / กล้องสแกน ขึ้นมาอยู่บนสุด */}
+      {/* ส่วนกล่องลงบันทึกค่างวดมิเตอร์ / กล้องสแกน (สี่เหลี่ยมจัตุรัส) */}
       <div className="w-full">
         <Card className="w-full shadow-sm border border-slate-200/80 bg-white rounded-2xl overflow-hidden">
           <CardHeader className="bg-slate-50 border-b border-slate-100 py-2.5 px-4">
@@ -371,9 +380,9 @@ export default function Electricity() {
                 <Camera className="mr-2 h-4 w-4"/> เปิดกล้องสแกนคิวอาร์
               </Button>
             ) : (
-              <div className="relative h-[200px] sm:h-[240px] border-4 border-indigo-500 rounded-xl overflow-hidden shadow-inner bg-black">
+              <div className="relative max-w-md mx-auto aspect-square w-full border-4 border-indigo-500 rounded-xl overflow-hidden shadow-inner bg-black">
                 <div id="reader" className="w-full h-full"></div>
-                <Button onClick={() => window.location.reload()} className="absolute top-2 right-2 rounded-full h-7 w-7 p-0" size="sm" variant="destructive"><X className="h-3 w-3"/></Button>
+                <Button onClick={() => window.location.reload()} className="absolute top-2 right-2 rounded-full h-7 w-7 p-0 z-10" size="sm" variant="destructive"><X className="h-3 w-3"/></Button>
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -402,7 +411,7 @@ export default function Electricity() {
         </Card>
       </div>
 
-      {/* ส่วนสรุปสถิติความก้าวหน้า (KPI Dashboards และ ตัวกรองวันที่) ย้ายมาอยู่รองลงมา */}
+      {/* ส่วนสรุปสถิติความก้าวหน้า (KPI Dashboards และ ตัวกรองวันที่) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
         <Card className="border-l-4 border-l-amber-500 shadow-sm rounded-xl bg-white border border-slate-100">
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
@@ -419,84 +428,4 @@ export default function Electricity() {
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div className="space-y-0.5">
               <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ยอดรวมใช้น้ำประปา (ร้านค้า)</p>
-              <h3 className="text-xl sm:text-2xl font-black text-slate-800">{currentMonthStats.water} <span className="text-xs font-normal text-slate-500">หน่วย</span></h3>
-              <p className="text-[10px] sm:text-[11px] text-blue-600 font-medium flex items-center gap-1 mt-0.5"><TrendingUp className="h-3 w-3"/> รอบบิล: {currentMonthStats.monthName}</p>
-            </div>
-            <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600"><Droplet className="h-5 w-5" /></div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-indigo-500 shadow-sm rounded-xl bg-white border border-slate-100 sm:col-span-2 lg:col-span-1">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div className="space-y-1 w-full">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ตัวกรองเลือกช่วงวันที่เรียกดู</p>
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <div className="relative">
-                  <span className="absolute left-2 top-2.5 text-[9px] font-bold text-slate-400 uppercase">จาก</span>
-                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="pl-8 pr-1 text-xs h-8 font-medium text-slate-700 bg-slate-50 border-slate-200" />
-                </div>
-                <div className="relative">
-                  <span className="absolute left-2 top-2.5 text-[9px] font-bold text-slate-400 uppercase">ถึง</span>
-                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="pl-8 pr-1 text-xs h-8 font-medium text-slate-700 bg-slate-50 border-slate-200" />
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ตารางแสดงประวัติข้อมูลประวัติการบันทึก อยู่ล่างสุด */}
-      <div className="w-full">
-        <Card className="w-full shadow-sm border border-slate-200/80 bg-white rounded-2xl overflow-hidden">
-          <CardHeader className="bg-slate-50 border-b border-slate-100 py-3 px-4 sm:px-5 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs sm:text-sm font-bold text-slate-700">ประวัติจัดเก็บในระบบ ({filteredLogs.length} รายการ)</CardTitle>
-            {(startDate || endDate) && (
-              <Button size="sm" variant="ghost" onClick={() => { setStartDate(''); setEndDate(''); }} className="text-[11px] text-rose-600 hover:bg-rose-50 h-7 px-2">ล้างวันที่</Button>
-            )}
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="w-full overflow-x-auto scrollbar-none sm:scrollbar-thin">
-              <Table>
-                <TableHeader className="bg-slate-50/70">
-                  <TableRow className="hover:bg-transparent border-b border-slate-100">
-                    <TableHead className="text-slate-600 font-bold text-[11px] py-3 pl-3 sm:pl-5 min-w-[110px] sm:min-w-[150px]">วัน/เดือนปี</TableHead>
-                    <TableHead className="text-slate-600 font-bold text-[11px] py-3 min-w-[125px] sm:min-w-[180px]">จุดมิเตอร์</TableHead>
-                    <TableHead className="text-slate-600 font-bold text-[11px] py-3 text-right min-w-[85px] sm:min-w-[130px]">เลขไฟ</TableHead>
-                    <TableHead className="text-slate-600 font-bold text-[11px] py-3 text-right min-w-[85px] sm:min-w-[130px]">เลขน้ำ</TableHead>
-                    <TableHead className="text-slate-600 font-bold text-[11px] py-3 text-right pr-3 sm:pr-5 min-w-[110px] sm:min-w-[160px]">ใช้ไฟรวม</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLogs.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-slate-400 py-10 text-xs font-medium">ไม่พบข้อมูลประวัติ</TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredLogs.map((log: any) => (
-                      <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100/70">
-                        <TableCell className="text-slate-500 font-medium text-[11px] pl-3 sm:pl-5 py-3">
-                          {new Date(log.created_at).toLocaleDateString('th-TH', {day:'numeric', month:'short'})} {new Date(log.created_at).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'})}
-                        </TableCell>
-                        <TableCell className="font-bold text-slate-700 text-[11px] py-3">{log.electricity_meters?.meter_name || 'ไม่ระบุ'}</TableCell>
-                        <TableCell className="text-right text-slate-600 font-semibold text-[11px] py-3">{log.current_value.toLocaleString()}</TableCell>
-                        <TableCell className="text-right text-blue-600 font-bold text-[11px] py-3">
-                          {log.current_water_value ? log.current_water_value.toLocaleString() : '-'}
-                        </TableCell>
-                        <TableCell className="text-right pr-3 sm:pr-5 py-3">
-                          <span className="inline-flex items-center justify-center px-1.5 py-0.5 sm:px-2.5 sm:py-1 bg-emerald-50 text-emerald-700 font-black text-[10px] sm:text-xs rounded-lg border border-emerald-100">
-                            +{log.units_used ?? 0}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-    </div>
-  );
-}
+              <h3 className="text-xl sm:text-2xl font-black text-
