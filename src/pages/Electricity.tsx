@@ -16,22 +16,18 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // States สำหรับเก็บข้อมูลมิเตอร์ไฟและน้ำ
   const [selectedMeterId, setSelectedMeterId] = useState(''); 
   const [meterDisplayName, setMeterDisplayName] = useState(''); 
   const [currentValue, setCurrentValue] = useState(''); 
   const [currentWaterValue, setCurrentWaterValue] = useState(''); 
   const [isScanning, setIsScanning] = useState(false);
 
-  // States สำหรับระบุช่วงวันที่เพื่อใช้กรองข้อมูลด้านบนตารางประวัติ
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // States สำหรับสร้างจุดติดตั้งและคิวอาร์โค้ด
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
 
-  // ตรวจสอบความเป็นประเภทร้านค้าหรือไม่
   const isShop = meterDisplayName.includes('(ร้านค้า)');
 
   useEffect(() => {
@@ -41,7 +37,6 @@ export default function Electricity() {
     document.body.appendChild(script);
   }, []);
 
-  // ดึงประวัติการบันทึกทั้งหมด
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
     queryFn: async () => {
@@ -65,7 +60,6 @@ export default function Electricity() {
     }
   });
 
-  // 1. ตัวกรองข้อมูล (Filter Data) ตามช่วงวันที่เลือก
   const filteredLogs = logs.filter((log: any) => {
     if (!startDate && !endDate) return true;
     const logDate = new Date(log.created_at).toISOString().split('T')[0];
@@ -75,11 +69,10 @@ export default function Electricity() {
     return true;
   });
 
-  // 2. คำนวณยอด KPI สรุปของเดือนปัจจุบัน (ตามเวลาจริงในระบบปัจจุบัน ณ ปี 2026)
   const currentMonthStats = React.useMemo(() => {
     const now = new Date();
     const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-11
+    const currentMonth = now.getMonth();
 
     let totalElectricUnits = 0;
     let totalWaterUnits = 0;
@@ -90,10 +83,7 @@ export default function Electricity() {
       if (logYear > 2500) logYear = logYear - 543;
 
       if (logYear === currentYear && logDate.getMonth() === currentMonth) {
-        // รวมหน่วยไฟฟ้าที่ใช้ประจำงวด
         totalElectricUnits += log.units_used || 0;
-        
-        // รวมหน่วยค่าน้ำประจำงวด (ล่าสุด - ครั้งก่อน)
         if (log.current_water_value && log.previous_water_value) {
           const waterDiff = log.current_water_value - log.previous_water_value;
           if (waterDiff > 0) totalWaterUnits += waterDiff;
@@ -108,7 +98,6 @@ export default function Electricity() {
     };
   }, [logs]);
 
-  // ฟังก์ชันสแกนคิวอาร์และตรวจสอบสิทธิ์สถานที่
   const startScanner = () => {
     setIsScanning(true);
     setCurrentWaterValue('');
@@ -147,7 +136,6 @@ export default function Electricity() {
     }, 500);
   };
 
-  // จัดเก็บข้อมูลลงฐานข้อมูล (คำนวณส่วนต่างหน่วยให้เรียบร้อย)
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
       toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
@@ -209,7 +197,6 @@ export default function Electricity() {
     }
   };
 
-  // เพิ่มสถานที่ปฏิบัติงานใหม่
   const handleSaveMeter = async () => {
     if (!newMeter.name || !newMeter.serial) {
       toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และรหัสมิเตอร์" });
@@ -255,14 +242,5 @@ export default function Electricity() {
     }
   };
 
-  // ฟังก์ชัน Export Excel แยกหน้าแผ่นงาน (Tabs)
   const exportExcel = () => {
-    const formatLogItem = (log: any) => ({
-      'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
-      'สถานที่ติดตั้ง': log.electricity_meters?.meter_name || 'ไม่พบข้อมูล',
-      'เลขมิเตอร์ไฟครั้งก่อน': log.previous_value,
-      'เลขมิเตอร์ไฟล่าสุด': log.current_value,
-      'จำนวนหน่วยไฟที่ใช้ประจำงวด (หน่วย)': log.units_used,
-      'เลขมิเตอร์น้ำครั้งก่อน': log.previous_water_value || '-',
-      'เลขมิเตอร์น้ำล่าสุด': log.current_water_value || '-',
-      'จำนวนหน่วยน้ำที่ใช้ประจำงวด (หน่วย)': log.current_water_value && log.
+    const formatLogItem = (
