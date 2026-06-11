@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Camera, X, Plus, FileSpreadsheet, Download } from 'lucide-react';
+import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 declare global { interface Window { Html5Qrcode: any; } }
@@ -16,15 +16,19 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // States สำหรับการสแกนและบันทึกค่ามิเตอร์
-  const [selectedMeterId, setSelectedMeterId] = useState(''); // เก็บ ID จริงเพื่อใช้บันทึกลงฐานข้อมูล
-  const [meterDisplayName, setMeterDisplayName] = useState(''); // เก็บชื่อสถานที่จริงเพื่อแสดงผลบนหน้าจอ
-  const [currentValue, setCurrentValue] = useState('');
+  // States สำหรับสแกนและบันทึกค่ามิเตอร์
+  const [selectedMeterId, setSelectedMeterId] = useState(''); 
+  const [meterDisplayName, setMeterDisplayName] = useState(''); 
+  const [currentValue, setCurrentValue] = useState(''); // เลขไฟปัจจุบัน
+  const [currentWaterValue, setCurrentWaterValue] = useState(''); // เลขน้ำปัจจุบัน (สำหรับร้านค้า)
   const [isScanning, setIsScanning] = useState(false);
 
   // States สำหรับการเพิ่มจุดติดตั้งและรับรูป QR Code
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
+
+  // ตรวจสอบอัตโนมัติว่าสถานที่สแกนได้เป็น "ร้านค้า" หรือไม่
+  const isShop = meterDisplayName.includes('(ร้านค้า)');
 
   useEffect(() => {
     const script = document.createElement('script');
@@ -33,7 +37,7 @@ export default function Electricity() {
     document.body.appendChild(script);
   }, []);
 
-  // ดึงประวัติรายการบันทึก พร้อมผูกดึงชื่อมิเตอร์จากตารางสัมพันธ์กัน
+  // ดึงประวัติรายการบันทึก พร้อมแสดงเลขน้ำปัจจุบันเพิ่มในตาราง
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
     queryFn: async () => {
@@ -45,6 +49,7 @@ export default function Electricity() {
           current_value,
           previous_value,
           units_used,
+          current_water_value,
           created_at,
           electricity_meters (
             meter_name
@@ -55,9 +60,10 @@ export default function Electricity() {
     }
   });
 
-  // ฟังก์ชันเริ่มสแกนเนอร์ และค้นหาชื่อสถานที่จริงจากลิงก์ QR Code
+  // เปิดกล้องสแกน QR Code
   const startScanner = () => {
     setIsScanning(true);
+    setCurrentWaterValue(''); 
     setTimeout(() => {
       const html5QrCode = new window.Html5Qrcode("reader");
       html5QrCode.start(
@@ -69,7 +75,6 @@ export default function Electricity() {
 
           const rawText = decodedText.trim();
 
-          // วิ่งไปค้นหาใน Database ว่า QR URL นี้ตรงกับจุดติดตั้งไหน
           const { data: meterData, error } = await supabase
             .from('electricity_meters')
             .select('*')
@@ -84,8 +89,8 @@ export default function Electricity() {
           }
 
           if (meterData) {
-            setSelectedMeterId(meterData.id); // บันทึก id แฝงไว้ใช้ผูกตอนกดบันทึก log
-            setMeterDisplayName(meterData.meter_name); // นำชื่อสถานที่จริงมาแปะแทนตัวลิงก์
+            setSelectedMeterId(meterData.id); 
+            setMeterDisplayName(meterData.meter_name); 
             toast({ title: "เชื่อมต่อสถานที่สำเร็จ", description: `จุดติดตั้ง: ${meterData.meter_name}` });
           } else {
             setSelectedMeterId('');
@@ -101,20 +106,25 @@ export default function Electricity() {
     }, 500);
   };
 
-  // ฟังก์ชันบันทึกข้อมูลมิเตอร์ (แก้ไข: ถอดคอลัมน์ units_used ออกเพื่อให้ DB คำนวณแบบ DEFAULT อัตโนมัติ)
+  // บันทึกข้อมูลลงฐานข้อมูล (รองรับทั้งไฟปกติ และพ่วงน้ำสำหรับร้านค้า)
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
-      toast({ variant: "destructive", title: "กรุณาสแกน QR สถานที่ และระบุเลขมิเตอร์ปัจจุบัน" });
+      toast({ variant: "destructive", title: "กรุณาสแกน QR สถานที่ และระบุเลขมิเตอร์ไฟ" });
+      return;
+    }
+
+    if (isShop && !currentWaterValue) {
+      toast({ variant: "destructive", title: "กรุณาระบุเลขมิเตอร์น้ำสำหรับร้านค้าด้วยครับ" });
       return;
     }
 
     try {
       const currentVal = parseFloat(currentValue);
 
-      // 1. ค้นหาประวัติบันทึกล่าสุดของมิเตอร์ตัวนี้เพื่อดึงเลขครั้งก่อนหน้ามาบันทึกคู่กัน
+      // ค้นหาประวัติบันทึกล่าสุดเพื่อนำเลขไฟและเลขน้ำครั้งก่อนหน้ามาเปรียบเทียบ
       const { data: lastLog, error: fetchError } = await supabase
         .from('electricity_logs')
-        .select('current_value')
+        .select('current_value, current_water_value')
         .eq('meter_id', selectedMeterId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -123,23 +133,37 @@ export default function Electricity() {
       if (fetchError) throw fetchError;
 
       const prevVal = lastLog?.current_value || 0;
+      const prevWaterVal = lastLog?.current_water_value || 0;
 
       if (currentVal < prevVal) {
-        toast({ variant: "destructive", title: "ข้อมูลไม่ถูกต้อง", description: `เลขมิเตอร์ปัจจุบันค่าน้อยกว่าเลขมิเตอร์ครั้งก่อนหน้า (${prevVal})` });
+        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขไฟปัจุบันน้อยกว่าครั้งก่อน (${prevVal})` });
         return;
       }
 
-      // 2. บันทึกข้อมูลลงใน Table electricity_logs (ไม่ส่งคอลัมน์ units_used เพื่อแก้ปัญหา Database ล็อกค่า)
-      const { error: insertError } = await supabase.from('electricity_logs').insert([{
+      // ตระเตรียมข้อมูลก่อน Insert ลงใน Table
+      const insertData: any = {
         meter_id: selectedMeterId,
         current_value: currentVal,
         previous_value: prevVal
-      }]);
+      };
 
+      // หากเป็นร้านค้า ให้ส่งข้อมูลมิเตอร์น้ำปัจจุบันและอดีตไปเก็บบันทึกเพิ่มในฐานข้อมูลด้วย
+      if (isShop) {
+        const currentWaterVal = parseFloat(currentWaterValue);
+        if (currentWaterVal < prevWaterVal) {
+          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์น้ำปัจจุบันน้อยกว่าครั้งก่อน (${prevWaterVal})` });
+          return;
+        }
+        insertData.current_water_value = currentWaterVal;
+        insertData.previous_water_value = prevWaterVal;
+      }
+
+      const { error: insertError } = await supabase.from('electricity_logs').insert([insertData]);
       if (insertError) throw insertError;
       
-      toast({ title: "บันทึกประวัติสำเร็จ", description: "ระบบบันทึกค่าและคำนวณหน่วยใช้ไฟให้อัตโนมัติแล้ว" });
+      toast({ title: "บันทึกประวัติสำเร็จ", description: isShop ? "บันทึกข้อมูลไฟฟ้าและมิเตอร์น้ำเรียบร้อย" : "บันทึกข้อมูลไฟฟ้าเรียบร้อย" });
       setCurrentValue('');
+      setCurrentWaterValue('');
       setSelectedMeterId('');
       setMeterDisplayName('');
       queryClient.invalidateQueries({ queryKey: ['logs'] });
@@ -148,7 +172,7 @@ export default function Electricity() {
     }
   };
 
-  // ฟังก์ชันสร้างสถานที่ใหม่และออกลิงก์สำหรับ QR code สำเร็จรูป
+  // บันทึกสถานที่ตั้งชุดติดตั้งใหม่
   const handleSaveMeter = async () => {
     if (!newMeter.name || !newMeter.serial) {
       toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และหมายเลขเครื่องมิเตอร์" });
@@ -167,17 +191,14 @@ export default function Electricity() {
       
       if (error) throw error;
 
-      // สร้างสตรีมลิงก์รูปภาพ QR Code ด้วย API ทันที
       const qrCodeImgApi = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(autoQrUrl)}`;
       setGeneratedQrUrl(qrCodeImgApi);
-
-      toast({ title: "เพิ่มสถานที่สำเร็จ", description: "ระบบสร้างรหัส QR สั่งดาวน์โหลดภาพได้ด้านล่าง" });
+      toast({ title: "เพิ่มสถานที่สำเร็จ" });
     } catch (err: any) {
       toast({ variant: "destructive", title: "เพิ่มจุดติดตั้งล้มเหลว", description: err.message });
     }
   };
 
-  // ฟังก์ชันสั่งดาวน์โหลดภาพคิวอาร์โค้ดมาลงเครื่องปลายทาง
   const downloadQrCode = async () => {
     if (!generatedQrUrl) return;
     try {
@@ -190,32 +211,32 @@ export default function Electricity() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
       setNewMeter({ name: '', code: '', serial: '', qr_url: '' });
       setGeneratedQrUrl('');
-    } catch (error) {
-      toast({ variant: "destructive", title: "ดาวน์โหลดผิดพลาด", description: "กรุณาลองใหม่อีกครั้ง" });
+    } catch {
+      toast({ variant: "destructive", title: "ดาวน์โหลดคิวอาร์ผิดพลาด" });
     }
   };
 
   const exportExcel = () => {
     const flattenLogs = logs.map((log: any) => ({
-      'วัน-เวลา': new Date(log.created_at).toLocaleString('th-TH'),
-      'สถานที่ติดตั้ง': log.electricity_meters?.meter_name || 'ไม่พบข้อมูลจุดติดตั้ง',
-      'เลขมิเตอร์ครั้งก่อน': log.previous_value,
-      'เลขมิเตอร์ล่าสุด': log.current_value,
-      'จำนวนหน่วยไฟที่ใช้ (สุทธิ)': log.units_used
+      'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
+      'สถานที่ติดตั้ง': log.electricity_meters?.meter_name || 'ไม่พบข้อมูล',
+      'เลขมิเตอร์ไฟครั้งก่อน': log.previous_value,
+      'เลขมิเตอร์ไฟล่าสุด': log.current_value,
+      'จำนวนหน่วยไฟที่ใช้ประจำงวด': log.units_used,
+      'เลขมิเตอร์น้ำปัจจุบัน (ถ้ามี)': log.current_water_value || '-'
     }));
     const ws = XLSX.utils.json_to_sheet(flattenLogs);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Electricity_Logs");
-    XLSX.writeFile(wb, "Electricity_Report.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Electricity_Report");
+    XLSX.writeFile(wb, "Meter_Report.xlsx");
   };
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6 max-w-5xl">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">ระบบบันทึกไฟฟ้า</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">ระบบบันทึกไฟฟ้า & ร้านค้า</h1>
         <div className="grid grid-cols-2 sm:flex gap-2">
           <Button onClick={exportExcel} variant="outline" className="text-xs sm:text-sm"><FileSpreadsheet className="mr-2 h-4 w-4"/> Export</Button>
           <Dialog onOpenChange={(open) => { if(!open) { setGeneratedQrUrl(''); setNewMeter({name:'', code:'', serial:'', qr_url:''}); } }}>
@@ -228,18 +249,18 @@ export default function Electricity() {
                 {!generatedQrUrl ? (
                   <>
                     <div>
-                      <label className="text-xs text-gray-500 font-medium mb-1 block">ชื่อสถานที่</label>
-                      <Input placeholder="เช่น ร้านค้าสมาน" value={newMeter.name} onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
+                      <label className="text-xs text-gray-500 font-medium mb-1 block">ชื่อสถานที่ (เช่น สมาน(ร้านค้า) เพื่อเปิดช่องค่าน้ำได้)</label>
+                      <Input placeholder="เช่น สมาน(ร้านค้า) หรือ โรงอาหาร" value={newMeter.name} onChange={(e) => setNewMeter({...newMeter, name: e.target.value})} />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500 font-medium mb-1 block">หมายเลขเครื่องมิเตอร์ (เช่น 001)</label>
-                      <Input placeholder="กรอกเฉพาะตัวเลขหรือรหัสเครื่อง" value={newMeter.serial} onChange={(e) => setNewMeter({...newMeter, serial: e.target.value})} />
+                      <label className="text-xs text-gray-500 font-medium mb-1 block">หมายเลขเครื่องมิเตอร์</label>
+                      <Input placeholder="กรอกรหัสเลขเครื่อง" value={newMeter.serial} onChange={(e) => setNewMeter({...newMeter, serial: e.target.value})} />
                     </div>
                     <div>
                       <label className="text-xs text-gray-500 font-medium mb-1 block">รหัสภายใน (ถ้ามี)</label>
                       <Input placeholder="เช่น ele-001" value={newMeter.code} onChange={(e) => setNewMeter({...newMeter, code: e.target.value})} />
                     </div>
-                    <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700 mt-2" onClick={handleSaveMeter}>บันทึกสถานที่และเจนคิวอาร์</Button>
+                    <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700 mt-2" onClick={handleSaveMeter}>บันทึกและสร้างคิวอาร์</Button>
                   </>
                 ) : (
                   <div className="flex flex-col items-center justify-center p-4 space-y-4 text-center">
@@ -247,9 +268,8 @@ export default function Electricity() {
                     <div className="border p-2 bg-white rounded-lg shadow-sm">
                       <img src={generatedQrUrl} alt="Generated QR" className="w-48 h-48 object-contain" />
                     </div>
-                    <span className="text-xs text-gray-400 font-mono bg-gray-50 px-2 py-1 rounded">{newMeter.serial.toLowerCase()}.lovable.com</span>
                     <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center" onClick={downloadQrCode}>
-                      <Download className="mr-2 h-4 w-4" /> ดาวน์โหลดภาพ QR Code (.png)
+                      <Download className="mr-2 h-4 w-4" /> ดาวน์โหลดภาพคิวอาร์ (.png)
                     </Button>
                   </div>
                 )}
@@ -260,10 +280,9 @@ export default function Electricity() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* คอนโทรลส่วนบันทึกข้อมูล */}
         <Card className="lg:col-span-1 shadow-sm border border-gray-100 rounded-xl overflow-hidden">
           <CardHeader className="bg-gray-50/50 border-b border-gray-100 py-3">
-            <CardTitle className="text-sm sm:text-base text-gray-700">จดบันทึกค่าพลังงาน</CardTitle>
+            <CardTitle className="text-sm sm:text-base text-gray-700">จดบันทึกค่ามิเตอร์พลังงาน</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
             {!isScanning ? (
@@ -276,20 +295,30 @@ export default function Electricity() {
             )}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-gray-500">สถานที่ปฏิบัติงาน</label>
-              <Input value={meterDisplayName} placeholder="ชื่อสถานที่จริงจะปรากฏที่นี่" readOnly className="bg-gray-100 text-center font-bold text-gray-800 border-gray-200 text-sm" />
+              <Input value={meterDisplayName} placeholder="ชื่อสถานที่ปฏิบัติงานจะขึ้นที่นี่" readOnly className="bg-gray-100 text-center font-bold text-gray-800 border-gray-200 text-sm" />
             </div>
+
+            {/* ส่วนมิเตอร์ไฟเดิม */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-500">ตัวเลขหน้าปัดมิเตอร์ไฟฟ้าปัจจุบัน</label>
-              <Input type="number" value={currentValue} placeholder="ระบุตัวเลขปัจจุบันล่าสุด" onChange={(e) => setCurrentValue(e.target.value)} className="text-center text-lg font-bold border-gray-300 focus:ring-2 focus:ring-indigo-500" />
+              <label className="text-xs font-semibold text-amber-600 flex items-center gap-1"><Zap className="h-3 w-3"/> เลขมิเตอร์ไฟฟ้าปัจจุบัน</label>
+              <Input type="number" value={currentValue} placeholder="ระบุตัวเลขไฟฟ้าล่าสุด" onChange={(e) => setCurrentValue(e.target.value)} className="text-center text-lg font-bold border-gray-300 focus:ring-2 focus:ring-indigo-500" />
             </div>
+
+            {/* ✨ ส่วนมิเตอร์น้ำเพิ่มเข้ามาอัตโนมัติเฉพาะร้านค้าที่มีคำว่า (ร้านค้า) */}
+            {isShop && (
+              <div className="space-y-1 p-3 bg-blue-50 border border-blue-100 rounded-lg animate-in fade-in duration-200">
+                <label className="text-xs font-bold text-blue-600 flex items-center gap-1"><Droplet className="h-3 w-3"/> เลขมิเตอร์น้ำปัจจุบัน (ฟอร์มเฉพาะร้านค้า)</label>
+                <Input type="number" value={currentWaterValue} placeholder="กรอกเลขหน้าปัดมิเตอร์น้ำ" onChange={(e) => setCurrentWaterValue(e.target.value)} className="text-center text-base font-bold border-blue-300 bg-white focus:ring-2 focus:ring-blue-500 text-blue-700" />
+              </div>
+            )}
+
             <Button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg shadow-sm">ยืนยันและบันทึก</Button>
           </CardContent>
         </Card>
 
-        {/* ส่วนแสดงประวัติ */}
         <Card className="lg:col-span-2 shadow-sm border border-gray-100 rounded-xl overflow-hidden">
           <CardHeader className="bg-gray-50/50 border-b border-gray-100 py-3">
-            <CardTitle className="text-sm sm:text-base text-gray-700">ประวัติจัดเก็บข้อมูล</CardTitle>
+            <CardTitle className="text-sm sm:text-base text-gray-700">ประวัติจัดเก็บข้อมูลในระบบ</CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-4">
             <div className="overflow-x-auto">
@@ -301,10 +330,13 @@ export default function Electricity() {
                     logs.map((log: any) => (
                       <TableRow key={log.id} className="hover:bg-slate-50/50">
                         <TableCell className="text-gray-500 text-xs">{new Date(log.created_at).toLocaleString('th-TH')}</TableCell>
-                        <TableCell className="font-bold text-gray-700">{log.electricity_meters?.meter_name || 'ไม่พบชื่อสถานที่'}</TableCell>
-                        <TableCell className="text-right text-gray-500 text-xs">ครั้งก่อน: {log.previous_value ?? 0}</TableCell>
-                        <TableCell className="text-right text-gray-700 font-medium">ปัจจุบัน: {log.current_value}</TableCell>
+                        <TableCell className="font-bold text-gray-700">{log.electricity_meters?.meter_name || 'ไม่พบจุดติดตั้ง'}</TableCell>
+                        <TableCell className="text-right text-gray-700 font-medium">ไฟ: {log.current_value}</TableCell>
                         <TableCell className="text-right text-emerald-600 font-bold bg-emerald-50/40 rounded-md">ใช้ไป: +{log.units_used ?? 0} หน่วย</TableCell>
+                        {/* แสดงค่าน้ำในตารางประวัติถ้าแถวนั้นๆ มีบันทึกไว้ครับ */}
+                        <TableCell className="text-right text-blue-600 font-bold">
+                          {log.current_water_value ? `น้ำ: ${log.current_water_value}` : '-'}
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
