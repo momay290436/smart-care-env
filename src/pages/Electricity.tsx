@@ -16,35 +16,20 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // States สำหรับบันทึกข้อมูลหลัก
   const [selectedMeterId, setSelectedMeterId] = useState(''); 
   const [meterDisplayName, setMeterDisplayName] = useState(''); 
   const [currentValue, setCurrentValue] = useState(''); 
   const [currentWaterValue, setCurrentWaterValue] = useState(''); 
   const [isScanning, setIsScanning] = useState(false);
-
-  // เพิ่ม State สำหรับปฏิทินลงข้อมูลย้อนหลัง (ค่าเริ่มต้นเป็นวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD)
-  const [recordDate, setRecordDate] = useState(() => {
-    const today = new Date();
-    const offset = today.getTimezoneOffset();
-    const localToday = new Date(today.getTime() - (offset * 60 * 1000));
-    return localToday.toISOString().split('T')[0];
-  });
-
-  // States พิเศษสำหรับจัดการข้อมูลครั้งแรกที่ดึงมาจากกระดาษ
+  const [recordDate, setRecordDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [isFirstRecord, setIsFirstRecord] = useState(false);
   const [customPrevValue, setCustomPrevValue] = useState('');
   const [customPrevWaterValue, setCustomPrevWaterValue] = useState('');
-
-  // States สำหรับระบบคัดกรองปฏิทิน
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-
-  // States สำหรับการลงทะเบียนเครื่องมิเตอร์ใหม่
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
 
-  // ตัวแปรเช็กกลุ่มร้านค้า
   const isShop = meterDisplayName.includes('(ร้านค้า)');
 
   useEffect(() => {
@@ -54,96 +39,81 @@ export default function Electricity() {
     document.body.appendChild(script);
   }, []);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
-  // ดึงประวัติรายการทั้งหมดจาก Supabase
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
     queryFn: async () => {
       const { data } = await supabase
         .from('electricity_logs')
-        .select(`
-          id,
-          meter_id,
-          current_value,
-          previous_value,
-          units_used,
-          current_water_value,
-          previous_water_value,
-          created_at,
-          electricity_meters (
-            meter_name
-          )
-        `)
+        .select(`*, electricity_meters(meter_name)`)
         .order('created_at', { ascending: false });
       return data || [];
     }
   });
 
-  // ระบบคัดกรองข้อมูลประวัติด้วยวันที่
   const filteredLogs = logs.filter((log: any) => {
     if (!startDate && !endDate) return true;
     const logDate = new Date(log.created_at).toISOString().split('T')[0];
-    
-    if (startDate && logDate < startDate) return false;
-    if (endDate && logDate > endDate) return false;
-    return true;
+    return logDate >= (startDate || '0000-00-00') && logDate <= (endDate || '9999-99-99');
   });
 
-  // คำนวณสรุปหน่วยประจำเดือนล่าสุด (รองรับปฏิทิน พ.ศ. / ค.ศ.) พร้อมใช้ค่า units_used ตรงจากเบส
-  const currentMonthStats = React.useMemo(() => {
-    const now = new Date();
-    let currentYear = now.getFullYear();
-    if (currentYear > 2500) currentYear -= 543;
-    const currentMonth = now.getMonth(); 
+  const handleSave = async () => {
+    if (!selectedMeterId || !currentValue) return;
+    
+    const curVal = parseFloat(currentValue);
+    const prevVal = parseFloat(customPrevValue) || 0;
+    const unitsUsed = 10000 - prevVal + curVal;
 
-    let totalElectricUnits = 0;
-    let totalWaterUnits = 0;
-
-    logs.forEach((log: any) => {
-      if (!log.created_at) return;
-      const logDate = new Date(log.created_at);
-      let logYear = logDate.getFullYear();
-      if (logYear > 2500) logYear -= 543;
-
-      if (logYear === currentYear && logDate.getMonth() === currentMonth) {
-        totalElectricUnits += log.units_used || 0;
-        
-        if (log.current_water_value && log.previous_water_value) {
-          // ค่าน้ำใช้วิธีคำนวณแบบหมุนรอบ 10000 เช่นเดียวกัน
-          const calculatedWater = 10000 - log.previous_water_value + log.current_water_value;
-          totalWaterUnits += calculatedWater;
-        }
-      }
-    });
-
-    return {
-      electric: totalElectricUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
-      water: totalWaterUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
-      monthName: now.toLocaleString('th-TH', { month: 'long', year: 'numeric' })
+    const data: any = {
+      meter_id: selectedMeterId,
+      current_value: curVal,
+      previous_value: prevVal,
+      units_used: unitsUsed,
+      created_at: new Date(recordDate).toISOString()
     };
-  }, [logs]);
 
-  // ฟังก์ชันวิเคราะห์ประวัติย้อนหลังของมิเตอร์เพื่อเปิดฟอร์มแก้เลขตั้งต้น
-  const checkMeterHistory = async (meterId: string) => {
-    try {
-      const { data: lastLog } = await supabase
-        .from('electricity_logs')
-        .select('current_value, current_water_value')
-        .eq('meter_id', meterId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!lastLog) {
-        setIsFirstRecord(true);
-        setCustomPrevValue('0');
-        setCustomPrevWaterValue('0');
-      } else {
-        setIsFirstRecord(false);
-        setCustomPrevValue(lastLog.current_value.toString());
-        setCustomPrevWaterValue(lastLog.current_water_value ? lastLog.current_water_value.toString() : '0');
-      }
+    if (isShop) {
+      data.current_water_value = parseFloat(currentWaterValue) || 0;
+      data.previous_water_value = parseFloat(customPrevWaterValue) || 0;
     }
+
+    const { error } = await supabase.from('electricity_logs').insert([data]);
+    if (!error) {
+      toast({ title: "บันทึกสำเร็จ" });
+      queryClient.invalidateQueries({ queryKey: ['logs'] });
+    }
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold">ระบบบริหารจัดการมิเตอร์</h1>
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <Input type="date" value={recordDate} onChange={(e) => setRecordDate(e.target.value)} />
+          <Input placeholder="เลขมิเตอร์ล่าสุด" value={currentValue} onChange={(e) => setCurrentValue(e.target.value)} />
+          <Button onClick={handleSave} className="w-full">ยืนยันและบันทึก</Button>
+        </CardContent>
+      </Card>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>สถานที่</TableHead>
+            <TableHead>เลขก่อนหน้า</TableHead>
+            <TableHead>เลขล่าสุด</TableHead>
+            <TableHead>หน่วยที่ใช้</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredLogs.map((log: any) => (
+            <TableRow key={log.id}>
+              <TableCell>{log.electricity_meters?.meter_name}</TableCell>
+              <TableCell>{log.previous_value}</TableCell>
+              <TableCell>{log.current_value}</TableCell>
+              <TableCell className="font-bold">{log.units_used}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
