@@ -92,7 +92,7 @@ export default function Electricity() {
     return true;
   });
 
-  // คำนวณสรุปหน่วยประจำเดือนล่าสุด (รองรับปฏิทิน พ.ศ. / ค.ศ.)
+  // คำนวณสรุปหน่วยประจำเดือนล่าสุด (รองรับปฏิทิน พ.ศ. / ค.ศ.) พร้อมใช้สูตรคำนวณใหม่
   const currentMonthStats = React.useMemo(() => {
     const now = new Date();
     let currentYear = now.getFullYear();
@@ -109,11 +109,14 @@ export default function Electricity() {
       if (logYear > 2500) logYear -= 543;
 
       if (logYear === currentYear && logDate.getMonth() === currentMonth) {
-        totalElectricUnits += log.units_used || 0;
+        // คำนวณค่าไฟฟ้าตามสูตรใหม่: 10000 - previous_value + current_value
+        const calculatedElectric = 10000 - (log.previous_value || 0) + (log.current_value || 0);
+        totalElectricUnits += calculatedElectric;
         
         if (log.current_water_value && log.previous_water_value) {
-          const waterDiff = log.current_water_value - log.previous_water_value;
-          if (waterDiff > 0) totalWaterUnits += waterDiff;
+          // คำนวณค่าน้ำประปาตามสูตรใหม่เช่นเดียวกัน เพื่อให้สอดคล้องกันทุกส่วน
+          const calculatedWater = 10000 - log.previous_water_value + log.current_water_value;
+          totalWaterUnits += calculatedWater;
         }
       }
     });
@@ -214,18 +217,17 @@ export default function Electricity() {
       const currentVal = parseFloat(currentValue);
       const prevVal = parseFloat(customPrevValue) || 0;
 
-      if (currentVal < prevVal) {
-        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์ไฟฟ้าน้อยกว่าครั้งก่อนหน้า (${prevVal})` });
-        return;
-      }
-
       const currentTimeStr = new Date().toTimeString().split(' ')[0]; 
       const finalCreatedAt = new Date(`${recordDate}T${currentTimeStr}`).toISOString();
+
+      // สูตรใหม่ตามโจทย์: units_used = 10000 - previous_value + current_value
+      const electricUnitsUsed = 10000 - prevVal + currentVal;
 
       const insertData: any = {
         meter_id: selectedMeterId,
         current_value: currentVal,
         previous_value: prevVal,
+        units_used: electricUnitsUsed,
         created_at: finalCreatedAt 
       };
 
@@ -233,10 +235,6 @@ export default function Electricity() {
         const currentWaterVal = parseFloat(currentWaterValue);
         const prevWaterVal = parseFloat(customPrevWaterValue) || 0;
         
-        if (currentWaterVal < prevWaterVal) {
-          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์น้ำน้อยกว่าครั้งก่อนหน้า (${prevWaterVal})` });
-          return;
-        }
         insertData.current_water_value = currentWaterVal;
         insertData.previous_water_value = prevWaterVal;
       }
@@ -308,17 +306,17 @@ export default function Electricity() {
     }
   };
 
-  // ส่งออกไฟล์รายงานสรุปแยกหมวดหมู่ตามวงเล็บท้ายชื่อ
+  // ส่งออกไฟล์รายงานสรุปแยกหมวดหมู่ตามวงเล็บท้ายชื่อ พร้อมคำนวณตามสูตรใหม่
   const exportExcel = () => {
     const formatLogItem = (log: any) => ({
       'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
       'สถานที่ติดตั้ง': log.electricity_meters?.meter_name || 'ไม่พบข้อมูล',
       'เลขมิเตอร์ไฟครั้งก่อน': log.previous_value,
       'เลขมิเตอร์ไฟล่าสุด': log.current_value,
-      'จำนวนหน่วยไฟที่ใช้ประจำงวด (หน่วย)': log.units_used,
+      'จำนวนหน่วยไฟที่ใช้ประจำงวด (หน่วย)': 10000 - (log.previous_value || 0) + (log.current_value || 0),
       'เลขมิเตอร์น้ำครั้งก่อน': log.previous_water_value || '-',
       'เลขมิเตอร์น้ำล่าสุด': log.current_water_value || '-',
-      'จำนวนหน่วยน้ำที่ใช้ประจำงวด (หน่วย)': log.current_water_value && log.previous_water_value ? (log.current_water_value - log.previous_water_value) : '-'
+      'จำนวนหน่วยน้ำที่ใช้ประจำงวด (หน่วย)': log.current_water_value && log.previous_water_value ? (10000 - log.previous_water_value + log.current_water_value) : '-'
     });
 
     const categories = [
@@ -347,7 +345,6 @@ export default function Electricity() {
       XLSX.utils.book_append_sheet(wb, wsFiltered, category.label);
     });
 
-    // 3. แผ่นงาน "อื่นๆ" สำหรับสถานที่ที่ไม่ตรงกับวงเล็บประเภทใดๆ เลย (หรือไม่มีวงเล็บ)
     const othersFiltered = filteredLogs.filter((log: any) => {
       const name = log.electricity_meters?.meter_name || '';
       const hasMainCategory = categories.some(category => name.includes(`(${category.key})`));
@@ -406,206 +403,4 @@ export default function Electricity() {
                       <img src={generatedQrUrl} alt="Generated QR" className="w-40 h-40 object-contain" />
                     </div>
                     <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center h-10 text-sm" onClick={downloadQrCode}>
-                      <Download className="mr-2 h-4 w-4" /> ดาวน์โหลดคิวอาร์ (.png)
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      {/* ส่วนกล่องลงบันทึกค่างวดมิเตอร์ / กล้องสแกน */}
-      <div className="w-full">
-        <Card className="w-full shadow-sm border border-slate-200/80 bg-white rounded-2xl overflow-hidden">
-          <CardHeader className="bg-slate-50 border-b border-slate-100 py-2.5 px-4">
-            <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2"><Calendar className="h-4 w-4 text-indigo-500"/>ลงบันทึกค่างวดมิเตอร์</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-3 px-4 pb-4">
-            {!isScanning ? (
-              <Button onClick={startScanner} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
-                <Camera className="mr-2 h-4 w-4"/> เปิดกล้องสแกนคิวอาร์
-              </Button>
-            ) : (
-              <div className="relative max-w-[320px] mx-auto aspect-square w-full border-4 border-indigo-500 rounded-2xl overflow-hidden shadow-md bg-black">
-                <div id="reader" className="w-full h-full [&_video]:object-cover [&_video]:w-full [&_video]:h-full"></div>
-                <Button 
-                  onClick={() => setIsScanning(false)} 
-                  className="absolute top-3 right-3 rounded-full h-8 w-8 p-0 z-50 shadow-md bg-rose-500 hover:bg-rose-600 transition-colors" 
-                  size="sm" 
-                  variant="destructive"
-                >
-                  <X className="h-4 w-4 text-white"/>
-                </Button>
-              </div>
-            )}
-
-            {/* ส่วนฟอร์มกรอกข้อมูลมิเตอร์ */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/50 p-3 sm:p-4 rounded-xl border border-slate-100">
-              
-              {/* ปฏิทินสำหรับแอดมินเลือกบันทึกวันที่ย้อนหลัง */}
-              <div className="space-y-1 md:col-span-2 bg-indigo-50/40 p-3 border border-indigo-100 rounded-xl">
-                <label className="text-[11px] font-bold text-indigo-700 flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5"/> วันที่จดบันทึกข้อมูล (ปรับเปลี่ยนเพื่อลงข้อมูลย้อนหลังได้)
-                </label>
-                <Input 
-                  type="date" 
-                  value={recordDate} 
-                  onChange={(e) => setRecordDate(e.target.value)} 
-                  className="bg-white border-indigo-200 focus:ring-2 focus:ring-indigo-500 h-10 text-sm font-semibold" 
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-500">สถานที่ปฏิบัติงานที่ตรวจจับได้</label>
-                <Input value={meterDisplayName} placeholder="ชื่อสถานที่จากการสแกน" readOnly className="bg-white text-center font-bold text-slate-800 border-slate-200 h-10 text-sm" />
-              </div>
-
-              {/* บันทึกระบบไฟฟ้า */}
-              <div className="p-3 bg-amber-50/40 border border-amber-100 rounded-xl space-y-2">
-                <span className="text-[11px] font-bold text-amber-700 flex items-center gap-1"><Zap className="h-3.5 w-3.5"/> ระบบบันทึกมิเตอร์ไฟฟ้า</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] font-medium text-slate-500 block mb-0.5">เลขงวดก่อนหน้า</label>
-                    <Input 
-                      type="number" 
-                      value={customPrevValue} 
-                      onChange={(e) => setCustomPrevValue(e.target.value)} 
-                      disabled={!isFirstRecord} 
-                      className={isFirstRecord ? "text-center font-semibold h-9 text-xs bg-white border-amber-400 focus:ring-amber-500" : "text-center font-semibold h-9 text-xs text-slate-400 bg-slate-100"} 
-                      placeholder="อิงตามระบบ"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-amber-600 block mb-0.5">เลขล่าสุด</label>
-                    <Input type="number" value={currentValue} placeholder="ระบุเลขล่าสุด" onChange={(e) => setCurrentValue(e.target.value)} className="text-center text-xs font-bold border-slate-300 focus:ring-2 focus:ring-indigo-500 h-9 bg-white" />
-                  </div>
-                </div>
-                {isFirstRecord && <p className="text-[9px] text-amber-600 font-medium">* บันทึกครั้งแรก: สามารถแก้ไขเลขงวดก่อนหน้าได้</p>}
-              </div>
-
-              {/* บันทึกระบบน้ำประปา (ถ้ามีวงเล็บคำว่าร้านค้าท้ายชื่อ) */}
-              {isShop && (
-                <div className="p-3 bg-blue-50/40 border border-blue-100 rounded-xl space-y-2 md:col-span-2">
-                  <span className="text-[11px] font-bold text-blue-700 flex items-center gap-1"><Droplet className="h-3.5 w-3.5"/> ระบบบันทึกมิเตอร์น้ำประปา (เฉพาะร้านค้า)</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-medium text-slate-500 block mb-0.5">เลขงวดก่อนหน้า</label>
-                      <Input 
-                        type="number" 
-                        value={customPrevWaterValue} 
-                        onChange={(e) => setCustomPrevWaterValue(e.target.value)} 
-                        disabled={!isFirstRecord} 
-                        className={isFirstRecord ? "text-center font-semibold h-9 text-xs bg-white border-blue-400 focus:ring-blue-500" : "text-center font-semibold h-9 text-xs text-slate-400 bg-slate-100"} 
-                        placeholder="อิงตามระบบ"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-blue-600 block mb-0.5">เลขล่าสุด</label>
-                      <Input type="number" value={currentWaterValue} placeholder="ระบุเลขล่าสุด" onChange={(e) => setCurrentWaterValue(e.target.value)} className="text-center text-xs font-bold border-blue-300 focus:ring-2 focus:ring-blue-500 h-9 bg-white text-blue-700" />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <Button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-xs sm:text-sm shadow-sm active:scale-[0.98] transition-all">ยืนยันและบันทึกข้อมูล</Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ส่วนสรุปสถิติความก้าวหน้า (KPI Dashboards และ ตัวกรองวันที่) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-        <Card className="border-l-4 border-l-amber-500 shadow-sm rounded-xl bg-white border border-slate-100">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ยอดรวมใช้ไฟฟ้าประจำเดือน</p>
-              <h3 className="text-xl sm:text-2xl font-black text-slate-800">{currentMonthStats.electric} <span className="text-xs font-normal text-slate-500">หน่วย</span></h3>
-              <p className="text-[10px] sm:text-[11px] text-amber-600 font-medium flex items-center gap-1 mt-0.5"><TrendingUp className="h-3 w-3"/> รอบบิล: {currentMonthStats.monthName}</p>
-            </div>
-            <div className="p-2.5 bg-amber-50 rounded-xl text-amber-600"><Zap className="h-5 w-5" /></div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500 shadow-sm rounded-xl bg-white border border-slate-100">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ยอดรวมใช้น้ำประปา (ร้านค้า)</p>
-              <h3 className="text-xl sm:text-2xl font-black text-slate-800">{currentMonthStats.water} <span className="text-xs font-normal text-slate-500">หน่วย</span></h3>
-              <p className="text-[10px] sm:text-[11px] text-blue-600 font-medium flex items-center gap-1 mt-0.5"><TrendingUp className="h-3 w-3"/> รอบบิล: {currentMonthStats.monthName}</p>
-            </div>
-            <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600"><Droplet className="h-5 w-5" /></div>
-          </CardContent>
-        </Card>
-
-        <Card className="sm:col-span-2 lg:col-span-1 shadow-sm rounded-xl bg-white border border-slate-200/60 p-3 flex flex-col justify-center space-y-2">
-          <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1"><Calendar className="h-3.5 w-3.5 text-slate-400" /> ค้นหาตามช่วงเวลาบันทึก</span>
-          <div className="grid grid-cols-2 gap-2">
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 text-xs bg-slate-50/50" />
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 text-xs bg-slate-50/50" />
-          </div>
-          {(startDate || endDate) && (
-            <Button size="sm" variant="ghost" onClick={() => { setStartDate(''); setEndDate(''); }} className="h-6 text-[11px] text-rose-500 hover:text-rose-600 p-0 self-end">ล้างตัวกรอง</Button>
-          )}
-        </Card>
-      </div>
-
-      {/* ส่วนแสดงตารางประวัติบันทึกข้อมูล */}
-      <Card className="shadow-sm border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
-        <CardHeader className="bg-slate-50 border-b border-slate-100 py-3 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2">
-            ประวัติการจดบันทึกย้อนหลัง
-          </CardTitle>
-          <span className="text-[11px] text-slate-500 bg-slate-200/60 px-2.5 py-0.5 rounded-full font-medium">
-            ทั้งหมด {filteredLogs.length} รายการ
-          </span>
-        </CardHeader>
-        <div className="overflow-x-auto w-full">
-          <Table>
-            <TableHeader className="bg-slate-50/70">
-              <TableRow>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">วัน-เวลาที่บันทึก</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">สถานที่ติดตั้ง</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">เลขไฟงวดก่อน</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">เลขไฟล่าสุด</TableHead>
-                <TableHead className="text-xs font-bold text-indigo-600 py-3 text-right whitespace-nowrap">ไฟฟ้าที่ใช้ (หน่วย)</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">เลขน้ำงวดก่อน</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">เลขน้ำล่าสุด</TableHead>
-                <TableHead className="text-xs font-bold text-blue-600 py-3 text-right whitespace-nowrap">น้ำที่ใช้ (หน่วย)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLogs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-400">ไม่พบประวัติข้อมูลตามเงื่อนไข</TableCell>
-                </TableRow>
-              ) : (
-                filteredLogs.map((log: any) => (
-                  <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                    <TableCell className="text-xs text-slate-600 py-2.5 whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
-                    </TableCell>
-                    <TableCell className="text-xs font-semibold text-slate-800 py-2.5 whitespace-nowrap">
-                      {log.electricity_meters?.meter_name || 'ไม่ทราบสถานที่'}
-                    </TableCell>
-                    <TableCell className="text-xs text-right text-slate-500 py-2.5">{log.previous_value}</TableCell>
-                    <TableCell className="text-xs text-right font-medium text-slate-700 py-2.5">{log.current_value}</TableCell>
-                    <TableCell className="text-xs text-right font-bold text-indigo-600 bg-indigo-50/30 py-2.5">
-                      {log.units_used?.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-xs text-right text-slate-500 py-2.5">{log.previous_water_value || '-'}</TableCell>
-                    <TableCell className="text-xs text-right font-medium text-slate-700 py-2.5">{log.current_water_value || '-'}</TableCell>
-                    <TableCell className="text-xs text-right font-bold text-blue-600 bg-blue-50/30 py-2.5">
-                      {log.current_water_value && log.previous_water_value ? (log.current_water_value - log.previous_water_value).toLocaleString() : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
-    </div>
-  );
-}
+                      <Download className="mr-2 h-4 w-4" /> ดาว
