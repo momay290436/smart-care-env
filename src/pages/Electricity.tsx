@@ -23,7 +23,7 @@ export default function Electricity() {
   const [currentWaterValue, setCurrentWaterValue] = useState(''); 
   const [isScanning, setIsScanning] = useState(false);
 
-  // เพิ่ม State สำหรับปฏิทินลงข้อมูลย้อนหลัง (ค่าเริ่มต้นเป็นวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD)
+  // เพิ่ม State สำหรับปฏิทินลงข้อมูลย้อนหลัง
   const [recordDate, setRecordDate] = useState(() => {
     const today = new Date();
     const offset = today.getTimezoneOffset();
@@ -62,7 +62,7 @@ export default function Electricity() {
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('electricity_logs')
         .select(`
           id,
@@ -78,20 +78,11 @@ export default function Electricity() {
           )
         `)
         .order('created_at', { ascending: false });
+      
+      if (error) throw error;
       return data || [];
     }
   });
-
-  // ฟังก์ชันส่วนกลางคำนวณหน่วยที่ใช้จริง รองรับกรณี Rollover มิเตอร์เวียนรอบ (เช่น 9681 -> 0244)
-  const calculateActualUnits = (current: number, previous: number) => {
-    if (current < previous) {
-      // หากค่าล่าสุดน้อยกว่าค่าก่อนหน้า และส่วนต่างสอดคล้องกับมิเตอร์ 4 หลักเวียนรอบ
-      if (previous >= 9000 && current <= 1000) {
-        return (10000 - previous) + current;
-      }
-    }
-    return current - previous;
-  };
 
   // ระบบคัดกรองข้อมูลประวัติด้วยวันที่
   const filteredLogs = logs.filter((log: any) => {
@@ -120,14 +111,11 @@ export default function Electricity() {
       if (logYear > 2500) logYear -= 543;
 
       if (logYear === currentYear && logDate.getMonth() === currentMonth) {
-        const electricCurrent = log.current_value || 0;
-        const electricPrevious = log.previous_value || 0;
-        totalElectricUnits += calculateActualUnits(electricCurrent, electricPrevious);
+        totalElectricUnits += log.units_used || 0;
         
-        if (log.current_water_value !== null && log.previous_water_value !== null) {
-          const waterCurrent = log.current_water_value || 0;
-          const waterPrevious = log.previous_water_value || 0;
-          totalWaterUnits += calculateActualUnits(waterCurrent, waterPrevious);
+        if (log.current_water_value && log.previous_water_value) {
+          const waterDiff = log.current_water_value - log.previous_water_value;
+          if (waterDiff > 0) totalWaterUnits += waterDiff;
         }
       }
     });
@@ -139,7 +127,7 @@ export default function Electricity() {
     };
   }, [logs]);
 
-  // ฟังก์ชันวิเคราะห์ประวัติย้อนหลังของมิเตอร์เพื่อเปิดฟอร์มแก้เลขตั้งต้น
+  // ฟังก์ชันวิเคราะห์ประวัติย้อนหลังของมิเตอร์
   const checkMeterHistory = async (meterId: string) => {
     try {
       const { data: lastLog } = await supabase
@@ -164,11 +152,14 @@ export default function Electricity() {
     }
   };
 
-  // เรียกใช้งานโมดูลกล้องเพื่อสแกน QR Code หน้างาน
+  // เรียกใช้งานโมดูลกล้องเพื่อสแกน QR Code
   const startScanner = () => {
     setIsScanning(true);
     setCurrentWaterValue('');
     setTimeout(() => {
+      const element = document.getElementById("reader");
+      if (!element) return;
+      
       const html5QrCode = new window.Html5Qrcode("reader");
       html5QrCode.start(
         { facingMode: "environment" }, 
@@ -202,3 +193,42 @@ export default function Electricity() {
             setSelectedMeterId('');
             setMeterDisplayName('');
             toast({ variant: "destructive", title: "ไม่พบข้อมูล", description: "ลิงก์คิวอาร์โค้ดนี้ยังไม่ได้ผูกในระบบ" });
+          }
+        }, 
+        () => {}
+      ).catch(() => {
+        toast({ variant: "destructive", title: "ไม่สามารถเปิดใช้งานกล้องได้" });
+        setIsScanning(false);
+      });
+    }, 500);
+  };
+
+  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล
+  const handleSave = async () => {
+    if (!selectedMeterId || !currentValue) {
+      toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
+      return;
+    }
+
+    if (isShop && !currentWaterValue) {
+      toast({ variant: "destructive", title: "กรุณาระบุเลขมิเตอร์น้ำของร้านค้า" });
+      return;
+    }
+
+    try {
+      const currentVal = parseFloat(currentValue);
+      const prevVal = parseFloat(customPrevValue) || 0;
+
+      if (currentVal < prevVal) {
+        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์ไฟฟ้าน้อยกว่าครั้งก่อนหน้า (${prevVal})` });
+        return;
+      }
+
+      const currentTimeStr = new Date().toTimeString().split(' ')[0]; 
+      const finalCreatedAt = new Date(`${recordDate}T${currentTimeStr}`).toISOString();
+
+      // ปรับปรุงออบเจกต์ข้อมูล: ส่งเฉพาะฟิลด์ที่อนุญาตให้เขียนลงไปตรง ๆ
+      const insertData: any = {
+        meter_id: selectedMeterId,
+        current_value: currentVal,
+        previous_value: prev
