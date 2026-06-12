@@ -368,6 +368,17 @@ export default function Electricity() {
       XLSX.utils.book_append_sheet(wb, wsFiltered, category.label);
     });
 
+    // คัดกรองสถานที่ที่ไม่มีวงเล็บระบุกลุ่มหลักใดๆ เลย เพื่อนำเข้าแผ่นงาน "อื่นๆ"
+    const otherLogs = filteredLogs.filter((log: any) => {
+      const name = log.electricity_meters?.meter_name || '';
+      const hasCategory = categories.some(category => name.includes(`(${category.key})`));
+      return !hasCategory;
+    });
+
+    const otherRecords = otherLogs.map(formatLogItem);
+    const wsOthers = XLSX.utils.json_to_sheet(otherRecords);
+    XLSX.utils.book_append_sheet(wb, wsOthers, "อื่นๆ");
+
     XLSX.writeFile(wb, "Meter_Comprehensive_Report.xlsx");
   };
 
