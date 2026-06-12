@@ -16,7 +16,8 @@ import { toast } from "sonner";
 import { format, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import * as XLSX from "xlsx"; // เปลี่ยนมานำเข้า xlsx เพื่อใช้สั่งแยกแผ่นงาน (Multi-sheets)
+import { exportToExcel } from "@/lib/exportExcel";
+import * as XLSX from "xlsx"; // นำเข้า xlsx library เข้ามาจัดการแยกแผ่นงานโดยตรง
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid, BarChart, Bar, Area, AreaChart } from "recharts";
 import PageHeader from "@/components/PageHeader";
 import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
@@ -109,4 +110,139 @@ export default function WasteLog() {
   });
 
   const uniqueSources = useMemo(() => {
-    const sources = new Set(
+    const sources = new Set(logs.map(log => log.source_name).filter(Boolean));
+    return ["all", ...Array.from(sources)];
+  }, [logs]);
+
+  // Filter logs based on active tab and filters
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log) => {
+      if (log.waste_type !== activeTab) return false;
+      if (filterSource !== "all" && log.source_name !== filterSource) return false;
+      
+      if (timeRange !== "all") {
+        const logDate = new Date(log.collected_at);
+        const now = new Date();
+        if (timeRange === "today" && logDate < startOfDay(now)) return false;
+        if (timeRange === "week" && logDate < startOfWeek(now)) return false;
+        if (timeRange === "month" && logDate < startOfMonth(now)) return false;
+      }
+      
+      return true;
+    });
+  }, [logs, activeTab, filterSource, timeRange]);
+
+  // สถิติสำหรับกราฟและสรุปยอด
+  const stats = useMemo(() => {
+    const activeLogs = logs.filter(log => log.waste_type === activeTab);
+    const total = activeLogs.reduce((sum, log) => sum + Number(log.weight), 0);
+    const count = activeLogs.length;
+    const avg = count > 0 ? total / count : 0;
+
+    // ข้อมูลรายวันย้อนหลังสำหรับกราฟเส้น
+    const dailyData: Record<string, number> = {};
+    activeLogs.slice(0, 30).forEach((log) => {
+      const dateStr = format(new Date(log.collected_at), "d MMM", { locale: th });
+      dailyData[dateStr] = (dailyData[dateStr] || 0) + Number(log.weight);
+    });
+    const chartData = Object.entries(dailyData).map(([name, weight]) => ({ name, weight })).reverse();
+
+    // ข้อมูลแยกตามแหล่งที่มาสำหรับกราฟวงกลม
+    const sourceData: Record<string, number> = {};
+    activeLogs.forEach((log) => {
+      const source = log.source_name || "ไม่ระบุ";
+      sourceData[source] = (sourceData[source] || 0) + Number(log.weight);
+    });
+    const pieData = Object.entries(sourceData).map(([name, value]) => ({ name, value }));
+
+    return { total, count, avg, chartData, pieData };
+  }, [logs, activeTab]);
+
+  // มิวเทชันสำหรับเพิ่ม/แก้ไขข้อมูล
+  const saveLog = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        waste_type: activeTab,
+        weight: parseFloat(weight),
+        source_name: sourceName.trim() || null,
+        note: note.trim() || null,
+        collected_at: selectedDate.toISOString(),
+        recorder_id: user?.id,
+      };
+
+      if (editingId) {
+        const { error } = await supabase
+          .from("waste_logs")
+          .update(payload)
+          .eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("waste_logs").insert([payload]);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success(editingId ? "แก้ไขข้อมูลสำเร็จ" : "บันทึกข้อมูลสำเร็จ");
+      setIsOpen(false);
+      resetForm();
+      queryClient.invalidateQueries({ queryKey: ["wasteLogs"] });
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+    },
+  });
+
+  const deleteLog = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("waste_logs").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบข้อมูลเรียบร้อยแล้ว");
+      queryClient.invalidateQueries({ queryKey: ["wasteLogs"] });
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error("ไม่สามารถลบข้อมูลได้");
+    },
+  });
+
+  const handleEdit = (log: any) => {
+    setEditingId(log.id);
+    setWeight(log.weight.toString());
+    setSourceName(log.source_name || "");
+    setNote(log.note || "");
+    setSelectedDate(new Date(log.collected_at));
+    setIsOpen(true);
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setWeight("");
+    setSourceName("");
+    setNote("");
+    setSelectedDate(new Date());
+  };
+
+  // ฟังก์ชันดาวน์โหลด Excel แบบแยกแผ่นงานตามชื่อสถานที่แบบเสถียร
+  const handleExport = () => {
+    if (filteredLogs.length === 0) {
+      toast.error("ไม่มีข้อมูลที่จะส่งออกในตารางนี้");
+      return;
+    }
+
+    try {
+      // 1. จัดเรียงข้อมูลแผ่นงานแรก (รวมทุกแหล่งที่มา)
+      const allDataToExport = filteredLogs.map((log) => ({
+        "วันที่-เวลา": format(new Date(log.collected_at), "dd MMM yyyy HH:mm", { locale: th }),
+        "แหล่งที่มา / แผนก": log.source_name || "ไม่ระบุ",
+        "ประเภทขยะ": typesMap[log.waste_type]?.label || log.waste_type,
+        "น้ำหนัก (กก.)": Number(log.weight),
+        "หมายเหตุ": log.note || "-",
+      }));
+
+      // 2. สร้าง Workbook เล่มใหม่
+      const wb = XLSX.utils.book_new();
+
+      //
