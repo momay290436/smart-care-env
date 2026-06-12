@@ -85,7 +85,6 @@ export default function Electricity() {
   // ฟังก์ชันส่วนกลางสำหรับคำนวณหน่วยที่ใช้จริง รองรับกรณี Rollover มิเตอร์ 4 หลัก (9999 -> 0000)
   const calculateActualUnits = (current: number, previous: number) => {
     if (current < previous) {
-      // สูตรเวียนรอบ 4 หลัก: (10000 - ค่าก่อนหน้า) + ค่าใหม่
       return (10000 - previous) + current;
     }
     return current - previous;
@@ -118,7 +117,6 @@ export default function Electricity() {
       if (logYear > 2500) logYear -= 543;
 
       if (logYear === currentYear && logDate.getMonth() === currentMonth) {
-        // คำนวณจากฟังก์ชันเพื่อรองรับมิเตอร์เวียนรอบบน Dashboard
         const electricCurrent = log.current_value || 0;
         const electricPrevious = log.previous_value || 0;
         totalElectricUnits += calculateActualUnits(electricCurrent, electricPrevious);
@@ -211,7 +209,7 @@ export default function Electricity() {
     }, 500);
   };
 
-  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล (ถอด units_used ออกอย่างเด็ดขาด)
+  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล (ไม่มีการส่งฟิลด์ units_used)
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
       toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
@@ -227,7 +225,6 @@ export default function Electricity() {
       const currentVal = parseFloat(currentValue);
       const prevVal = parseFloat(customPrevValue) || 0;
 
-      // ระบบแจ้งเตือนความปลอดภัยกรณีคีย์เลขผิดพลาดเกิน 5,000 หน่วยเมื่อมิเตอร์เวียนรอบ
       const checkElectricUnits = calculateActualUnits(currentVal, prevVal);
       if (currentVal < prevVal && checkElectricUnits > 5000) {
         toast({ 
@@ -241,7 +238,6 @@ export default function Electricity() {
       const currentTimeStr = new Date().toTimeString().split(' ')[0]; 
       const finalCreatedAt = new Date(`${recordDate}T${currentTimeStr}`).toISOString();
 
-      // การจัดเตรียมข้อมูลสําหรับ Insert โดยไม่มีฟิลด์ units_used
       const insertData: any = {
         meter_id: selectedMeterId,
         current_value: currentVal,
@@ -267,134 +263,4 @@ export default function Electricity() {
         insertData.previous_water_value = prevWaterVal;
       }
 
-      const { error } = await supabase.from('electricity_logs').insert([insertData]);
-      if (error) throw error;
-      
-      toast({ 
-        title: "บันทึกข้อมูลสำเร็จเรียบร้อย",
-        description: currentVal < prevVal ? `⚡ ตรวจพบมิเตอร์เวียนรอบ: ใช้ไป ${checkElectricUnits} หน่วย` : undefined
-      });
-
-      setCurrentValue('');
-      setCurrentWaterValue('');
-      setSelectedMeterId('');
-      setMeterDisplayName('');
-      setIsFirstRecord(false);
-      
-      const today = new Date();
-      const offset = today.getTimezoneOffset();
-      const localToday = new Date(today.getTime() - (offset * 60 * 1000));
-      setRecordDate(localToday.toISOString().split('T')[0]);
-
-      queryClient.invalidateQueries({ queryKey: ['logs'] });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการบันทึก", description: err.message });
-    }
-  };
-
-  // เพิ่มจุดจดบันทึกตัวใหม่เข้าระบบ
-  const handleSaveMeter = async () => {
-    if (!newMeter.name || !newMeter.serial) {
-      toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และรหัสมิเตอร์" });
-      return;
-    }
-
-    const cleanSerial = newMeter.serial.trim().toLowerCase();
-    const autoQrUrl = `${cleanSerial}.lovable.com`;
-
-    try {
-      const { error } = await supabase.from('electricity_meters').insert([{ 
-        meter_name: newMeter.name, 
-        location_code: newMeter.code || cleanSerial, 
-        qr_url: autoQrUrl
-      }]);
-      
-      if (error) throw error;
-
-      const qrCodeImgApi = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(autoQrUrl)}`;
-      setGeneratedQrUrl(qrCodeImgApi);
-      toast({ title: "เพิ่มจุดตรวจสอบสำเร็จ" });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "การบันทึกจุดจดล้มเหลว", description: err.message });
-    }
-  };
-
-  const downloadQrCode = async () => {
-    if (!generatedQrUrl) return;
-    try {
-      const response = await fetch(generatedQrUrl);
-      const blob = await response.blob();
-      const blobURL = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobURL;
-      link.download = `QR_${newMeter.name || 'meter'}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setNewMeter({ name: '', code: '', serial: '', qr_url: '' });
-      setGeneratedQrUrl('');
-    } catch {
-      toast({ variant: "destructive", title: "ดาวน์โหลดรูปคิวอาร์โค้ดไม่สำเร็จ" });
-    }
-  };
-
-  // ส่งออกไฟล์รายงานสรุปแยกหมวดหมู่ตามวงเล็บท้ายชื่อ
-  const exportExcel = () => {
-    const formatLogItem = (log: any) => {
-      const electricCurrent = log.current_value || 0;
-      const electricPrevious = log.previous_value || 0;
-      
-      let waterUnits = '-';
-      if (log.current_water_value !== null && log.previous_water_value !== null) {
-        waterUnits = calculateActualUnits(log.current_water_value, log.previous_water_value).toString();
-      }
-
-      return {
-        'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
-        'สถานที่ติดตั้ง': log.electricity_meters?.meter_name || 'ไม่พบข้อมูล',
-        'เลขมิเตอร์ไฟครั้งก่อน': log.previous_value,
-        'เลขมิเตอร์ไฟล่าสุด': log.current_value,
-        'จำนวนหน่วยไฟที่ใช้ประจำงวด (หน่วย)': calculateActualUnits(electricCurrent, electricPrevious),
-        'เลขมิเตอร์น้ำครั้งก่อน': log.previous_water_value || '-',
-        'เลขมิเตอร์น้ำล่าสุด': log.current_water_value || '-',
-        'จำนวนหน่วยน้ำที่ใช้ประจำงวด (หน่วย)': waterUnits
-      };
-    };
-
-    const categories = [
-      { key: 'ร้านค้า', label: 'ร้านค้า' },
-      { key: 'บ้านพัก', label: 'บ้านพัก' },
-      { key: 'แฟลต1', label: 'แฟลต1' },
-      { key: 'แฟลต2', label: 'แฟลต2' },
-      { key: 'แฟลต3', label: 'แฟลต3' },
-      { key: 'แฟลต4', label: 'แฟลต4' }
-    ];
-
-    const wb = XLSX.utils.book_new();
-
-    const allRecords = filteredLogs.map(formatLogItem);
-    const wsAll = XLSX.utils.json_to_sheet(allRecords);
-    XLSX.utils.book_append_sheet(wb, wsAll, "รวมทุกสถานที่");
-
-    categories.forEach(category => {
-      const filtered = filteredLogs.filter((log: any) => {
-        const name = log.electricity_meters?.meter_name || '';
-        return name.includes(`(${category.key})`);
-      });
-
-      const filteredRecords = filtered.map(formatLogItem);
-      const wsFiltered = XLSX.utils.json_to_sheet(filteredRecords);
-      XLSX.utils.book_append_sheet(wb, wsFiltered, category.label);
-    });
-
-    XLSX.writeFile(wb, "Meter_Comprehensive_Report.xlsx");
-  };
-
-  return (
-    <div className="max-w-7xl mx-auto w-full px-3 sm:px-6 md:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 bg-slate-50/50 min-h-screen box-border overflow-x-hidden">
-      
-      {/* ส่วนหัวของระบบหน้าเว็บ */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">ระบบบริหารจัดการมิเตอร์</h1>
-          <p className="text-xs text-slate-500 mt-0.5">บันทึก ติดตาม และคัดแยกรายงานสถิติการใช้งานไฟฟ้าและน้ำประปา</
+      const { error } = await supabase.from('electricity_logs').insert(
