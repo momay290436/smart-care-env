@@ -119,4 +119,175 @@ export default function Electricity() {
     });
 
     return {
-      electric: totalElectricUnits.toLocaleString(undefined, { minimumFractionDigits:
+      electric: totalElectricUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
+      water: totalWaterUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
+      monthName: now.toLocaleString('th-TH', { month: 'long', year: 'numeric' })
+    };
+  }, [logs]);
+
+  // ฟังก์ชันวิเคราะห์ประวัติย้อนหลังของมิเตอร์เพื่อเปิดฟอร์มแก้เลขตั้งต้น
+  const checkMeterHistory = async (meterId: string) => {
+    try {
+      const { data: lastLog } = await supabase
+        .from('electricity_logs')
+        .select('current_value, current_water_value')
+        .eq('meter_id', meterId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!lastLog) {
+        setIsFirstRecord(true);
+        setCustomPrevValue('0');
+        setCustomPrevWaterValue('0');
+      } else {
+        setIsFirstRecord(false);
+        setCustomPrevValue(lastLog.current_value.toString());
+        setCustomPrevWaterValue(lastLog.current_water_value ? lastLog.current_water_value.toString() : '0');
+      }
+    } catch (err) {
+      console.error("History verification error:", err);
+    }
+  };
+
+  // เรียกใช้งานโมดูลกล้องเพื่อสแกน QR Code หน้างาน
+  const startScanner = () => {
+    setIsScanning(true);
+    setCurrentWaterValue('');
+    setTimeout(() => {
+      const html5QrCode = new window.Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" }, 
+        { 
+          fps: 10, 
+          aspectRatio: 1.0, 
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const minDimension = Math.min(viewfinderWidth, viewfinderHeight);
+            const boxSize = Math.floor(minDimension * 0.72); 
+            return { width: boxSize, height: boxSize };
+          }
+        }, 
+        async (decodedText: string) => { 
+          setIsScanning(false); 
+          html5QrCode.stop(); 
+
+          const rawText = decodedText.trim();
+          const { data: meterData } = await supabase
+            .from('electricity_meters')
+            .select('*')
+            .eq('qr_url', rawText)
+            .limit(1)
+            .maybeSingle();
+
+          if (meterData) {
+            setSelectedMeterId(meterData.id); 
+            setMeterDisplayName(meterData.meter_name); 
+            await checkMeterHistory(meterData.id);
+            toast({ title: "เชื่อมต่อสำเร็จ", description: `จุดติดตั้ง: ${meterData.meter_name}` });
+          } else {
+            setSelectedMeterId('');
+            setMeterDisplayName('');
+            toast({ variant: "destructive", title: "ไม่พบข้อมูล", description: "ลิงก์คิวอาร์โค้ดนี้ยังไม่ได้ผูกในระบบ" });
+          }
+        }, 
+        () => {}
+      ).catch(() => {
+        toast({ variant: "destructive", title: "ไม่สามารถเปิดใช้งานกล้องได้" });
+        setIsScanning(false);
+      });
+    }, 500);
+  };
+
+  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล (ปรับปรุงสูตรคำนวณรองรับมิเตอร์ 4 หลักหมุนรอบอัตโนมัติ)
+  const handleSave = async () => {
+    if (!selectedMeterId || !currentValue) {
+      toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
+      return;
+    }
+
+    if (isShop && !currentWaterValue) {
+      toast({ variant: "destructive", title: "กรุณาระบุเลขมิเตอร์น้ำของร้านค้า" });
+      return;
+    }
+
+    try {
+      const currentVal = parseFloat(currentValue);
+      const prevVal = parseFloat(customPrevValue) || 0;
+
+      //คำนวณส่วนต่างระบบไฟฟ้า และรองรับการหมุนรอบมิเตอร์ 4 หลัก (9999 -> 0000)
+      let calculatedUnits = 0;
+      if (currentVal >= prevVal) {
+        calculatedUnits = currentVal - prevVal;
+      } else {
+        // ตรวจสอบว่าเป็นการครบรอบของมิเตอร์ 4 หลัก (ค่าเก่าสูงใกล้ 9999 และค่าใหม่เริ่มนับต่ำ)
+        if (prevVal > 9000 && currentVal < 1000) {
+          calculatedUnits = (10000 - prevVal) + currentVal;
+        } else {
+          // หากไม่ใช่การครบรอบมิเตอร์ตามปกติ ให้แจ้งเตือนความปลอดภัยตามเดิม
+          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์ไฟฟ้าน้อยกว่าครั้งก่อนหน้า (${prevVal})` });
+          return;
+        }
+      }
+
+      const currentTimeStr = new Date().toTimeString().split(' ')[0]; 
+      const finalCreatedAt = new Date(`${recordDate}T${currentTimeStr}`).toISOString();
+
+      const insertData: any = {
+        meter_id: selectedMeterId,
+        current_value: currentVal,
+        previous_value: prevVal,
+        units_used: calculatedUnits, // ใส่ตัวแปรคำนวณส่วนต่างไฟฟ้าเข้าระบบเพื่อบันทึก
+        created_at: finalCreatedAt 
+      };
+
+      if (isShop) {
+        const currentWaterVal = parseFloat(currentWaterValue);
+        const prevWaterVal = parseFloat(customPrevWaterValue) || 0;
+        
+        // คำนวณส่วนต่างระบบน้ำประปา และรองรับการหมุนรอบมิเตอร์ 4 หลักเช่นเดียวกัน
+        let calculatedWaterUnits = 0;
+        if (currentWaterVal >= prevWaterVal) {
+          calculatedWaterUnits = currentWaterVal - prevWaterVal;
+        } else {
+          if (prevWaterVal > 9000 && currentWaterVal < 1000) {
+            calculatedWaterUnits = (10000 - prevWaterVal) + currentWaterVal;
+          } else {
+            toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์น้ำน้อยกว่าครั้งก่อนหน้า (${prevWaterVal})` });
+            return;
+          }
+        }
+        
+        insertData.current_water_value = currentWaterVal;
+        insertData.previous_water_value = prevWaterVal;
+        // หมายเหตุ: ฟิลด์ส่วนต่างน้ำคำนวณจากตารางและ Export อัตโนมัติอยู่แล้ว
+      }
+
+      const { error } = await supabase.from('electricity_logs').insert([insertData]);
+      if (error) throw error;
+      
+      toast({ title: "บันทึกข้อมูลสำเร็จเรียบร้อย" });
+      setCurrentValue('');
+      setCurrentWaterValue('');
+      setSelectedMeterId('');
+      setMeterDisplayName('');
+      setIsFirstRecord(false);
+      
+      const today = new Date();
+      const offset = today.getTimezoneOffset();
+      const localToday = new Date(today.getTime() - (offset * 60 * 1000));
+      setRecordDate(localToday.toISOString().split('T')[0]);
+
+      queryClient.invalidateQueries({ queryKey: ['logs'] });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการบันทึก", description: err.message });
+    }
+  };
+
+  // เพิ่มจุดจดบันทึกตัวใหม่เข้าระบบ
+  const handleSaveMeter = async () => {
+    if (!newMeter.name || !newMeter.serial) {
+      toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และรหัสมิเตอร์" });
+      return;
+    }
+
+    const cleanSerial = newMeter.serial.trim().toLowerCase();
