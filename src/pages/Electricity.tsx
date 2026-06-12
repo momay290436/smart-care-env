@@ -112,7 +112,13 @@ export default function Electricity() {
         totalElectricUnits += log.units_used || 0;
         
         if (log.current_water_value && log.previous_water_value) {
-          const waterDiff = log.current_water_value - log.previous_water_value;
+          // คำนวณจำนวนหน่วยน้ำที่เพิ่มขึ้น โดยรองรับกรณีมิเตอร์น้ำเวียนรอบ (4 หลักเหมือนกัน)
+          let waterDiff = 0;
+          if (log.current_water_value < log.previous_water_value) {
+            waterDiff = (10000 - log.previous_water_value) + log.current_water_value;
+          } else {
+            waterDiff = log.current_water_value - log.previous_water_value;
+          }
           if (waterDiff > 0) totalWaterUnits += waterDiff;
         }
       }
@@ -214,9 +220,26 @@ export default function Electricity() {
       const currentVal = parseFloat(currentValue);
       const prevVal = parseFloat(customPrevValue) || 0;
 
+      // ปรับปรุงการคำนวณหน่วยไฟ: รองรับมิเตอร์เวียนครบรอบ 4 หลัก (กลับจาก 9999 เริ่ม 0000 ใหม่)
+      let electricUnitsUsed = 0;
+      let isElectricRollover = false;
+
       if (currentVal < prevVal) {
-        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์ไฟฟ้าน้อยกว่าครั้งก่อนหน้า (${prevVal})` });
-        return;
+        // สูตรคำนวณรอบมิเตอร์ 4 หลัก: (10000 - ค่าก่อนหน้า) + ค่าใหม่ล่าสุด
+        electricUnitsUsed = (10000 - prevVal) + currentVal;
+        isElectricRollover = true;
+
+        // ระบบป้องกันกดตัวเลขพลาด: ถ้าคำนวณแล้วหน่วยเยอะเกินเกณฑ์ที่น่าจะเป็น (เช่น เกิน 5,000 หน่วย)
+        if (electricUnitsUsed > 5000) {
+          toast({ 
+            variant: "destructive", 
+            title: "ข้อมูลไฟฟ้าน่าจะผิดพลาด", 
+            description: `เลขมิเตอร์ไฟฟ้าน้อยกว่าครั้งก่อนหน้า (${prevVal}) มากเกินไป กรุณาตรวจสอบเลขอีกครั้ง` 
+          });
+          return;
+        }
+      } else {
+        electricUnitsUsed = currentVal - prevVal;
       }
 
       const currentTimeStr = new Date().toTimeString().split(' ')[0]; 
@@ -226,6 +249,7 @@ export default function Electricity() {
         meter_id: selectedMeterId,
         current_value: currentVal,
         previous_value: prevVal,
+        units_used: electricUnitsUsed, // ส่งค่าจำนวนหน่วยที่คำนวณครอบคลุมรอบมิเตอร์แล้วเข้า DB
         created_at: finalCreatedAt 
       };
 
@@ -233,18 +257,36 @@ export default function Electricity() {
         const currentWaterVal = parseFloat(currentWaterValue);
         const prevWaterVal = parseFloat(customPrevWaterValue) || 0;
         
+        let waterUnitsUsed = 0;
+        // ทำเผื่อกรณีมิเตอร์น้ำเวียนรอบ 4 หลักเช่นกัน
         if (currentWaterVal < prevWaterVal) {
-          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์น้ำน้อยกว่าครั้งก่อนหน้า (${prevWaterVal})` });
-          return;
+          waterUnitsUsed = (10000 - prevWaterVal) + currentWaterVal;
+
+          if (waterUnitsUsed > 5000) {
+            toast({ 
+              variant: "destructive", 
+              title: "ข้อมูลน้ำประปาน่าจะผิดพลาด", 
+              description: `เลขมิเตอร์น้ำน้อยกว่าครั้งก่อนหน้า (${prevWaterVal}) มากเกินไป กรุณาตรวจสอบเลขอีกครั้ง` 
+            });
+            return;
+          }
+        } else {
+          waterUnitsUsed = currentWaterVal - prevWaterVal;
         }
+
         insertData.current_water_value = currentWaterVal;
         insertData.previous_water_value = prevWaterVal;
+        // หากในโครงสร้าง Table มีฟิลด์คำนวณหน่วยน้ำ สามารถผูกตรงนี้เพิ่มได้เลยครับ เช่น insertData.water_units_used = waterUnitsUsed;
       }
 
       const { error } = await supabase.from('electricity_logs').insert([insertData]);
       if (error) throw error;
       
-      toast({ title: "บันทึกข้อมูลสำเร็จเรียบร้อย" });
+      toast({ 
+        title: "บันทึกข้อมูลสำเร็จเรียบร้อย",
+        description: isElectricRollover ? `⚡ ตรวจพบมิเตอร์ไฟฟ้าเวียนรอบ! คำนวณสุทธิได้ ${electricUnitsUsed} หน่วย` : undefined
+      });
+
       setCurrentValue('');
       setCurrentWaterValue('');
       setSelectedMeterId('');
@@ -310,16 +352,28 @@ export default function Electricity() {
 
   // ส่งออกไฟล์รายงานสรุปแยกหมวดหมู่ตามวงเล็บท้ายชื่อ
   const exportExcel = () => {
-    const formatLogItem = (log: any) => ({
-      'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
-      'สถานที่ติดตั้ง': log.electricity_meters?.meter_name || 'ไม่พบข้อมูล',
-      'เลขมิเตอร์ไฟครั้งก่อน': log.previous_value,
-      'เลขมิเตอร์ไฟล่าสุด': log.current_value,
-      'จำนวนหน่วยไฟที่ใช้ประจำงวด (หน่วย)': log.units_used,
-      'เลขมิเตอร์น้ำครั้งก่อน': log.previous_water_value || '-',
-      'เลขมิเตอร์น้ำล่าสุด': log.current_water_value || '-',
-      'จำนวนหน่วยน้ำที่ใช้ประจำงวด (หน่วย)': log.current_water_value && log.previous_water_value ? (log.current_water_value - log.previous_water_value) : '-'
-    });
+    const formatLogItem = (log: any) => {
+      // คำนวณหน่วยน้ำให้ถูกต้องตาม logic เวียนรอบขณะแสดงผลบน Excel
+      let waterUnits = '-';
+      if (log.current_water_value && log.previous_water_value) {
+        if (log.current_water_value < log.previous_water_value) {
+          waterUnits = ((10000 - log.previous_water_value) + log.current_water_value).toString();
+        } else {
+          waterUnits = (log.current_water_value - log.previous_water_value).toString();
+        }
+      }
+
+      return {
+        'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
+        'สถานที่ติดตั้ง': log.electricity_meters?.meter_name || 'ไม่พบข้อมูล',
+        'เลขมิเตอร์ไฟครั้งก่อน': log.previous_value,
+        'เลขมิเตอร์ไฟล่าสุด': log.current_value,
+        'จำนวนหน่วยไฟที่ใช้ประจำงวด (หน่วย)': log.units_used,
+        'เลขมิเตอร์น้ำครั้งก่อน': log.previous_water_value || '-',
+        'เลขมิเตอร์น้ำล่าสุด': log.current_water_value || '-',
+        'จำนวนหน่วยน้ำที่ใช้ประจำงวด (หน่วย)': waterUnits
+      };
+    };
 
     const categories = [
       { key: 'ร้านค้า', label: 'ร้านค้า' },
@@ -571,26 +625,38 @@ export default function Electricity() {
                   <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-400">ไม่พบประวัติข้อมูลตามเงื่อนไข</TableCell>
                 </TableRow>
               ) : (
-                filteredLogs.map((log: any) => (
-                  <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                    <TableCell className="text-xs text-slate-600 py-2.5 whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
-                    </TableCell>
-                    <TableCell className="text-xs font-semibold text-slate-800 py-2.5 whitespace-nowrap">
-                      {log.electricity_meters?.meter_name || 'ไม่ทราบสถานที่'}
-                    </TableCell>
-                    <TableCell className="text-xs text-right text-slate-500 py-2.5">{log.previous_value}</TableCell>
-                    <TableCell className="text-xs text-right font-medium text-slate-700 py-2.5">{log.current_value}</TableCell>
-                    <TableCell className="text-xs text-right font-bold text-indigo-600 bg-indigo-50/30 py-2.5">
-                      {log.units_used?.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-xs text-right text-slate-500 py-2.5">{log.previous_water_value || '-'}</TableCell>
-                    <TableCell className="text-xs text-right font-medium text-slate-700 py-2.5">{log.current_water_value || '-'}</TableCell>
-                    <TableCell className="text-xs text-right font-bold text-blue-600 bg-blue-50/30 py-2.5">
-                      {log.current_water_value && log.previous_water_value ? (log.current_water_value - log.previous_water_value).toLocaleString() : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredLogs.map((log: any) => {
+                  // คำนวณหน่วยน้ำแสดงผลในตารางย้อนหลังให้รองรับการเวียนรอบเช่นกัน
+                  let waterUnitsRender = '-';
+                  if (log.current_water_value && log.previous_water_value) {
+                    if (log.current_water_value < log.previous_water_value) {
+                      waterUnitsRender = ((10000 - log.previous_water_value) + log.current_water_value).toLocaleString();
+                    } else {
+                      waterUnitsRender = (log.current_water_value - log.previous_water_value).toLocaleString();
+                    }
+                  }
+
+                  return (
+                    <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                      <TableCell className="text-xs text-slate-600 py-2.5 whitespace-nowrap">
+                        {new Date(log.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
+                      </TableCell>
+                      <TableCell className="text-xs font-semibold text-slate-800 py-2.5 whitespace-nowrap">
+                        {log.electricity_meters?.meter_name || 'ไม่ทราบสถานที่'}
+                      </TableCell>
+                      <TableCell className="text-xs text-right text-slate-500 py-2.5">{log.previous_value}</TableCell>
+                      <TableCell className="text-xs text-right font-medium text-slate-700 py-2.5">{log.current_value}</TableCell>
+                      <TableCell className="text-xs text-right font-bold text-indigo-600 bg-indigo-50/30 py-2.5">
+                        {log.units_used?.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-xs text-right text-slate-500 py-2.5">{log.previous_water_value || '-'}</TableCell>
+                      <TableCell className="text-xs text-right font-medium text-slate-700 py-2.5">{log.current_water_value || '-'}</TableCell>
+                      <TableCell className="text-xs text-right font-bold text-blue-600 bg-blue-50/30 py-2.5">
+                        {waterUnitsRender}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
