@@ -198,7 +198,7 @@ export default function Electricity() {
     }, 500);
   };
 
-  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล
+  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล (ปรับปรุงสูตรคำนวณรองรับมิเตอร์ 4 หลักหมุนรอบอัตโนมัติ)
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
       toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
@@ -214,9 +214,19 @@ export default function Electricity() {
       const currentVal = parseFloat(currentValue);
       const prevVal = parseFloat(customPrevValue) || 0;
 
-      if (currentVal < prevVal) {
-        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์ไฟฟ้าน้อยกว่าครั้งก่อนหน้า (${prevVal})` });
-        return;
+      //คำนวณส่วนต่างระบบไฟฟ้า และรองรับการหมุนรอบมิเตอร์ 4 หลัก (9999 -> 0000)
+      let calculatedUnits = 0;
+      if (currentVal >= prevVal) {
+        calculatedUnits = currentVal - prevVal;
+      } else {
+        // ตรวจสอบว่าเป็นการครบรอบของมิเตอร์ 4 หลัก (ค่าเก่าสูงใกล้ 9999 และค่าใหม่เริ่มนับต่ำ)
+        if (prevVal > 9000 && currentVal < 1000) {
+          calculatedUnits = (10000 - prevVal) + currentVal;
+        } else {
+          // หากไม่ใช่การครบรอบมิเตอร์ตามปกติ ให้แจ้งเตือนความปลอดภัยตามเดิม
+          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์ไฟฟ้าน้อยกว่าครั้งก่อนหน้า (${prevVal})` });
+          return;
+        }
       }
 
       const currentTimeStr = new Date().toTimeString().split(' ')[0]; 
@@ -226,6 +236,7 @@ export default function Electricity() {
         meter_id: selectedMeterId,
         current_value: currentVal,
         previous_value: prevVal,
+        units_used: calculatedUnits, // ใส่ตัวแปรคำนวณส่วนต่างไฟฟ้าเข้าระบบเพื่อบันทึก
         created_at: finalCreatedAt 
       };
 
@@ -233,12 +244,22 @@ export default function Electricity() {
         const currentWaterVal = parseFloat(currentWaterValue);
         const prevWaterVal = parseFloat(customPrevWaterValue) || 0;
         
-        if (currentWaterVal < prevWaterVal) {
-          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์น้ำน้อยกว่าครั้งก่อนหน้า (${prevWaterVal})` });
-          return;
+        // คำนวณส่วนต่างระบบน้ำประปา และรองรับการหมุนรอบมิเตอร์ 4 หลักเช่นเดียวกัน
+        let calculatedWaterUnits = 0;
+        if (currentWaterVal >= prevWaterVal) {
+          calculatedWaterUnits = currentWaterVal - prevWaterVal;
+        } else {
+          if (prevWaterVal > 9000 && currentWaterVal < 1000) {
+            calculatedWaterUnits = (10000 - prevWaterVal) + currentWaterVal;
+          } else {
+            toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์น้ำน้อยกว่าครั้งก่อนหน้า (${prevWaterVal})` });
+            return;
+          }
         }
+        
         insertData.current_water_value = currentWaterVal;
         insertData.previous_water_value = prevWaterVal;
+        // หมายเหตุ: ฟิลด์ส่วนต่างน้ำคำนวณจากตารางและ Export อัตโนมัติอยู่แล้ว
       }
 
       const { error } = await supabase.from('electricity_logs').insert([insertData]);
