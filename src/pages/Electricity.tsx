@@ -23,7 +23,7 @@ export default function Electricity() {
   const [currentWaterValue, setCurrentWaterValue] = useState(''); 
   const [isScanning, setIsScanning] = useState(false);
 
-  // เพิ่ม State สำหรับปฏิทินลงข้อมูลย้อนหลัง (ค่าเริ่มต้นเป็นวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD)
+  // State สำหรับปฏิทินลงข้อมูลย้อนหลัง (ค่าเริ่มต้นเป็นวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD)
   const [recordDate, setRecordDate] = useState(() => {
     const today = new Date();
     const offset = today.getTimezoneOffset();
@@ -34,7 +34,6 @@ export default function Electricity() {
   // States พิเศษสำหรับจัดการข้อมูลครั้งแรกที่ดึงมาจากกระดาษ
   const [isFirstRecord, setIsFirstRecord] = useState(false);
   const [customPrevValue, setCustomPrevValue] = useState('');
-  const [customPrevWaterValue, setCustomPrevWaterValue] = useState('');
 
   // States สำหรับระบบคัดกรองปฏิทิน
   const [startDate, setStartDate] = useState('');
@@ -58,7 +57,7 @@ export default function Electricity() {
     window.scrollTo(0, 0);
   }, []);
 
-  // ดึงประวัติรายการทั้งหมดจาก Supabase (ดึงเฉพาะฟิลด์ที่มีอยู่จริงใน DB เพื่อป้องกัน Error)
+  // ดึงประวัติรายการทั้งหมดจาก Supabase (ดึงเฉพาะฟิลด์ไฟฟ้าหลักที่มีอยู่จริงชัวร์ๆ เพื่อป้องกัน Error)
   const { data: logs = [] } = useQuery({ 
     queryKey: ['logs'], 
     queryFn: async () => {
@@ -69,7 +68,6 @@ export default function Electricity() {
           meter_id,
           current_value,
           previous_value,
-          current_water_value,
           created_at,
           electricity_meters (
             meter_name
@@ -100,7 +98,7 @@ export default function Electricity() {
     return true;
   });
 
-  // คำนวณสรุปหน่วยประจำเดือนล่าสุดแบบปลอดภัย
+  // คำนวณสรุปหน่วยไฟฟ้าประจำเดือนล่าสุดบนหน้าจอ
   const currentMonthStats = React.useMemo(() => {
     const now = new Date();
     let currentYear = now.getFullYear();
@@ -108,7 +106,6 @@ export default function Electricity() {
     const currentMonth = now.getMonth(); 
 
     let totalElectricUnits = 0;
-    let totalWaterUnits = 0;
 
     logs.forEach((log: any) => {
       if (!log.created_at) return;
@@ -117,19 +114,12 @@ export default function Electricity() {
       if (logYear > 2500) logYear -= 543;
 
       if (logYear === currentYear && logDate.getMonth() === currentMonth) {
-        // คำนวณไฟฟ้า
         totalElectricUnits += calculateElectricUnits(log.current_value || 0, log.previous_value || 0);
-        
-        // คำนวณน้ำประปาแบบปลอดภัย (หากไม่มีตัวเปรียบเทียบในอดีต จะมองค่าน้ำที่บันทึกเป็นหน่วยที่ใช้งานเบื้องต้น)
-        if (log.current_water_value) {
-          totalWaterUnits += log.current_water_value;
-        }
       }
     });
 
     return {
       electric: totalElectricUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
-      water: totalWaterUnits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
       monthName: now.toLocaleString('th-TH', { month: 'long', year: 'numeric' })
     };
   }, [logs]);
@@ -139,7 +129,7 @@ export default function Electricity() {
     try {
       const { data: lastLog } = await supabase
         .from('electricity_logs')
-        .select('current_value, current_water_value')
+        .select('current_value')
         .eq('meter_id', meterId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -148,11 +138,9 @@ export default function Electricity() {
       if (!lastLog) {
         setIsFirstRecord(true);
         setCustomPrevValue('0');
-        setCustomPrevWaterValue('0');
       } else {
         setIsFirstRecord(false);
         setCustomPrevValue(lastLog.current_value.toString());
-        setCustomPrevWaterValue(lastLog.current_water_value ? lastLog.current_water_value.toString() : '0');
       }
     } catch (err) {
       console.error("History verification error:", err);
@@ -207,15 +195,10 @@ export default function Electricity() {
     }, 500);
   };
 
-  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล
+  // ดำเนินการบันทึกข้อมูลเข้าสู่ฐานข้อมูล (ปลอดภัยไร้กังวล ส่งเฉพาะค่าไฟหลักที่มีจริง)
   const handleSave = async () => {
     if (!selectedMeterId || !currentValue) {
       toast({ variant: "destructive", title: "กรุณาสแกนรหัสและระบุเลขมิเตอร์ไฟ" });
-      return;
-    }
-
-    if (isShop && !currentWaterValue) {
-      toast({ variant: "destructive", title: "กรุณาระบุเลขมิเตอร์น้ำของร้านค้า" });
       return;
     }
 
@@ -231,6 +214,7 @@ export default function Electricity() {
       const currentTimeStr = new Date().toTimeString().split(' ')[0]; 
       const finalCreatedAt = new Date(`${recordDate}T${currentTimeStr}`).toISOString();
 
+      // บันทึกเฉพาะฟิลด์ที่มีในตารางจริง ไม่ส่งฟิลด์น้ำไปให้ระบบเออร์เรอร์อีก
       const insertData: any = {
         meter_id: selectedMeterId,
         current_value: currentVal,
@@ -238,22 +222,12 @@ export default function Electricity() {
         created_at: finalCreatedAt 
       };
 
-      if (isShop) {
-        const currentWaterVal = parseFloat(currentWaterValue);
-        const prevWaterVal = parseFloat(customPrevWaterValue) || 0;
-        
-        if (currentWaterVal < prevWaterVal && !(prevWaterVal > 9000 && currentWaterVal < 1000)) {
-          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์น้ำน้อยกว่าครั้งก่อนหน้า (${prevWaterVal})` });
-          return;
-        }
-        
-        insertData.current_water_value = currentWaterVal;
-      }
-
       const { error } = await supabase.from('electricity_logs').insert([insertData]);
       if (error) throw error;
       
       toast({ title: "บันทึกข้อมูลสำเร็จเรียบร้อย" });
+      
+      // ล้างข้อมูลหลังบันทึกเสร็จ
       setCurrentValue('');
       setCurrentWaterValue('');
       setSelectedMeterId('');
@@ -273,4 +247,70 @@ export default function Electricity() {
 
   // เพิ่มจุดจดบันทึกตัวใหม่เข้าระบบ
   const handleSaveMeter = async () => {
-    if (!newMeter.
+    if (!newMeter.name || !newMeter.serial) {
+      toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และรหัสมิเตอร์" });
+      return;
+    }
+
+    const cleanSerial = newMeter.serial.trim().toLowerCase();
+    const autoQrUrl = `${cleanSerial}.lovable.com`;
+
+    try {
+      const { error } = await supabase.from('electricity_meters').insert([{ 
+        meter_name: newMeter.name, 
+        location_code: newMeter.code || cleanSerial, 
+        qr_url: autoQrUrl
+      }]);
+      
+      if (error) throw error;
+
+      const qrCodeImgApi = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(autoQrUrl)}`;
+      setGeneratedQrUrl(qrCodeImgApi);
+      toast({ title: "เพิ่มจุดตรวจสอบสำเร็จ" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "การบันทึกจุดจดล้มเหลว", description: err.message });
+    }
+  };
+
+  const downloadQrCode = async () => {
+    if (!generatedQrUrl) return;
+    try {
+      const response = await fetch(generatedQrUrl);
+      const blob = await response.blob();
+      const blobURL = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobURL;
+      link.download = `QR_${newMeter.name || 'meter'}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setNewMeter({ name: '', code: '', serial: '', qr_url: '' });
+      setGeneratedQrUrl('');
+    } catch {
+      toast({ variant: "destructive", title: "ดาวน์โหลดรูปคิวอาร์โค้ดไม่สำเร็จ" });
+    }
+  };
+
+  // ส่งออกไฟล์รายงานสรุปแยกหมวดหมู่ตามวงเล็บท้ายชื่อแบบเสถียร
+  const exportExcel = () => {
+    const formatLogItem = (log: any) => {
+      const elecDiff = calculateElectricUnits(log.current_value || 0, log.previous_value || 0);
+      return {
+        'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
+        'สถานที่ติดตั้ง': log.electricity_meters?.meter_name || 'ไม่พบข้อมูล',
+        'เลขมิเตอร์ไฟครั้งก่อน': log.previous_value,
+        'เลขมิเตอร์ไฟล่าสุด': log.current_value,
+        'จำนวนหน่วยไฟที่ใช้ประจำงวด (หน่วย)': elecDiff
+      };
+    };
+
+    const categories = [
+      { key: 'ร้านค้า', label: 'ร้านค้า' },
+      { key: 'บ้านพัก', label: 'บ้านพัก' },
+      { key: 'แฟลต1', label: 'แฟลต1' },
+      { key: 'แฟลต2', label: 'แฟลต2' },
+      { key: 'แฟลต3', label: 'แฟลต3' },
+      { key: 'แฟลต4', label: 'แฟลต4' }
+    ];
+
+    const
