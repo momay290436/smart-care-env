@@ -97,7 +97,6 @@ export default function Electricity() {
     if (current >= previous) {
       return current - previous;
     } else {
-      // สูตรคำนวณกรณีเกิด Rollover มิเตอร์ 4 หลัก: (10000 - ค่าก่อนหน้า) + ค่าล่าสุด
       return (10000 - previous) + current;
     }
   };
@@ -119,7 +118,6 @@ export default function Electricity() {
       if (logYear > 2500) logYear -= 543;
 
       if (logYear === currentYear && logDate.getMonth() === currentMonth) {
-        // ใช้ฟังก์ชันคำนวณไฟฟ้ารองรับ Rollover (หากใน db เก็บ units_used สำเร็จรูปไว้ สามารถใช้ log.units_used ได้เลย แต่อันนี้คำนวณเผื่อความแม่นยำ)
         totalElectricUnits += log.units_used !== undefined && log.units_used !== null ? log.units_used : calculateRolloverUnits(log.current_value, log.previous_value);
         
         if (log.current_water_value !== null && log.previous_water_value !== null) {
@@ -225,87 +223,6 @@ export default function Electricity() {
       const currentVal = parseFloat(currentValue);
       const prevVal = parseFloat(customPrevValue) || 0;
 
-      // ลบโค้ดแจ้งเตือนติดบล็อกตัวเก่าออก เพื่อให้บันทึกค่าที่น้อยกว่า (Rollover) ได้
-      // คำนวณหาหน่วยไฟฟ้าที่ใช้จริงด้วยฟังก์ชัน Rollover
       const calculatedElectricUnits = calculateRolloverUnits(currentVal, prevVal);
 
-      const currentTimeStr = new Date().toTimeString().split(' ')[0]; 
-      const finalCreatedAt = new Date(`${recordDate}T${currentTimeStr}`).toISOString();
-
-      const insertData: any = {
-        meter_id: selectedMeterId,
-        current_value: currentVal,
-        previous_value: prevVal,
-        units_used: calculatedElectricUnits, // ส่งหน่วยที่คำนวณหักลบ Rollover ไปบันทึกในฐานข้อมูลด้วย
-        created_at: finalCreatedAt 
-      };
-
-      if (isShop) {
-        const currentWaterVal = parseFloat(currentWaterValue);
-        const prevWaterVal = parseFloat(customPrevWaterValue) || 0;
-        
-        // ลบโค้ดดักบล็อกมิเตอร์น้ำเช่นกัน เพื่อรองรับการหมุนรอบของมิเตอร์น้ำ (ถ้ามี)
-        insertData.current_water_value = currentWaterVal;
-        insertData.previous_water_value = prevWaterVal;
-      }
-
-      const { error } = await supabase.from('electricity_logs').insert([insertData]);
-      if (error) throw error;
-      
-      toast({ title: "บันทึกข้อมูลสำเร็จเรียบร้อย" });
-      setCurrentValue('');
-      setCurrentWaterValue('');
-      setSelectedMeterId('');
-      setMeterDisplayName('');
-      setIsFirstRecord(false);
-      
-      const today = new Date();
-      const offset = today.getTimezoneOffset();
-      const localToday = new Date(today.getTime() - (offset * 60 * 1000));
-      setRecordDate(localToday.toISOString().split('T')[0]);
-
-      queryClient.invalidateQueries({ queryKey: ['logs'] });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "เกิดข้อผิดพลาดในการบันทึก", description: err.message });
-    }
-  };
-
-  // เพิ่มจุดจดบันทึกตัวใหม่เข้าระบบ
-  const handleSaveMeter = async () => {
-    if (!newMeter.name || !newMeter.serial) {
-      toast({ variant: "destructive", title: "กรุณาระบุชื่อสถานที่และรหัสมิเตอร์" });
-      return;
-    }
-
-    const cleanSerial = newMeter.serial.trim().toLowerCase();
-    const autoQrUrl = `${cleanSerial}.lovable.com`;
-
-    try {
-      const { error } = await supabase.from('electricity_meters').insert([{ 
-        meter_name: newMeter.name, 
-        location_code: newMeter.code || cleanSerial, 
-        qr_url: autoQrUrl
-      }]);
-      
-      if (error) throw error;
-
-      const qrCodeImgApi = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(autoQrUrl)}`;
-      setGeneratedQrUrl(qrCodeImgApi);
-      toast({ title: "เพิ่มจุดตรวจสอบสำเร็จ" });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "การบันทึกจุดจดล้มเหลว", description: err.message });
-    }
-  };
-
-  const downloadQrCode = async () => {
-    if (!generatedQrUrl) return;
-    try {
-      const response = await fetch(generatedQrUrl);
-      const blob = await response.blob();
-      const blobURL = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobURL;
-      link.download = `QR_${newMeter.name || 'meter'}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document
+      const currentTimeStr = new
