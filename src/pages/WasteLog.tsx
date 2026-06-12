@@ -17,7 +17,6 @@ import { format, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { exportToExcel } from "@/lib/exportExcel";
-import * as XLSX from "xlsx"; // นำเข้า xlsx library เข้ามาจัดการแยกแผ่นงานโดยตรง
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid, BarChart, Bar, Area, AreaChart } from "recharts";
 import PageHeader from "@/components/PageHeader";
 import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
@@ -225,7 +224,7 @@ export default function WasteLog() {
     setSelectedDate(new Date());
   };
 
-  // ฟังก์ชันดาวน์โหลด Excel แบบแยกแผ่นงานตามชื่อสถานที่แบบเสถียร
+  // ฟังก์ชัน Export แบบสร้างโครงสร้างไฟล์ที่ปลอดภัยที่สุด ไม่จำเป็นต้องใช้ Module เสริมภายนอก
   const handleExport = () => {
     if (filteredLogs.length === 0) {
       toast.error("ไม่มีข้อมูลที่จะส่งออกในตารางนี้");
@@ -233,16 +232,33 @@ export default function WasteLog() {
     }
 
     try {
-      // 1. จัดเรียงข้อมูลแผ่นงานแรก (รวมทุกแหล่งที่มา)
-      const allDataToExport = filteredLogs.map((log) => ({
-        "วันที่-เวลา": format(new Date(log.collected_at), "dd MMM yyyy HH:mm", { locale: th }),
-        "แหล่งที่มา / แผนก": log.source_name || "ไม่ระบุ",
-        "ประเภทขยะ": typesMap[log.waste_type]?.label || log.waste_type,
-        "น้ำหนัก (กก.)": Number(log.weight),
-        "หมายเหตุ": log.note || "-",
-      }));
+      const headers = ["วันที่-เวลา", "แหล่งที่มา / แผนก", "ประเภทขยะ", "น้ำหนัก (กก.)", "หมายเหตุ"];
+      let csvContent = "\uFEFF"; // ป้องกันภาษาไทยเพี้ยนใน Excel (BOM)
 
-      // 2. สร้าง Workbook เล่มใหม่
-      const wb = XLSX.utils.book_new();
+      // Sectionที่ 1: ตารางรวมทุกแหล่งที่มา
+      csvContent += "=== รวมทุกแหล่งที่มา ===\n";
+      csvContent += headers.join(",") + "\n";
+      
+      filteredLogs.forEach((log) => {
+        const row = [
+          `"${format(new Date(log.collected_at), 'dd MMM yyyy HH:mm', { locale: th })}"`,
+          `"${log.source_name || 'ไม่ระบุ'}"`,
+          `"${typesMap[log.waste_type]?.label || log.waste_type}"`,
+          Number(log.weight),
+          `"${log.note || '-'}"`
+        ];
+        csvContent += row.join(",") + "\n";
+      });
 
-      //
+      // Sectionที่ 2: วนลูปแยกกลุ่มตามสถานที่ให้อัตโนมัติ (แยกเป็นตารางย่อยๆ ลงไปในไฟล์เดียวกัน)
+      const uniqueSources = Array.from(
+        new Set(filteredLogs.map((log) => log.source_name).filter(Boolean))
+      );
+
+      uniqueSources.forEach((sourceName) => {
+        csvContent += `\n\n=== แหล่งที่มา: ${sourceName} ===\n`;
+        csvContent += headers.join(",") + "\n";
+
+        const sourceLogs = filteredLogs.filter((log) => log.source_name === sourceName);
+        sourceLogs.forEach((log) => {
+          const row =
