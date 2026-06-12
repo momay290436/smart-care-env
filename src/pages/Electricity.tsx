@@ -82,7 +82,7 @@ export default function Electricity() {
     }
   });
 
-  // ฟังก์ชันส่วนกลางคำนวณหน่วยที่ใช้จริง รองรับกรณี Rollover มิเตอร์ไฟฟ้าเวียนรอบ (เช่น 9681 -> 0244)
+  // ฟังก์ชันส่วนกลางคำนวณหน่วยที่ใช้จริง รองรับกรณี Rollover มิเตอร์เวียนรอบ (เช่น 9681 -> 0244)
   const calculateActualUnits = (current: number, previous: number) => {
     if (current < previous) {
       // หากค่าล่าสุดน้อยกว่าค่าก่อนหน้า และส่วนต่างสอดคล้องกับมิเตอร์ 4 หลักเวียนรอบ
@@ -181,4 +181,24 @@ export default function Electricity() {
             return { width: boxSize, height: boxSize };
           }
         }, 
-        async (decodedText: string) => {
+        async (decodedText: string) => { 
+          setIsScanning(false); 
+          html5QrCode.stop(); 
+
+          const rawText = decodedText.trim();
+          const { data: meterData } = await supabase
+            .from('electricity_meters')
+            .select('*')
+            .eq('qr_url', rawText)
+            .limit(1)
+            .maybeSingle();
+
+          if (meterData) {
+            setSelectedMeterId(meterData.id); 
+            setMeterDisplayName(meterData.meter_name); 
+            await checkMeterHistory(meterData.id);
+            toast({ title: "เชื่อมต่อสำเร็จ", description: `จุดติดตั้ง: ${meterData.meter_name}` });
+          } else {
+            setSelectedMeterId('');
+            setMeterDisplayName('');
+            toast({ variant: "destructive", title: "ไม่พบข้อมูล", description: "ลิงก์คิวอาร์โค้ดนี้ยังไม่ได้ผูกในระบบ" });
