@@ -363,8 +363,12 @@ export default function FireSafety() {
                 <p className="text-xs text-green-700 mt-1">ใช้ดับไฟประเภท A, B, C ปลอดภัยต่อชั้นโอโซน ไม่เป็นอันตรายต่อมนุษย์</p>
               </div>
               <div className="p-3 rounded-xl bg-red-50 border border-red-200">
-                <p className="font-bold text-base text-red-800">ชนิดเคมีแห้ง (สีแดง) - 47 เครื่อง</p>
+                <p className="font-bold text-base text-red-800">ชนิด CFC (สีแดง) - 47 เครื่อง</p>
                 <p className="text-xs text-red-700 mt-1">ใช้ดับไฟประเภท A, B, C มีประสิทธิภาพสูงกับไฟไหม้ของเหลว</p>
+              </div>
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                <p className="font-bold text-base text-red-800">ชนิด HCFC (สีบอร์น) - 1 เครื่อง</p>
+                <p className="text-xs text-red-700 mt-1">Class A, B และ C(ครอบคลุมคล้ายผงเคมีแห้งแต่สะอาดกว่า ไม่ทิ้งคราบ เหมาะกับอุปกรณ์อิเล็กทรอนิกส์)</p>
               </div>
               <p className="text-xs text-muted-foreground">วิธีใช้: ดึงสลัก → ปลดสาย → เล็งที่ฐานเพลิง → บีบคันบังคับ → กวาดไปมา</p>
             </CardContent>
