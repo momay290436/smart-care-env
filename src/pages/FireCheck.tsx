@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, Download, Trash2 } from "lucide-react";
+import { Check, ChevronsUpDown, Download, Trash2, Flame, ShieldAlert, CheckCircle } from "lucide-react";
 import { Wrench } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import { createAutoIssue, getIssueSeverity, hasFireCheckAnomaly } from "@/lib/createAutoIssue";
@@ -81,6 +81,18 @@ export default function FireCheck() {
   const [issueDialog, setIssueDialog] = useState<any>(null);
   const [issueNotes, setIssueNotes] = useState("");
   const [issueSaving, setIssueSaving] = useState(false);
+
+  // ข้อมูลจุดติดตั้งระบบสายน้ำดับเพลิง 8 จุดหลัก
+  const fireHosePoints = [
+    { id: 1, location: "ข้างห้องเวชกรรมฟื้นฟู", qty: 1 },
+    { id: 2, location: "กลุ่มการพยาบาล (อาคารศรีศิริฯ)", qty: 1 },
+    { id: 3, location: "ข้างอาคารแพทย์แผนไทย", qty: 1 },
+    { id: 4, location: "อาคารคลังยา", qty: 1 },
+    { id: 5, location: "ตึกผู้ป่วยในชาย", qty: 1 },
+    { id: 6, location: "ตึกผู้ป่วยในหญิง", qty: 1 },
+    { id: 7, location: "คลินิกพิเศษ เบอร์ 27", qty: 1 },
+    { id: 8, location: "ห้องเก็บเงิน 88", qty: 1 }
+  ];
 
   const { data: locations } = useQuery({
     queryKey: ["fire-locations"],
@@ -252,6 +264,75 @@ export default function FireCheck() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ================= เริ่มต้น: เพิ่มส่วนแสดงข้อมูลของถังและสายน้ำดับเพลิง (แนวนอนยาวเต็มจอ) ================= */}
+      <div className="space-y-3">
+        {/* สรุปข้อมูลถังดับเพลิงทั้งหมด */}
+        <Card className="shadow-card border border-border/50 bg-white rounded-3xl overflow-hidden">
+          <CardHeader className="bg-rose-50/40 border-b border-border/10 py-2.5 px-4">
+            <CardTitle className="text-xs sm:text-sm font-bold text-rose-800 flex items-center gap-2">
+              <Flame className="h-4 w-4 text-rose-600" /> สรุปข้อมูลถังดับเพลิงทั้งหมด
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3 bg-rose-50/40 px-5 py-2 rounded-2xl border border-rose-100/60 w-full sm:w-auto justify-center sm:justify-start">
+              <span className="text-xs font-bold text-slate-500">จำนวนถังรวม:</span>
+              <span className="text-2xl font-black text-rose-600">87</span>
+              <span className="text-xs text-muted-foreground font-semibold">ถัง</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-center sm:justify-end text-xs">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl">
+                <span className="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                <span className="text-slate-600 font-medium">สีแดง:</span>
+                <span className="font-bold text-red-700">47 ถัง</span>
+              </div>
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                <span className="text-slate-600 font-medium">สีเขียว:</span>
+                <span className="font-bold text-emerald-700">39 ถัง</span>
+              </div>
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl">
+                <span className="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+                <span className="text-slate-600 font-medium">สีบรอนซ์:</span>
+                <span className="font-bold text-slate-700">1 ถัง</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* รายละเอียดระบบสายน้ำดับเพลิง */}
+        <Card className="shadow-card border border-border/50 bg-white rounded-3xl overflow-hidden">
+          <CardHeader className="bg-blue-50/40 border-b border-border/10 py-2.5 px-4 flex flex-row justify-between items-center">
+            <CardTitle className="text-xs sm:text-sm font-bold text-blue-800 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-blue-600" /> รายละเอียดระบบสายน้ำดับเพลิง
+            </CardTitle>
+            <Badge variant="secondary" className="bg-blue-100 hover:bg-blue-100 text-blue-700 font-bold text-[10px] rounded-full px-2.5 py-0.5">
+              สายยาว 20 เมตร
+            </Badge>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="mb-2 text-xs font-bold text-slate-500 flex items-center gap-1.5">
+              <CheckCircle className="h-4 w-4 text-emerald-500" /> จุดติดตั้งในอาคารทั้งหมด <span className="text-blue-600 font-extrabold text-sm">8 จุด</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+              {fireHosePoints.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="flex items-center justify-center w-4 h-4 rounded bg-blue-50 text-blue-600 font-bold text-[10px] border border-blue-100 shrink-0">
+                      {item.id}
+                    </span>
+                    <span className="text-slate-700 font-medium truncate">{item.location}</span>
+                  </div>
+                  <span className="font-bold text-slate-600 shrink-0 bg-white px-1.5 py-0.5 rounded border border-slate-200 text-[11px]">
+                    {item.qty} จุด
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      {/* ================= สิ้นสุด: เพิ่มส่วนแสดงข้อมูลของถังและสายน้ำดับเพลิง ================= */}
 
       {showForm && (
         <div className="space-y-4 animate-slide-up">
