@@ -38,4 +38,43 @@ const OPERATION_UNITS = [
   { name: "หน่วยสื่อสารประชาสัมพันธ์", duty: "ประกาศแจ้งเหตุ ประสานงานหน่วยงานต่างๆ แจ้งผู้ป่วยและญาติ" },
   { name: "หน่วยรักษาความสงบ", duty: "ปิดกั้นการจราจร ควบคุมบริเวณเกิดเหตุ รักษาความปลอดภัย" },
   { name: "หน่วยดับเพลิง/ค้นหา", duty: "ดับเพลิงเบื้องต้น ช่วยเหลือผู้ตกอยู่ในเขตเพลิง จำกัดเขตเพลิงไหม้" },
-  { name: "หน่วยเคลื่อนย้ายผู้
+  { name: "หน่วยเคลื่อนย้ายผู้ป่วย", duty: "เคลื่อนย้ายผู้ป่วยตามลำดับความสำคัญ ดูแลผู้ป่วยตามประเภท" },
+  { name: "หน่วยเคลื่อนย้ายทรัพย์สิน", duty: "เคลื่อนย้ายอุปกรณ์การแพทย์ เอกสาร ทรัพย์สินราชการ" },
+  { name: "หน่วยปฐมพยาบาล", duty: "ปฐมพยาบาลผู้บาดเจ็บ ณ จุดเกิดเหตุ บันทึกรายละเอียดผู้ป่วย" },
+  { name: "หน่วยสงเคราะห์", duty: "จัดเตรียมอาหาร น้ำดื่ม เสื้อผ้า ดูแลสวัสดิการผู้ประสบภัย" },
+  { name: "หน่วยยานพาหนะ", duty: "เตรียมรถพยาบาล นำส่งผู้ป่วยรักษาต่อ" },
+];
+
+function waypointsToSmoothPath(wp: [number, number][]): string {
+  if (wp.length < 2) return "";
+  if (wp.length === 2) return `M${wp[0][0]},${wp[0][1]} L${wp[1][0]},${wp[1][1]}`;
+  let d = `M${wp[0][0]},${wp[0][1]}`;
+  for (let i = 1; i < wp.length; i++) {
+    const prev = wp[i - 1]; const curr = wp[i];
+    if (i === 1) { const mx = (prev[0] + curr[0]) / 2; const my = (prev[1] + curr[1]) / 2; d += ` Q${prev[0]},${prev[1]} ${mx},${my}`; }
+    if (i < wp.length - 1) { const next = wp[i + 1]; const mx = (curr[0] + next[0]) / 2; const my = (curr[1] + next[1]) / 2; d += ` Q${curr[0]},${curr[1]} ${mx},${my}`; }
+    else { d += ` Q${curr[0]},${curr[1]} ${curr[0]},${curr[1]}`; }
+  }
+  return d;
+}
+
+export default function FireSafety() {
+  const { user, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const { nodes, edges, buildings, isLoading } = useWayfindingGraph();
+  const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
+  const [evacuationRoute, setEvacuationRoute] = useState<RouteResult | null>(null);
+  const [showSOS, setShowSOS] = useState(false);
+  const [sosBuilding, setSosBuilding] = useState("");
+  const [sosFloor, setSosFloor] = useState("");
+  const [sosSending, setSosSending] = useState(false);
+  
+  // Bed management states
+  const [showBedForm, setShowBedForm] = useState(false);
+  const [editingBed, setEditingBed] = useState<any>(null);
+  const [bedPriority, setBedPriority] = useState("1");
+  const [bedNumber, setBedNumber] = useState("");
+  const [bedDept, setBedDept] = useState("");
+  
+  // Staff count management
+  const
