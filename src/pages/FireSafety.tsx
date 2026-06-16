@@ -259,7 +259,8 @@ export default function FireSafety() {
           </Card>
 
           <div className="relative w-full rounded-2xl overflow-hidden border border-white/20 shadow-card">
-            <img src="/maps/buildings.jpg" alt="แผนที่โรงพยาบาล" className="w-full h-auto block" draggable={false} />
+            {/* แก้ไขที่อยู่รูปภาพแผนผังให้ดึงข้อมูลจากโฟลเดอร์ Google Drive ของผู้ใช้ */}
+            <img src="https://drive.google.com/drive/u/0/folders/1TKK4qqANCnS-C2WnDTX88y8LQrdajEna" alt="แผนที่โรงพยาบาล" className="w-full h-auto block" draggable={false} />
             <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
               {edges.map((edge, i) => {
                 const n1 = nodeMap.get(edge.from_node_key); const n2 = nodeMap.get(edge.to_node_key);
@@ -567,46 +568,3 @@ export default function FireSafety() {
                       <p className="font-semibold text-card-foreground text-base">{dept.name}</p>
                       <Badge variant="outline" className="text-xs rounded-lg">{staffData[dept.id] || 0} คน</Badge>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-      </Tabs>
-
-      {/* SOS Modal */}
-      <Dialog open={showSOS} onOpenChange={setShowSOS}>
-        <DialogContent className="rounded-3xl">
-          <DialogHeader><DialogTitle className="text-lg text-destructive font-bold">แจ้งเหตุเพลิงไหม้</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div><Label className="text-base font-semibold">อาคาร *</Label>
-              <Select value={sosBuilding} onValueChange={setSosBuilding}>
-                <SelectTrigger className="h-12 rounded-2xl"><SelectValue placeholder="เลือกอาคาร..." /></SelectTrigger>
-                <SelectContent>{BUILDINGS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label className="text-sm font-semibold">ชั้น</Label>
-              <Select value={sosFloor} onValueChange={setSosFloor}>
-                <SelectTrigger className="h-12 rounded-2xl"><SelectValue placeholder="เลือกชั้น..." /></SelectTrigger>
-                <SelectContent>{FLOORS.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <Button variant="destructive" className="w-full h-14 text-lg font-bold rounded-2xl" onClick={handleSOS} disabled={sosSending || !sosBuilding}>
-              {sosSending ? "กำลังส่ง..." : "ยืนยันการแจ้งเตือน"}
-            </Button>
-            <div className="flex gap-3 justify-center">
-              {[{ label: "ER", number: "108" }, { label: "รปภ.", number: "175" }, { label: "โอเปอเรเตอร์", number: "0" }].map(c => (
-                <a key={c.number} href={`tel:${c.number}`} className="flex flex-col items-center gap-1 p-3 rounded-xl bg-muted hover:bg-muted/80 transition-colors">
-                  <Phone className="h-5 w-5 text-destructive" />
-                  <span className="text-xs font-bold text-card-foreground">{c.label}</span>
-                  <span className="text-xs text-muted-foreground">{c.number}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
