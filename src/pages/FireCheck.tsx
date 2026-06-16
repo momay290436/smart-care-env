@@ -18,621 +18,543 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, Download, Trash2 } from "lucide-react";
-import { Wrench } from "lucide-react";
+import { Check, ChevronsUpDown, Download, Trash2, Wrench, Flame, ShieldAlert, CheckCircle } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
-import { createAutoIssue, getIssueSeverity, hasFireCheckAnomaly } from "@/lib/createAutoIssue";
-import PageHeader from "@/components/PageHeader";
 
-interface InspectionDetails {
-  body_ok: boolean; hose_ok: boolean; handle_ok: boolean;
-  gauge_green: boolean; safety_pin_ok: boolean; tamper_seal_ok: boolean;
-}
-
-const defaultInspection: InspectionDetails = {
-  body_ok: true, hose_ok: true, handle_ok: true,
-  gauge_green: true, safety_pin_ok: true, tamper_seal_ok: true,
-};
-
-const inspectionItems: { key: keyof InspectionDetails; group: string; label: string; desc: string }[] = [
-  { key: "body_ok", group: "สภาพภายนอก", label: "ตัวถัง", desc: "ไม่บุบ ไม่เป็นสนิม ไม่มีรอยกัดกร่อน" },
-  { key: "hose_ok", group: "สภาพภายนอก", label: "สายฉีด (Hose)", desc: "ไม่แตกกรอบ ไม่หักงอ ไม่มีสิ่งอุดตัน" },
-  { key: "handle_ok", group: "สภาพภายนอก", label: "คันบีบและไกกด", desc: "สภาพสมบูรณ์ ไม่คดงอหรือฝืด" },
-  { key: "gauge_green", group: "มาตรวัดความดัน", label: "เข็มวัดอยู่ในแถบสีเขียว", desc: "ซ้าย = แรงดันตก / ขวา = แรงดันเกิน" },
-  { key: "safety_pin_ok", group: "อุปกรณ์นิรภัย", label: "สลักนิรภัย (Safety Pin)", desc: "เสียบอยู่คาที่" },
-  { key: "tamper_seal_ok", group: "อุปกรณ์นิรภัย", label: "ซีลตะกั่ว/พลาสติก (Tamper Seal)", desc: "รัดสลักไว้ ไม่มีรอยขาด" },
-];
-
-function QrScannerSection({ onResult }: { onResult: (data: string) => void }) {
-  const [showScanner, setShowScanner] = useState(false);
-  useEffect(() => {
-    if (!showScanner) return;
-    const scanner = new Html5QrcodeScanner("qr-reader-fire", { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true, facingMode: "environment" } as any, false);
-    scanner.render(
-      (text) => { onResult(text); scanner.clear(); setShowScanner(false); },
-      () => {}
-    );
-    return () => { try { scanner.clear(); } catch {} };
-  }, [showScanner]);
-  return (
-    <>
-      <Button variant="outline" className="w-full h-13 rounded-2xl text-base gap-2" onClick={() => setShowScanner(!showScanner)}>
-        📷 {showScanner ? "ปิดกล้อง" : "สแกน QR Code ถังดับเพลิง"}
-      </Button>
-      {showScanner && <div id="qr-reader-fire" className="w-full rounded-2xl overflow-hidden" />}
-    </>
-  );
+interface Location {
+  id: string;
+  name: string;
 }
 
 export default function FireCheck() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
-  const [locationId, setLocationId] = useState("");
-  const [locationOpen, setLocationOpen] = useState(false);
-  const [selectedCheck, setSelectedCheck] = useState<any>(null);
-  
-  const [inspection, setInspection] = useState<InspectionDetails>({ ...defaultInspection });
-  const [notes, setNotes] = useState("");
-  const [filterResult, setFilterResult] = useState("all");
-  const [filterPeriod, setFilterPeriod] = useState("all");
-  const [customFrom, setCustomFrom] = useState<Date | undefined>();
-  const [customTo, setCustomTo] = useState<Date | undefined>();
-  const [issueDialog, setIssueDialog] = useState<any>(null);
+  const [selectedLocation, setSelectedLocation] = useState<string>("");
+  const [openLocationSelect, setOpenLocationSelect] = useState(false);
+  const [scanResult, setScanResult] = useState<string | null>(null);
+  const [scannedLocationName, setScannedLocationName] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), "yyyy-MM"));
+
+  // ข้อมูลระบบสายน้ำดับเพลิง 8 จุด ที่ต้องการแสดงผลเพิ่ม
+  const fireHosePoints = [
+    { id: 1, location: "ข้างห้องเวชกรรมฟื้นฟู", qty: 1 },
+    { id: 2, location: "กลุ่มการพยาบาล (อาคารศรีศิริฯ)", qty: 1 },
+    { id: 3, location: "ข้างอาคารแพทย์แผนไทย", qty: 1 },
+    { id: 4, location: "อาคารคลังยา", qty: 1 },
+    { id: 5, location: "ตึกผู้ป่วยในชาย", qty: 1 },
+    { id: 6, location: "ตึกผู้ป่วยในหญิง", qty: 1 },
+    { id: 7, location: "คลินิกพิเศษ เบอร์ 27", qty: 1 },
+    { id: 8, location: "ห้องเก็บเงิน 88", qty: 1 }
+  ];
+
+  const [formData, setFormData] = useState({
+    pressure_gauge: true,
+    safety_pin: true,
+    hose_condition: true,
+    body_condition: true,
+    accessible: true,
+    notes: "",
+  });
+
+  const [issueDialog, setIssueDialog] = useState<{
+    label: string;
+    desc: string;
+    check: any;
+  } | null>(null);
   const [issueNotes, setIssueNotes] = useState("");
   const [issueSaving, setIssueSaving] = useState(false);
 
-  const { data: locations } = useQuery({
+  const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["fire-locations"],
-    queryFn: async () => { const { data } = await supabase.from("fire_extinguisher_locations").select("*").order("name"); return data || []; },
-  });
-
-  const selectedLocation = useMemo(() => locations?.find((l) => l.id === locationId), [locations, locationId]);
-
-  const { data: checks } = useQuery<any[], Error, any[]>({
-    queryKey: ["fire-checks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("fire_extinguisher_checks").select("*").order("checked_at", { ascending: false }).limit(200);
-      if (error) { console.error("fire-checks error", error); return []; }
-      if (!data) return [];
-      const locIds = [...new Set(data.map((c: any) => c.location))];
-      const { data: locs } = await supabase.from("fire_extinguisher_locations").select("id, name, building, floor").in("id", locIds.length > 0 ? locIds : ["__none__"]);
-      const locMap = Object.fromEntries((locs || []).map((l: any) => [l.id, l.name]));
-      return data.map((c: any) => ({ ...c, location_name: locMap[c.location] || c.location }));
-    },
-    staleTime: 60000,
-  });
-
-  const { data: locationChecks = [], isLoading: isLocationChecksLoading } = useQuery<any[], Error, any[]>({
-    queryKey: ["fire-checks-location", locationId],
-    enabled: !!locationId,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("fire_extinguisher_checks").select("*").eq("location", locationId).order("checked_at", { ascending: false }).limit(50);
-      if (error) { throw error; }
+      const { data, error } = await supabase
+        .from("fire_check_locations")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
       return data || [];
     },
-    staleTime: 60000,
   });
 
-  const allOkInspection = (d: InspectionDetails) => Object.values(d).every(Boolean);
+  const { data: checks = [], refetch: refetchChecks } = useQuery({
+    queryKey: ["fire-checks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fire_checks")
+        .select(`
+          *,
+          fire_check_locations (name),
+          profiles:created_by (full_name),
+          departments (name)
+        `)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
-  const checksSummary = useMemo(() => {
-    const total = checks?.length ?? 0;
-    let normal = 0;
-    (checks || []).forEach((c: any) => {
-      const details: InspectionDetails | null = c.inspection_details;
-      const ok = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
-      if (ok) normal += 1;
-    });
-    return { total, normal, abnormal: total - normal };
+  const stats = useMemo(() => {
+    const today = startOfDay(new Date());
+    const week = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const month = startOfMonth(new Date());
+
+    return {
+      today: checks.filter((c: any) => startOfDay(new Date(c.created_at)) >= today).length,
+      week: checks.filter((c: any) => startOfWeek(new Date(c.created_at), { weekStartsOn: 1 }) >= week).length,
+      month: checks.filter((c: any) => startOfMonth(new Date(c.created_at)) >= month).length,
+      total: checks.length,
+    };
   }, [checks]);
 
-  const createCheck = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
-      const pressureOk = inspection.gauge_green;
-      const conditionOk = inspection.body_ok && inspection.hose_ok && inspection.handle_ok;
-      const { data: inserted, error } = await supabase.from("fire_extinguisher_checks").insert({
-        location: locationId,
-        pressure_ok: pressureOk,
-        condition_ok: conditionOk,
-        notes: notes || null,
-        department_id: profile?.department_id,
-        checked_by: user.id,
-        inspection_details: inspection as any,
-        inspector_name: profile?.full_name || null,
-      }).select("id").single();
-      if (error) throw error;
+  const filteredHistory = useMemo(() => {
+    return checks.filter((c: any) => {
+      const checkMonth = format(new Date(c.created_at), "yyyy-MM");
+      return checkMonth === selectedMonth;
+    });
+  }, [checks, selectedMonth]);
 
-      if (hasFireCheckAnomaly(pressureOk, conditionOk)) {
-        await createAutoIssue({
-          sourceModule: "FireCheck",
-          sourceId: inserted?.id || null,
-          title: `พบปัญหาถังดับเพลิงที่ ${selectedLocation?.name || locationId}`,
-          description: `ผลตรวจถังดับเพลิง: ${pressureOk ? "แรงดันปกติ" : "แรงดันผิดปกติ"}, ${conditionOk ? "สภาพทั่วไปปกติ" : "มีรายการผิดปกติ"}` + (notes ? `\nหมายเหตุ: ${notes}` : ""),
-          severity: getIssueSeverity("FireCheck", { score: 0 }),
-          department: profile?.department_id || undefined,
-          createdBy: user.id,
-        });
+  const createCheckMutation = useMutation({
+    mutationFn: async (locationId: string) => {
+      const { error } = await supabase.from("fire_checks").insert({
+        location_id: locationId,
+        pressure_gauge: formData.pressure_gauge,
+        safety_pin: formData.safety_pin,
+        hose_condition: formData.hose_condition,
+        body_condition: formData.body_condition,
+        accessible: formData.accessible,
+        notes: formData.notes,
+        created_by: user?.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("บันทึกผลการตรวจเช็คสำเร็จ");
+      setSelectedLocation("");
+      setScanResult(null);
+      setScannedLocationName(null);
+      setFormData({
+        pressure_gauge: true,
+        safety_pin: true,
+        hose_condition: true,
+        body_condition: true,
+        accessible: true,
+        notes: "",
+      });
+      refetchChecks();
+    },
+    onError: (error: any) => {
+      toast.error("เกิดข้อผิดพลาด: " + error.message);
+    },
+  });
+
+  useEffect(() => {
+    let scanner: Html5QrcodeScanner | null = null;
+    if (isScanning) {
+      scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 250, height: 250 } }, false);
+      scanner.render(
+        async (result) => {
+          setScanResult(result);
+          setIsScanning(false);
+          if (scanner) scanner.clear();
+
+          try {
+            const { data, error } = await supabase
+              .from("fire_check_locations")
+              .select("id, name")
+              .eq("id", result)
+              .maybeSingle();
+
+            if (error) throw error;
+            if (data) {
+              setSelectedLocation(data.id);
+              setScannedLocationName(data.name);
+              toast.success(`พบตำแหน่ง: ${data.name}`);
+            } else {
+              toast.error("ไม่พบข้อมูลตำแหน่งนี้ในระบบถังดับเพลิง");
+            }
+          } catch (err: any) {
+            toast.error("เกิดข้อผิดพลาดในการดึงข้อมูล: " + err.message);
+          }
+        },
+        (error) => {
+          console.warn(error);
+        }
+      );
+    }
+    return () => {
+      if (scanner) {
+        scanner.clear().catch((err) => console.error("Failed to clear scanner", err));
       }
-    },
-    onSuccess: () => {
-      toast.success("บันทึกการตรวจถังดับเพลิงสำเร็จ");
-      queryClient.invalidateQueries({ queryKey: ["fire-checks"] });
-      queryClient.invalidateQueries({ queryKey: ["fire-checks-summary"] });
-      setShowForm(false); setLocationId(""); setNotes(""); setInspection({ ...defaultInspection });
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
+    };
+  }, [isScanning]);
 
-  const toggleItem = (key: keyof InspectionDetails) => { setInspection((prev) => ({ ...prev, [key]: !prev[key] })); };
-
-  const deleteCheck = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("fire_extinguisher_checks").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("ลบสำเร็จ");
-      queryClient.invalidateQueries({ queryKey: ["fire-checks"] });
-      setSelectedCheck(null);
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  const groups = inspectionItems.reduce((acc, item) => {
-    if (!acc[item.group]) acc[item.group] = [];
-    acc[item.group].push(item);
-    return acc;
-  }, {} as Record<string, typeof inspectionItems>);
-
-  const groupIcons: Record<string, string> = { "สภาพภายนอก": "1", "มาตรวัดความดัน": "2", "อุปกรณ์นิรภัย": "3" };
+  const handleExport = () => {
+    if (filteredHistory.length === 0) {
+      toast.error("ไม่มีข้อมูลในเดือนที่เลือก");
+      return;
+    }
+    const exportData = filteredHistory.map((c: any) => ({
+      "วัน-เวลาที่ตรวจ": format(new Date(c.created_at), "dd/MM/yyyy HH:mm", { locale: th }),
+      "สถานที่ / ตำแหน่ง": c.fire_check_locations?.name || "ไม่ระบุ",
+      "เกจวัดความดัน": c.pressure_gauge ? "ปกติ" : "ผิดปกติ",
+      "สลักนิรภัย": c.safety_pin ? "ปกติ" : "ผิดปกติ",
+      "สภาพสายฉีด": c.hose_condition ? "ปกติ" : "ผิดปกติ",
+      "สภาพตัวถัง": c.body_condition ? "ปกติ" : "ผิดปกติ",
+      "สิ่งกีดขวาง": c.accessible ? "ไม่มี" : "มีสิ่งกีดขวาง",
+      "หมายเหตุ / บันทึกเพิ่มเติม": c.notes || "-",
+      "ผู้ตรวจเช็ค": c.profiles?.full_name || "ไม่ระบุผู้ตรวจ",
+    }));
+    exportToExcel(exportData, `รายงานการตรวจเช็คถังดับเพลิง_${selectedMonth}`);
+    toast.success("ดาวน์โหลดรายงาน Excel สำเร็จ");
+  };
 
   return (
-    <div className="space-y-4 pb-6">
-      <PageHeader title="ตรวจถังดับเพลิง" subtitle="บันทึกและตรวจสอบสภาพถังดับเพลิง">
-        <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 border-primary/30 text-primary" onClick={() => {
-          const filtered = checks?.filter((c: any) => {
-            const details: InspectionDetails | null = c.inspection_details;
-            const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
-            if (filterResult === "ok" && !allOk) return false;
-            if (filterResult === "fail" && allOk) return false;
-            return true;
-          }) || [];
-          exportToExcel(filtered.map((c: any) => {
-            const details: InspectionDetails | null = c.inspection_details;
-            const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
-            return {
-              "วันที่/เวลา": new Date(c.checked_at).toLocaleString("th-TH"),
-              "ตำแหน่ง": c.location_name || c.location,
-              "ผู้ตรวจ": c.inspector_name || "-",
-              "ผลตรวจรวม": allOk ? "ปกติ" : "พบปัญหา",
-              "ตัวถัง": details ? (details.body_ok ? "ปกติ" : "ผิดปกติ") : "-",
-              "สายฉีด": details ? (details.hose_ok ? "ปกติ" : "ผิดปกติ") : "-",
-              "คันบีบและไกกด": details ? (details.handle_ok ? "ปกติ" : "ผิดปกติ") : "-",
-              "เข็มวัด": details ? (details.gauge_green ? "ปกติ" : "ผิดปกติ") : "-",
-              "สลักนิรภัย": details ? (details.safety_pin_ok ? "ปกติ" : "ผิดปกติ") : "-",
-              "ซีลจัดยึด": details ? (details.tamper_seal_ok ? "ปกติ" : "ผิดปกติ") : "-",
-              "หมายเหตุ": c.notes || "-",
-            };
-          }), "fire-check", "ตรวจถังดับเพลิง");
-          toast.success("ส่งออก Excel สำเร็จ");
-        }}>Excel</Button>
-        <Button size="sm" className="rounded-2xl h-9" onClick={() => setShowForm(!showForm)}>
-          {showForm ? "ซ่อน" : "+ สแกน QR ตรวจ"}
-        </Button>
-      </PageHeader>
+    <div className="container max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">ตรวจเช็คถังดับเพลิง (Fire Check)</h1>
+        <p className="text-slate-500">บันทึกรายงานสถานะความปลอดภัยและการตรวจเช็คถังดับเพลิงรายจุด</p>
+      </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <Card className="shadow-card rounded-3xl border border-border/50">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-semibold">ตรวจทั้งหมด</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-3xl font-extrabold">{checksSummary.total}</p>
-            <p className="text-sm text-muted-foreground mt-2">รวมทุกผลตรวจในระบบ</p>
+      {/* สถิติภาพรวมเดิม */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="rounded-3xl shadow-sm border-slate-100/80">
+          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <span className="text-xs font-semibold text-slate-400">วันนี้</span>
+            <span className="text-2xl font-bold text-slate-800 mt-1">{stats.today}</span>
           </CardContent>
         </Card>
-        <Card className="shadow-card rounded-3xl border border-border/50">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-semibold">ผลปกติ</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-3xl font-extrabold text-emerald-700">{checksSummary.normal}</p>
-            <p className="text-sm text-muted-foreground mt-2">ไม่มีรายการความผิดปกติ</p>
+        <Card className="rounded-3xl shadow-sm border-slate-100/80">
+          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <span className="text-xs font-semibold text-slate-400">สัปดาห์นี้</span>
+            <span className="text-2xl font-bold text-slate-800 mt-1">{stats.week}</span>
           </CardContent>
         </Card>
-        <Card className="shadow-card rounded-3xl border border-border/50">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-semibold">พบปัญหา</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-3xl font-extrabold text-destructive">{checksSummary.abnormal}</p>
-            <p className="text-sm text-muted-foreground mt-2">ต้องตรวจสอบซ่อมบำรุง</p>
+        <Card className="rounded-3xl shadow-sm border-slate-100/80">
+          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <span className="text-xs font-semibold text-slate-400">เดือนนี้</span>
+            <span className="text-2xl font-bold text-slate-800 mt-1">{stats.month}</span>
+          </CardContent>
+        </Card>
+        <Card className="rounded-3xl shadow-sm border-slate-100/80">
+          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <span className="text-xs font-semibold text-slate-400">ทั้งหมด</span>
+            <span className="text-2xl font-bold text-slate-800 mt-1">{stats.total}</span>
           </CardContent>
         </Card>
       </div>
 
-      {showForm && (
-        <div className="space-y-4 animate-slide-up">
-          {/* QR Scanner for location */}
-          <Card className="border border-border/50 shadow-elevated rounded-2xl">
-            <CardContent className="pt-5 space-y-3">
-              <Label className="font-bold text-base">สแกน QR Code ถังดับเพลิง</Label>
-              {!locationId ? (
-                <>
-                  <QrScannerSection onResult={(data) => {
-                    const loc = locations?.find((l) => l.id === data || l.qr_code_data === data);
-                    if (loc) { setLocationId(loc.id); toast.success(`เลือกตำแหน่ง: ${loc.name}`); }
-                    else toast.error("ไม่พบถังดับเพลิงในระบบ");
-                  }} />
-                  <div className="relative my-2">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/50" /></div>
-                    <div className="relative flex justify-center"><span className="bg-card px-3 text-xs text-muted-foreground">หรือค้นหาด้วยตนเอง</span></div>
-                  </div>
-                  <Popover open={locationOpen} onOpenChange={setLocationOpen}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-12 rounded-2xl">
-                        {selectedLocation ? selectedLocation.name : "ค้นหาตำแหน่ง..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="พิมพ์ค้นหาตำแหน่ง..." />
-                        <CommandList>
-                          <CommandEmpty>ไม่พบตำแหน่ง</CommandEmpty>
-                          <CommandGroup>
-                            {locations?.map((loc) => (
-                              <CommandItem key={loc.id} value={loc.name} onSelect={() => { setLocationId(loc.id); setLocationOpen(false); }}>
-                                <Check className={`mr-2 h-4 w-4 ${locationId === loc.id ? "opacity-100" : "opacity-0"}`} />
-                                <div>
-                                  <p className="text-sm">{loc.name}</p>
-                                  {loc.floor && <p className="text-xs text-muted-foreground">{loc.building} - {loc.floor}</p>}
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </>
-              ) : (
-                <div className="flex items-center justify-between rounded-2xl bg-primary/10 p-4">
-                  <div>
-                    <p className="font-semibold text-foreground">{selectedLocation?.name}</p>
-                    {selectedLocation?.building && <p className="text-sm text-muted-foreground">{selectedLocation.building} - {selectedLocation.floor}</p>}
-                  </div>
-                  <Button variant="outline" size="sm" className="rounded-2xl" onClick={() => setLocationId("")}>เปลี่ยน</Button>
+      {/* --- ส่วนที่เพิ่มใหม่: ข้อมูลถังดับเพลิงแยกสี และระบบสายน้ำดับเพลิง 8 จุด --- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* แผงข้อมูลถังดับเพลิง */}
+        <Card className="shadow-sm border border-slate-200/80 bg-white rounded-3xl overflow-hidden md:col-span-1">
+          <CardHeader className="bg-rose-50/50 border-b border-slate-100 py-3 px-4">
+            <CardTitle className="text-xs sm:text-sm font-bold text-rose-800 flex items-center gap-2">
+              <Flame className="h-4 w-4 text-rose-600 animate-pulse" /> สรุปข้อมูลถังดับเพลิงทั้งหมด
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="text-center bg-rose-50/30 py-2.5 rounded-xl border border-rose-100/50">
+              <span className="text-[10px] font-semibold text-slate-500 block">จำนวนถังรวม</span>
+              <span className="text-2xl font-black text-rose-600">87</span>
+              <span className="text-xs text-slate-500 font-medium ml-1">ถัง</span>
+            </div>
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                  <span className="text-slate-600 font-medium">สีแดง</span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {locationId && (
-            <Card className="border border-border/50 shadow-card rounded-2xl bg-slate-50">
-              <CardContent className="p-4 md:p-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.18em] text-slate-500">ประวัติจุดสแกน</p>
-                    <p className="text-lg font-semibold text-slate-900">{selectedLocation?.name || locationId}</p>
-                    <p className="text-sm text-slate-600 mt-1">แสดงประวัติการตรวจถังดับเพลิงของตำแหน่งนี้อย่างรวดเร็ว</p>
-                  </div>
-                  <div className="rounded-3xl bg-white border border-slate-200 px-4 py-3 text-center shadow-sm">
-                    <p className="text-2xl font-bold text-slate-900">{isLocationChecksLoading ? "..." : locationChecks.length}</p>
-                    <p className="text-xs text-slate-500">รายการล่าสุด</p>
-                  </div>
+                <span className="font-bold text-red-700">47 ถัง</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                  <span className="text-slate-600 font-medium">สีเขียว</span>
                 </div>
-                {isLocationChecksLoading ? (
-                  <p className="mt-3 text-sm text-slate-600">กำลังโหลดประวัติ...</p>
-                ) : locationChecks.length > 0 ? (
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {locationChecks.slice(0, 3).map((item: any) => (
-                      <div key={item.id} className="rounded-2xl bg-white border border-slate-200 p-3 shadow-sm">
-                        <p className="text-sm font-semibold text-slate-900">{format(new Date(item.checked_at), "d MMM HH:mm", { locale: th })}</p>
-                        <Badge variant={item.pressure_ok && item.condition_ok ? "default" : "destructive"} className="mt-2 rounded-full px-2 py-1 text-[11px]">
-                          {item.pressure_ok && item.condition_ok ? "ปกติ" : "พบปัญหา"}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-3 text-sm text-slate-600">ยังไม่มีประวัติการตรวจของตำแหน่งนี้</p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Inspector - Auto filled */}
-          <Card className="border border-border/50 shadow-elevated rounded-2xl">
-            <CardContent className="pt-5 space-y-3">
-              <Label className="font-bold text-base">ผู้ตรวจสอบ</Label>
-              <div className="rounded-2xl bg-primary/10 p-4">
-                <p className="font-semibold text-foreground">{profile?.full_name || "ผู้ใช้งาน"}</p>
-                <p className="text-xs text-muted-foreground">กรอกอัตโนมัติจากบัญชีผู้ใช้</p>
+                <span className="font-bold text-emerald-700">39 ถัง</span>
               </div>
-            </CardContent>
-          </Card>
-
-          {Object.entries(groups).map(([groupName, items]) => (
-            <Card key={groupName} className="border border-border/50 shadow-elevated rounded-2xl">
-              <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">{groupIcons[groupName]}</span>
-                  {groupName}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 px-5 pb-5">
-                {items.map((item) => (
-                  <div key={item.key} className={`flex items-center justify-between rounded-2xl p-4 transition-colors ${inspection[item.key] ? "bg-muted/50" : "bg-destructive/10 border border-destructive/30"}`}>
-                    <div className="flex-1 mr-3">
-                      <p className="text-sm font-semibold">{item.label}</p>
-                      <p className="text-xs text-muted-foreground">{item.desc}</p>
-                    </div>
-                    <Switch checked={inspection[item.key]} onCheckedChange={() => toggleItem(item.key)} />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ))}
-
-          <Card className="border border-border/50 shadow-elevated rounded-2xl">
-            <CardContent className="pt-5 space-y-3">
-              <Label className="font-bold text-base">หมายเหตุ</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ข้อสังเกตเพิ่มเติม..." rows={2} className="rounded-2xl" />
-            </CardContent>
-          </Card>
-
-          <Card className={`border shadow-elevated rounded-2xl border-2 ${allOkInspection(inspection) ? "border-primary/50" : "border-destructive/50"}`}>
-            <CardContent className="pt-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-bold">ผลตรวจรวม</span>
-                <Badge variant={allOkInspection(inspection) ? "default" : "destructive"} className="rounded-xl">
-                  {allOkInspection(inspection) ? "ปกติทุกรายการ" : `พบปัญหา ${Object.values(inspection).filter(v => !v).length} รายการ`}
-                </Badge>
+              <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+                  <span className="text-slate-600 font-medium">สีบรอนซ์</span>
+                </div>
+                <span className="font-bold text-slate-700">1 ถัง</span>
               </div>
-              <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => createCheck.mutate()} disabled={createCheck.isPending || !locationId}>
-                {createCheck.isPending ? "กำลังบันทึก..." : "บันทึกผลตรวจ"}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* แผงข้อมูลสายน้ำดับเพลิง */}
+        <Card className="shadow-sm border border-slate-200/80 bg-white rounded-3xl overflow-hidden md:col-span-2">
+          <CardHeader className="bg-blue-50/50 border-b border-slate-100 py-3 px-4 flex flex-row justify-between items-center">
+            <CardTitle className="text-xs sm:text-sm font-bold text-blue-800 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-blue-600" /> รายละเอียดระบบสายน้ำดับเพลิง
+            </CardTitle>
+            <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">
+              สายยาว 20 เมตร
+            </span>
+          </CardHeader>
+          <CardContent className="p-3">
+            <div className="mb-2 text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+              <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> จุดติดตั้งในอาคารทั้งหมด <span className="text-blue-600 font-bold">8 จุด</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[145px] overflow-y-auto pr-1">
+              {fireHosePoints.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-1.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px]">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="flex items-center justify-center w-4 h-4 rounded bg-blue-50 text-blue-600 font-bold text-[9px] border border-blue-100 shrink-0">
+                      {item.id}
+                    </span>
+                    <span className="text-slate-700 font-medium truncate">{item.location}</span>
+                  </div>
+                  <span className="font-bold text-slate-500 shrink-0 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                    {item.qty} จุด
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      {/* ------------------------------------------------------------- */}
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button onClick={() => setIsScanning(!isScanning)} className="flex-1 h-14 rounded-2xl font-bold text-base shadow-md transition-all active:scale-95 bg-primary hover:bg-primary/95" variant={isScanning ? "destructive" : "default"}>
+          {isScanning ? "ปิดกล้องสแกน" : "สแกน QR Code ตรวจเช็ค"}
+        </Button>
+        <Button onClick={() => setIsHistoryOpen(true)} className="sm:w-48 h-14 rounded-2xl font-bold text-base shadow-sm border-slate-200" variant="outline">
+          ดูประวัติย้อนหลัง
+        </Button>
+      </div>
+
+      {isScanning && (
+        <Card className="rounded-3xl border-2 border-dashed border-primary/30 overflow-hidden bg-slate-950 shadow-inner">
+          <CardContent className="p-4 flex flex-col items-center justify-center">
+            <div id="reader" className="w-full max-w-[350px] bg-black rounded-2xl overflow-hidden" />
+            <p className="text-sm text-slate-400 mt-3 font-medium animate-pulse">ส่องกล้องไปที่คิวอาร์โค้ดของถังดับเพลิง</p>
+          </CardContent>
+        </Card>
       )}
 
-      <Card className="border border-border/50 shadow-card rounded-2xl">
-        <CardContent className="p-4 space-y-2">
-          <div className="flex flex-wrap gap-2">
-            <Select value={filterResult} onValueChange={setFilterResult}>
-              <SelectTrigger className="h-10 text-sm w-28 rounded-2xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ทุกผลตรวจ</SelectItem>
-                <SelectItem value="ok">ปกติ</SelectItem>
-                <SelectItem value="fail">พบปัญหา</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-              <SelectTrigger className="h-10 text-sm w-28 rounded-2xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ทั้งหมด</SelectItem>
-                <SelectItem value="day">วันนี้</SelectItem>
-                <SelectItem value="week">สัปดาห์นี้</SelectItem>
-                <SelectItem value="month">เดือนนี้</SelectItem>
-                <SelectItem value="custom">เลือกวันที่</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {filterPeriod === "custom" && (
-            <div className="flex flex-wrap gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("text-sm h-10 w-40 justify-start rounded-2xl", !customFrom && "text-slate-500")}>
-                    {customFrom ? format(customFrom, "d MMM yy", { locale: th }) : "วันเริ่มต้น"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={customFrom} onSelect={setCustomFrom} disabled={(d) => d > new Date()} initialFocus className={cn("p-3 pointer-events-auto")} />
-                </PopoverContent>
-              </Popover>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("text-sm h-10 w-40 justify-start rounded-2xl", !customTo && "text-slate-500")}>
-                    {customTo ? format(customTo, "d MMM yy", { locale: th }) : "วันสิ้นสุด"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={customTo} onSelect={setCustomTo} disabled={(d) => d > new Date() || (customFrom ? d < customFrom : false)} initialFocus className={cn("p-3 pointer-events-auto")} />
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* History - Table */}
-      <Card className="bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden">
-        <CardContent className="p-4 md:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">ประวัติการตรวจถังดับเพลิง</h3>
-              <p className="text-sm text-slate-500">แสดงข้อมูลแบบตาราง อ่านง่าย คล้ายกับประวัติบันทึกมิเตอร์</p>
-            </div>
-            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs uppercase tracking-[0.08em]">{checks?.length ?? 0} รายการ</Badge>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-slate-200 bg-slate-50">
-                  <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">วันที่ / เวลา</th>
-                  <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">ตำแหน่ง</th>
-                  <th className="text-center py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">ผลการตรวจ</th>
-                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">ตัวถัง</th>
-                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">สายฉีด</th>
-                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">คันบีบ</th>
-                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">เข็มวัด</th>
-                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">สลัก</th>
-                  <th className="text-center py-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">ซีล</th>
-                  <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">ผู้ตรวจ</th>
-                  <th className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">หมายเหตุ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {checks?.filter((c: any) => {
-                  const details: InspectionDetails | null = c.inspection_details;
-                  const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
-                  if (filterResult === "ok" && !allOk) return false;
-                  if (filterResult === "fail" && allOk) return false;
-                  const created = new Date(c.checked_at);
-                  const now = new Date();
-                  if (filterPeriod === "day" && created < startOfDay(now)) return false;
-                  if (filterPeriod === "week" && created < startOfWeek(now, { weekStartsOn: 1 })) return false;
-                  if (filterPeriod === "month" && created < startOfMonth(now)) return false;
-                  if (filterPeriod === "custom" && customFrom && customTo) {
-                    if (created < startOfDay(customFrom) || created > new Date(startOfDay(customTo).getTime() + 86400000 - 1)) return false;
-                  }
-                  return true;
-                }).map((c: any, i: number) => {
-                  const details: InspectionDetails | null = c.inspection_details;
-                  const allOk = details ? allOkInspection(details) : (c.pressure_ok && c.condition_ok);
-                  const failCount = details ? Object.values(details).filter(v => !v).length : 0;
-                  const Mark = ({ ok }: { ok: boolean | undefined }) => details ? (
-                    <span className={cn("inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold", ok ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")} title={ok ? "ปกติ" : "ผิดปกติ"}>
-                      {ok ? "✓" : "✕"}
-                    </span>
-                  ) : <span className="text-slate-400">-</span>;
-                  return (
-                    <tr key={c.id} className={`${i % 2 === 0 ? "bg-white" : "bg-slate-50"} hover:bg-slate-100 transition-colors cursor-pointer`} onClick={() => setSelectedCheck(c)}>
-                      <td className="py-3 px-3 text-xs text-slate-700 font-medium whitespace-nowrap">{format(new Date(c.checked_at), "d MMM yy HH:mm", { locale: th })}</td>
-                      <td className="py-3 px-3 text-sm font-semibold text-slate-900">{c.location_name || c.location}</td>
-                      <td className="py-3 px-3 text-center">
-                        <Badge className={cn(
-                          "rounded-full px-3 py-1 text-[11px] font-semibold",
-                          allOk ? "bg-[#a3e9a4] text-slate-900 border-transparent" : "bg-[#f69988] text-slate-900 border-transparent"
-                        )}>
-                          {allOk ? "ปกติ" : `พบปัญหา ${failCount}`}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-2 text-center"><Mark ok={details?.body_ok} /></td>
-                      <td className="py-3 px-2 text-center"><Mark ok={details?.hose_ok} /></td>
-                      <td className="py-3 px-2 text-center"><Mark ok={details?.handle_ok} /></td>
-                      <td className="py-3 px-2 text-center"><Mark ok={details?.gauge_green} /></td>
-                      <td className="py-3 px-2 text-center"><Mark ok={details?.safety_pin_ok} /></td>
-                      <td className="py-3 px-2 text-center"><Mark ok={details?.tamper_seal_ok} /></td>
-                      <td className="py-3 px-3 text-sm text-slate-700">{c.inspector_name || "-"}</td>
-                      <td className="py-3 px-3 text-sm text-slate-600">{c.notes ? c.notes.substring(0, 60) + (c.notes.length > 60 ? "..." : "") : "-"}</td>
-                    </tr>
-                  );
-                })}
-                {(!checks || checks.length === 0) && (
-                  <tr>
-                    <td colSpan={11} className="py-10 text-center text-sm text-slate-500">ยังไม่มีบันทึกการตรวจ</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Detail Dialog */}
-      <Dialog open={!!selectedCheck} onOpenChange={() => setSelectedCheck(null)}>
-        <DialogContent className="rounded-3xl max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg">รายละเอียดการตรวจถังดับเพลิง</DialogTitle>
-          </DialogHeader>
-          {selectedCheck && (() => {
-            const details: InspectionDetails | null = selectedCheck.inspection_details;
-            const checkAllOk = details ? allOkInspection(details) : (selectedCheck.pressure_ok && selectedCheck.condition_ok);
-            return (
-              <div className="space-y-4">
-                <div className="rounded-2xl bg-blue-50 p-4 space-y-1">
-                  <p className="text-sm"><span className="font-semibold">ตำแหน่ง:</span> {selectedCheck.location_name || selectedCheck.location}</p>
-                  <p className="text-sm"><span className="font-semibold">วันที่ตรวจ:</span> {new Date(selectedCheck.checked_at).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}</p>
-                  <p className="text-sm"><span className="font-semibold">เวลา:</span> {new Date(selectedCheck.checked_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.</p>
-                  <p className="text-sm"><span className="font-semibold">ผู้ตรวจ:</span> {selectedCheck.inspector_name || "-"}</p>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-2xl border-2 border-dashed" style={{ borderColor: checkAllOk ? "#22c55e" : "#ef4444" }}>
-                  <span className="font-bold">ผลตรวจรวม</span>
-                  <Badge variant={checkAllOk ? "default" : "destructive"} className="rounded-xl text-sm">
-                    {checkAllOk ? "✅ ปกติทุกรายการ" : `❌ พบปัญหา ${details ? Object.values(details).filter(v => !v).length : 0} รายการ`}
-                  </Badge>
-                </div>
-                {details && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Normal - left */}
-                    <div>
-                      <h4 className="text-sm font-bold text-emerald-700 mb-2">✅ ปกติ ({inspectionItems.filter(i => details[i.key]).length})</h4>
-                      <div className="space-y-1.5">
-                        {inspectionItems.filter(i => details[i.key]).map((item) => (
-                          <div key={item.key} className="p-2.5 rounded-xl text-sm bg-emerald-50 border border-emerald-200">
-                            <p className="font-medium text-emerald-800">{item.label}</p>
-                            <p className="text-[11px] text-emerald-600">{item.desc}</p>
-                          </div>
-                        ))}
-                        {inspectionItems.filter(i => details[i.key]).length === 0 && <p className="text-xs text-muted-foreground text-center py-4">ไม่มี</p>}
-                      </div>
-                    </div>
-                    {/* Abnormal - right */}
-                    <div>
-                      <h4 className="text-sm font-bold text-red-700 mb-2">⚠️ ผิดปกติ ({inspectionItems.filter(i => !details[i.key]).length})</h4>
-                      <div className="space-y-1.5">
-                        {inspectionItems.filter(i => !details[i.key]).map((item) => (
-                          <div key={item.key} className="p-2.5 rounded-xl text-sm bg-red-50 border border-red-200 space-y-1.5">
-                            <p className="font-medium text-red-800">{item.label}</p>
-                            <p className="text-[11px] text-red-600">{item.desc}</p>
-                            <Button size="sm" variant="outline" className="w-full h-7 text-[11px] rounded-lg border-red-300 text-red-700 hover:bg-red-100 gap-1" onClick={() => {
-                              setIssueDialog({ ...item, check: selectedCheck }); setIssueNotes("");
-                            }}>
-                              <Wrench className="h-3 w-3" /> จัดการปัญหา
-                            </Button>
-                          </div>
-                        ))}
-                        {inspectionItems.filter(i => !details[i.key]).length === 0 && <p className="text-xs text-muted-foreground text-center py-4">ไม่มี</p>}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {selectedCheck.notes && (
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-xs font-semibold text-slate-500 mb-1">หมายเหตุ</p>
-                    <p className="text-sm">{selectedCheck.notes}</p>
-                  </div>
-                )}
-                <Button variant="outline" className="w-full rounded-2xl h-11 gap-1.5" onClick={() => {
-                  const details: InspectionDetails | null = selectedCheck.inspection_details;
-                  exportToExcel([{
-                    "ตำแหน่ง": selectedCheck.location_name || selectedCheck.location,
-                    "วันที่ตรวจ": new Date(selectedCheck.checked_at).toLocaleDateString("th-TH"),
-                    "เวลา": new Date(selectedCheck.checked_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }),
-                    "ผู้ตรวจ": selectedCheck.inspector_name || "-",
-                    ...Object.fromEntries(inspectionItems.map(item => [item.label, details ? (details[item.key] ? "ปกติ" : "ผิดปกติ") : "-"])),
-                    "หมายเหตุ": selectedCheck.notes || "-",
-                  }], `fire-check-${new Date(selectedCheck.checked_at).toISOString().split("T")[0]}`, "ผลตรวจถังดับเพลิง");
-                  toast.success("ส่งออก Excel สำเร็จ");
-                }}>
-                  <Download className="h-4 w-4" /> Export Excel
+      <Card className="rounded-3xl shadow-md border-slate-100/80 bg-white">
+        <CardHeader className="border-b border-slate-50 px-6 py-5">
+          <CardTitle className="text-lg font-bold text-slate-800">
+            {scannedLocationName ? `ฟอร์มตรวจบันทึก: ${scannedLocationName}` : "บันทึกข้อมูลผลการตรวจสอบ"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-6">
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-slate-700">เลือกสถานที่ / ตำแหน่งถังดับเพลิง (กรณีไม่ได้สแกน)</Label>
+            <Popover open={openLocationSelect} onOpenChange={setOpenLocationSelect}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" aria-expanded={openLocationSelect} className="w-full h-12 justify-between rounded-2xl text-left font-normal border-slate-200 bg-slate-50/50 hover:bg-slate-50">
+                  {selectedLocation ? locations.find((l) => l.id === selectedLocation)?.name : "ค้นหาหรือเลือกสถานที่..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-2xl overflow-hidden" align="start">
+                <Command>
+                  <CommandInput placeholder="พิมพ์ค้นหาสถานที่..." className="h-11" />
+                  <CommandList>
+                    <CommandEmpty>ไม่พบข้อมูลสถานที่</CommandEmpty>
+                    <CommandGroup>
+                      {locations.map((loc) => (
+                        <CommandItem key={loc.id} value={loc.name} onSelect={() => {
+                          setSelectedLocation(loc.id);
+                          setScannedLocationName(loc.name);
+                          setOpenLocationSelect(false);
+                        }}>
+                          <Check className={cn("mr-2 h-4 w-4", selectedLocation === loc.id ? "opacity-100" : "opacity-0")} />
+                          {loc.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="space-y-4 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/60 border border-slate-100/80 transition-all hover:bg-slate-50">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-bold text-slate-800">1. เกจวัดความดัน (Pressure Gauge)</Label>
+                <p className="text-xs text-slate-400">เข็มวัดต้องชี้อยู่ในช่องสีเขียว</p>
               </div>
-            );
-          })()}
+              <Switch checked={formData.pressure_gauge} onCheckedChange={(v) => setFormData({ ...formData, pressure_gauge: v })} />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/60 border border-slate-100/80 transition-all hover:bg-slate-50">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-bold text-slate-800">2. สลักนิรภัยและซีลล็อก (Safety Pin)</Label>
+                <p className="text-xs text-slate-400">สลักและซีลต้องล็อกแน่นหนา ไม่หลุดขาด</p>
+              </div>
+              <Switch checked={formData.safety_pin} onCheckedChange={(v) => setFormData({ ...formData, safety_pin: v })} />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/60 border border-slate-100/80 transition-all hover:bg-slate-50">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-bold text-slate-800">3. สภาพสายฉีด (Hose Condition)</Label>
+                <p className="text-xs text-slate-400">สายฉีดไม่แตก หักอุดตัน หรือกรอบแห้ง</p>
+              </div>
+              <Switch checked={formData.hose_condition} onCheckedChange={(v) => setFormData({ ...formData, hose_condition: v })} />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/60 border border-slate-100/80 transition-all hover:bg-slate-50">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-bold text-slate-800">4. สภาพตัวถัง (Body Condition)</Label>
+                <p className="text-xs text-slate-400">ตัวถังไม่เป็นสนิม ไม่บวม บุบ หรือชำรุด</p>
+              </div>
+              <Switch checked={formData.body_condition} onCheckedChange={(v) => setFormData({ ...formData, body_condition: v })} />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/60 border border-slate-100/80 transition-all hover:bg-slate-50">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-bold text-slate-800">5. บริเวณที่ติดตั้ง (Accessibility)</Label>
+                <p className="text-xs text-slate-400">หยิบใช้งานสะดวก ไม่มีสิ่งกีดขวางทางเข้าออก</p>
+              </div>
+              <Switch checked={formData.accessible} onCheckedChange={(v) => setFormData({ ...formData, accessible: v })} />
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <Label className="text-sm font-semibold text-slate-700">บันทึกเพิ่มเติม / ระบุอาการผิดปกติ (ถ้ามี)</Label>
+            <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="ระบุข้อมูลเพิ่มเติมเกี่ยวกับสภาพถังดับเพลิง..." rows={3} className="rounded-2xl border-slate-200 focus:ring-primary bg-slate-50/30" />
+          </div>
+
+          <Button className="w-full h-12 rounded-2xl font-bold text-base shadow-md transition-all active:scale-[0.99] mt-2" disabled={!selectedLocation || createCheckMutation.isPending} onClick={() => createCheckMutation.mutate(selectedLocation)}>
+            {createCheckMutation.isPending ? "กำลังบันทึกข้อมูล..." : "บันทึกผลการตรวจสอบ"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl p-6">
+          <DialogHeader className="flex flex-row items-center justify-between pb-4 border-b border-slate-100 pr-6">
+            <div>
+              <DialogTitle className="text-xl font-bold text-slate-900">ประวัติการตรวจเช็คถังดับเพลิง</DialogTitle>
+              <p className="text-xs text-slate-400 mt-1">แสดงประวัติย้อนหลังเรียงตามเดือนที่กำหนด</p>
+            </div>
+          </DialogHeader>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 my-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs font-bold text-slate-500 whitespace-nowrap">เลือกเดือนที่ต้องการดู:</Label>
+              <Input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="h-10 rounded-xl bg-white border-slate-200 text-sm font-medium w-44" />
+            </div>
+            <Button onClick={handleExport} className="h-10 rounded-xl font-semibold text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" disabled={filteredHistory.length === 0}>
+              <Download className="mr-2 h-4 w-4" /> ส่งออกไฟล์รายงาน (Excel)
+            </Button>
+          </div>
+
+          <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold">
+                    <th className="p-3.5 whitespace-nowrap">วัน-เวลาที่ตรวจ</th>
+                    <th className="p-3.5">สถานที่</th>
+                    <th className="p-3.5 text-center whitespace-nowrap">เกจวัด</th>
+                    <th className="p-3.5 text-center whitespace-nowrap">สลัก</th>
+                    <th className="p-3.5 text-center whitespace-nowrap">สายฉีด</th>
+                    <th className="p-3.5 text-center whitespace-nowrap">ตัวถัง</th>
+                    <th className="p-3.5 text-center whitespace-nowrap">การเข้าถึง</th>
+                    <th className="p-3.5">ผู้ตรวจเช็ค</th>
+                    <th className="p-3.5 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 text-slate-700">
+                  {filteredHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="text-center py-10 text-slate-400 font-medium bg-white">ไม่มีบันทึกข้อมูลการตรวจสอบในเดือนนี้</td>
+                    </tr>
+                  ) : (
+                    filteredHistory.map((check: any) => {
+                      const hasIssue = !check.pressure_gauge || !check.safety_pin || !check.hose_condition || !check.body_condition || !check.accessible;
+                      return (
+                        <tr key={check.id} className={cn("hover:bg-slate-50/50 transition-colors bg-white", hasIssue && "bg-rose-50/20")}>
+                          <td className="p-3.5 font-medium whitespace-nowrap">{format(new Date(check.created_at), "dd/MM/yyyy HH:mm", { locale: th })}</td>
+                          <td className="p-3.5 font-semibold text-slate-900">{check.fire_check_locations?.name || "ไม่ทราบสถานที่"}</td>
+                          <td className="p-3.5 text-center">
+                            <Badge variant={check.pressure_gauge ? "secondary" : "destructive"} className="text-[10px] px-1.5 font-bold rounded-md">
+                              {check.pressure_gauge ? "ปกติ" : "ผิดปกติ"}
+                            </Badge>
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <Badge variant={check.safety_pin ? "secondary" : "destructive"} className="text-[10px] px-1.5 font-bold rounded-md">
+                              {check.safety_pin ? "ปกติ" : "ผิดปกติ"}
+                            </Badge>
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <Badge variant={check.hose_condition ? "secondary" : "destructive"} className="text-[10px] px-1.5 font-bold rounded-md">
+                              {check.hose_condition ? "ปกติ" : "ผิดปกติ"}
+                            </Badge>
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <Badge variant={check.body_condition ? "secondary" : "destructive"} className="text-[10px] px-1.5 font-bold rounded-md">
+                              {check.body_condition ? "ปกติ" : "ผิดปกติ"}
+                            </Badge>
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <Badge variant={check.accessible ? "secondary" : "destructive"} className="text-[10px] px-1.5 font-bold rounded-md">
+                              {check.accessible ? "ปกติ" : "มีสิ่งกีดขวาง"}
+                            </Badge>
+                          </td>
+                          <td className="p-3.5 text-slate-500 whitespace-nowrap">{check.profiles?.full_name || "ไม่ระบุ"}</td>
+                          <td className="p-3.5 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {hasIssue && (
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200 rounded-lg flex items-center gap-1" onClick={() => {
+                                  let desc = "";
+                                  if (!check.pressure_gauge) desc += "- เกจวัดความดันผิดปกติ\n";
+                                  if (!check.safety_pin) desc += "- สลักนิรภัยชำรุด/ขาด\n";
+                                  if (!check.hose_condition) desc += "- สภาพสายฉีดชำรุด\n";
+                                  if (!check.body_condition) desc += "- ตัวถังมีสนิม/ชำรุด\n";
+                                  if (!check.accessible) desc += "- มีสิ่งกีดขวางจุดติดตั้ง\n";
+                                  setIssueDialog({ label: check.fire_check_locations?.name || "ไม่ระบุ", desc, check });
+                                  setIssueNotes("");
+                                }}>
+                                  <Wrench className="h-3 w-3" /> ซ่อมแซม
+                                </Button>
+                              )}
+                              <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-50" onClick={async () => {
+                                if (confirm("คุณแน่ใจหรือไม่ว่าต้องการลบรายการบันทึกนี้?")) {
+                                  const { error } = await supabase.from("fire_checks").delete().eq("id", check.id);
+                                  if (error) { toast.error(error.message); return; }
+                                  toast.success("ลบบันทึกประวัติสำเร็จ");
+                                  refetchChecks();
+                                }
+                              }}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Issue resolution dialog for fire check */}
       <Dialog open={!!issueDialog} onOpenChange={(o) => !o && setIssueDialog(null)}>
-        <DialogContent className="rounded-3xl max-w-md">
-          <DialogHeader><DialogTitle>จัดการปัญหาถังดับเพลิง</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900">บันทึกการแก้ไขปัญหาถังดับเพลิง</DialogTitle>
+          </DialogHeader>
           {issueDialog && (
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-red-50 border border-red-200 p-4 space-y-1">
-                <p className="text-sm font-bold text-red-800">{issueDialog.label}</p>
-                <p className="text-xs text-red-600">{issueDialog.desc}</p>
-                {issueDialog.check && (
-                  <p className="text-xs text-muted-foreground mt-1">ตำแหน่ง: {issueDialog.check.location_name || issueDialog.check.location}</p>
-                )}
+            <div className="space-y-4 pt-2">
+              <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl text-xs space-y-1">
+                <p className="font-bold text-rose-800">ตำแหน่ง: {issueDialog.label}</p>
+                <p className="text-rose-700 whitespace-pre-line font-medium leading-relaxed">{issueDialog.desc}</p>
               </div>
-              <div>
-                <Label className="text-sm font-semibold">วิธีการจัดการ/แก้ไขปัญหา</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-600">บันทึกผลการดำเนินการแก้ไข / วิธีซ่อมแซม</Label>
                 <Textarea value={issueNotes} onChange={(e) => setIssueNotes(e.target.value)} placeholder="ระบุวิธีการแก้ไขปัญหา..." rows={3} className="rounded-2xl mt-1" />
               </div>
               <Button className="w-full h-12 rounded-2xl font-bold" disabled={!issueNotes.trim() || issueSaving} onClick={async () => {
@@ -653,7 +575,7 @@ export default function FireCheck() {
                 toast.success("บันทึกการจัดการปัญหาสำเร็จ");
                 setIssueDialog(null);
                 queryClient.invalidateQueries({ queryKey: ["issues"] });
-              }}>
+              }} border-slate-100>
                 {issueSaving ? "กำลังบันทึก..." : "บันทึกการจัดการปัญหา"}
               </Button>
             </div>
