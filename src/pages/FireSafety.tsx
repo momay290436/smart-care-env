@@ -359,11 +359,11 @@ export default function FireSafety() {
             <CardContent className="p-5 space-y-3">
               <h3 className="text-lg font-bold text-card-foreground">คู่มือการใช้ถังดับเพลิง</h3>
               <div className="p-3 rounded-xl bg-green-50 border border-green-200">
-                <p className="font-bold text-base text-green-800">ชนิด Non-CFC (สีเขียว) - 42 เครื่อง</p>
+                <p className="font-bold text-base text-green-800">ชนิด Non-CFC (สีเขียว) - 39 เครื่อง</p>
                 <p className="text-xs text-green-700 mt-1">ใช้ดับไฟประเภท A, B, C ปลอดภัยต่อชั้นโอโซน ไม่เป็นอันตรายต่อมนุษย์</p>
               </div>
               <div className="p-3 rounded-xl bg-red-50 border border-red-200">
-                <p className="font-bold text-base text-red-800">ชนิดเคมีแห้ง (สีแดง) - 45 เครื่อง</p>
+                <p className="font-bold text-base text-red-800">ชนิดเคมีแห้ง (สีแดง) - 47 เครื่อง</p>
                 <p className="text-xs text-red-700 mt-1">ใช้ดับไฟประเภท A, B, C มีประสิทธิภาพสูงกับไฟไหม้ของเหลว</p>
               </div>
               <p className="text-xs text-muted-foreground">วิธีใช้: ดึงสลัก → ปลดสาย → เล็งที่ฐานเพลิง → บีบคันบังคับ → กวาดไปมา</p>
