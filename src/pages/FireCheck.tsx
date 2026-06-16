@@ -265,65 +265,74 @@ export default function FireCheck() {
         </Card>
       </div>
 
-      {/* ================= เริ่มต้น: เพิ่มส่วนแสดงข้อมูลของถังและสายน้ำดับเพลิง (แนวนอนยาวเต็มจอ) ================= */}
-      <div className="space-y-3">
+      {/* ================= ปรับปรุงใหม่: Card ข้อมูลถังและสายน้ำดับเพลิง โทนสีอ่อนและไล่เฉดมีมิติ ================= */}
+      <div className="space-y-4">
         {/* สรุปข้อมูลถังดับเพลิงทั้งหมด */}
-        <Card className="shadow-card border border-border/50 bg-white rounded-3xl overflow-hidden">
-          <CardHeader className="bg-rose-50/40 border-b border-border/10 py-2.5 px-4">
-            <CardTitle className="text-xs sm:text-sm font-bold text-rose-800 flex items-center gap-2">
-              <Flame className="h-4 w-4 text-rose-600" /> สรุปข้อมูลถังดับเพลิงทั้งหมด
+        <Card className="shadow-sm border border-rose-100 bg-gradient-to-br from-rose-50/50 via-white to-orange-50/20 rounded-3xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-rose-100/50 via-rose-50/30 to-transparent border-b border-rose-100/40 py-3 px-5">
+            <CardTitle className="text-xs sm:text-sm font-bold text-rose-900 flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-xl bg-rose-500 text-white shadow-sm shadow-rose-200">
+                <Flame className="h-3.5 w-3.5" />
+              </span>
+              สรุปข้อมูลถังดับเพลิงทั้งหมด
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 bg-rose-50/40 px-5 py-2 rounded-2xl border border-rose-100/60 w-full sm:w-auto justify-center sm:justify-start">
+          <CardContent className="p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3 bg-white px-6 py-3 rounded-2xl border border-rose-100 shadow-sm w-full sm:w-auto justify-center sm:justify-start">
               <span className="text-xs font-bold text-slate-500">จำนวนถังรวม:</span>
-              <span className="text-2xl font-black text-rose-600">87</span>
-              <span className="text-xs text-muted-foreground font-semibold">ถัง</span>
+              <span className="text-3xl font-black bg-gradient-to-r from-rose-600 to-orange-600 bg-clip-text text-transparent">87</span>
+              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">ถัง</span>
             </div>
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-center sm:justify-end text-xs">
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl">
-                <span className="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+              <div className="flex items-center gap-2 bg-white/90 border border-red-100 px-4 py-2.5 rounded-xl shadow-sm">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block animate-pulse"></span>
                 <span className="text-slate-600 font-medium">สีแดง:</span>
-                <span className="font-bold text-red-700">47 ถัง</span>
+                <span className="font-bold text-red-700 text-sm">47 ถัง</span>
               </div>
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+              <div className="flex items-center gap-2 bg-white/90 border border-emerald-100 px-4 py-2.5 rounded-xl shadow-sm">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
                 <span className="text-slate-600 font-medium">สีเขียว:</span>
-                <span className="font-bold text-emerald-700">39 ถัง</span>
+                <span className="font-bold text-emerald-700 text-sm">39 ถัง</span>
               </div>
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl">
-                <span className="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+              <div className="flex items-center gap-2 bg-white/90 border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span>
                 <span className="text-slate-600 font-medium">สีบรอนซ์:</span>
-                <span className="font-bold text-slate-700">1 ถัง</span>
+                <span className="font-bold text-slate-700 text-sm">1 ถัง</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* รายละเอียดระบบสายน้ำดับเพลิง */}
-        <Card className="shadow-card border border-border/50 bg-white rounded-3xl overflow-hidden">
-          <CardHeader className="bg-blue-50/40 border-b border-border/10 py-2.5 px-4 flex flex-row justify-between items-center">
-            <CardTitle className="text-xs sm:text-sm font-bold text-blue-800 flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-blue-600" /> รายละเอียดระบบสายน้ำดับเพลิง
+        <Card className="shadow-sm border border-blue-100 bg-gradient-to-br from-blue-50/50 via-white to-sky-50/20 rounded-3xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-blue-100/50 via-blue-50/30 to-transparent border-b border-blue-100/40 py-3 px-5 flex flex-row justify-between items-center">
+            <CardTitle className="text-xs sm:text-sm font-bold text-blue-900 flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-200">
+                <ShieldAlert className="h-3.5 w-3.5" />
+              </span>
+              รายละเอียดระบบสายน้ำดับเพลิง
             </CardTitle>
-            <Badge variant="secondary" className="bg-blue-100 hover:bg-blue-100 text-blue-700 font-bold text-[10px] rounded-full px-2.5 py-0.5">
+            <Badge variant="secondary" className="bg-blue-600 hover:bg-blue-600 text-white font-bold text-[10px] rounded-full px-3 py-1 shadow-sm shadow-blue-100">
               สายยาว 20 เมตร
             </Badge>
           </CardHeader>
-          <CardContent className="p-4">
-            <div className="mb-2 text-xs font-bold text-slate-500 flex items-center gap-1.5">
-              <CheckCircle className="h-4 w-4 text-emerald-500" /> จุดติดตั้งในอาคารทั้งหมด <span className="text-blue-600 font-extrabold text-sm">8 จุด</span>
+          <CardContent className="p-5">
+            <div className="mb-3 text-xs font-bold text-slate-600 flex items-center gap-2 bg-white w-fit px-3 py-1.5 rounded-xl border border-blue-100/50 shadow-sm">
+              <CheckCircle className="h-4 w-4 text-emerald-500" /> 
+              <span>จุดติดตั้งในอาคารทั้งหมด</span>
+              <span className="text-blue-700 font-black text-base ml-0.5">8</span> 
+              <span className="text-slate-400 font-normal">จุด</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
               {fireHosePoints.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="flex items-center justify-center w-4 h-4 rounded bg-blue-50 text-blue-600 font-bold text-[10px] border border-blue-100 shrink-0">
+                <div key={item.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/80 border border-blue-50/60 hover:border-blue-200 hover:bg-white text-xs shadow-sm transition-all duration-200">
+                  <div className="flex items-center gap-2.5 truncate">
+                    <span className="flex items-center justify-center w-5 h-5 rounded-lg bg-gradient-to-br from-blue-500 to-sky-600 text-white font-bold text-[10px] shadow-sm shrink-0">
                       {item.id}
                     </span>
-                    <span className="text-slate-700 font-medium truncate">{item.location}</span>
+                    <span className="text-slate-700 font-semibold truncate">{item.location}</span>
                   </div>
-                  <span className="font-bold text-slate-600 shrink-0 bg-white px-1.5 py-0.5 rounded border border-slate-200 text-[11px]">
+                  <span className="font-extrabold text-blue-700 shrink-0 bg-blue-50/60 px-2 py-0.5 rounded-lg border border-blue-100/40 text-[11px]">
                     {item.qty} จุด
                   </span>
                 </div>
@@ -332,7 +341,7 @@ export default function FireCheck() {
           </CardContent>
         </Card>
       </div>
-      {/* ================= สิ้นสุด: เพิ่มส่วนแสดงข้อมูลของถังและสายน้ำดับเพลิง ================= */}
+      {/* ================= สิ้นสุดส่วนปรับปรุง Card ข้อมูล ================= */}
 
       {showForm && (
         <div className="space-y-4 animate-slide-up">
