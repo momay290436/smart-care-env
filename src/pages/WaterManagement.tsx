@@ -615,7 +615,7 @@ export default function WaterManagement() {
               <Plus className="h-7 w-7 text-white font-bold" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🧪 บันทึกสารเคมี</p>
+              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🧪 บันทึกสารเคมีกำจัดเชื้อโรค(น้ำดี)</p>
               <p className="text-xs text-white/90 truncate">สารฆ่าเชื้อในน้ำประปา</p>
             </div>
           </CardContent>
@@ -778,13 +778,13 @@ export default function WaterManagement() {
       <Tabs defaultValue="quality" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto rounded-2xl bg-white shadow-sm p-1 gap-1">
           <TabsTrigger value="quality" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-            <Droplets className="h-4 w-4 mr-1" /> คุณภาพน้ำ
+            <Droplets className="h-4 w-4 mr-1" /> การตรวจคุณภาพน้ำ
           </TabsTrigger>
           <TabsTrigger value="meter" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Gauge className="h-4 w-4 mr-1" /> ประวัติการบันทึก
           </TabsTrigger>
           <TabsTrigger value="emergency" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-red-500 data-[state=active]:text-white">
-            <AlertTriangle className="h-4 w-4 mr-1" /> เหตุฉุกเฉิน
+            <AlertTriangle className="h-4 w-4 mr-1" /> อุบัติการณ์น้ำส่วนกลางไม่ไหล(ใช้น้ำสำรอง)
           </TabsTrigger>
           <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Settings className="h-4 w-4 mr-1" /> บริหารระบบ
