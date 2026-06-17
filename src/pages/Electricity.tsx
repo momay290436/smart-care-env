@@ -222,11 +222,10 @@ export default function Electricity() {
       const currentTimeStr = new Date().toTimeString().split(' ')[0]; 
       const finalCreatedAt = new Date(`${recordDate}T${currentTimeStr}`).toISOString();
 
-      const insertData: any = {
+     const insertData: any = {
         meter_id: selectedMeterId,
         current_value: currentVal,
         previous_value: prevVal,
-        units_used: currentVal >= prevVal ? currentVal - prevVal : (10000 - prevVal) + currentVal,
         created_at: finalCreatedAt 
       };
 
