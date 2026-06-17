@@ -49,7 +49,7 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
   });
 
   const cl = form.chlorine_residual ? Number(form.chlorine_residual) : null;
-  const chlorineWarning = cl !== null && (cl <= 0.5 || cl > 1.0);
+  const chlorineWarning = cl !== null && (cl <= 0.49 || cl > 1.0);
 
   const insertLog = useMutation({
     mutationFn: async () => {
