@@ -733,7 +733,7 @@ export default function WaterManagement() {
                   <>
                     <div>
                       <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">กรณีฉุกเฉิน</p>
-                      <p className="text-sm text-slate-600 mt-1">กดปุ่มด้านล่างเมื่อน้ำจากส่วนกลางไม่ไหล เพื่อเริ่มนับถอยหลังเวลาใช้น้ำสำรอง (บันทึกลงระบบ 1 ครั้ง)</p>
+                      <p className="text-sm text-slate-600 mt-1">กดปุ่มด้านล่างเมื่อน้ำจากส่วนกลางไม่ไหล เพื่อเริ่มนับถอยหลังเวลาใช้น้ำสำรอง</p>
                     </div>
                     <Button
                       disabled={emergencyBusy}
@@ -784,7 +784,7 @@ export default function WaterManagement() {
             <Gauge className="h-4 w-4 mr-1" /> ประวัติการบันทึก
           </TabsTrigger>
           <TabsTrigger value="emergency" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-red-500 data-[state=active]:text-white">
-            <AlertTriangle className="h-4 w-4 mr-1" /> อุบัติการณ์น้ำส่วนกลางไม่ไหล(ใช้น้ำสำรอง)
+            <AlertTriangle className="h-4 w-4 mr-1" /> ประวัติน้ำส่วนกลางไม่ไหล(ใช้น้ำสำรอง)
           </TabsTrigger>
           <TabsTrigger value="system" className="rounded-xl text-xs md:text-sm py-2 font-semibold text-slate-700 data-[state=active]:bg-cyan-500 data-[state=active]:text-white">
             <Settings className="h-4 w-4 mr-1" /> บริหารระบบ
@@ -803,7 +803,7 @@ export default function WaterManagement() {
             <Card className="shadow-lg rounded-3xl border-0 bg-white">
               <CardContent className="p-5 md:p-6">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-600" /> ประวัติเหตุการณ์ฉุกเฉิน (น้ำสำรอง)
+                  <AlertTriangle className="h-5 w-5 text-red-600" /> ประวัติเหตุการณ์ฉุกเฉิน(น้ำสำรอง)
                 </h3>
                 
                 {emergencyEvents.length === 0 ? (
