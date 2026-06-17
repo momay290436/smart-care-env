@@ -363,7 +363,7 @@ export default function WastewaterTab() {
               <tbody>
                 {filtered.map((l: any, i: number) => {
                   const cl = l.chlorine_residual != null ? Number(l.chlorine_residual) : null;
-                  const warn = cl !== null && (cl <= 0.5 || cl > 1.0);
+                  const warn = cl !== null && (cl < 0.5 || cl > 1.0);
                   return (
                     <tr key={l.id} className={i % 2 ? "bg-slate-50/60 hover:bg-emerald-50/40" : "bg-white hover:bg-emerald-50/40"}>
                       <td className="px-2 py-2 text-center text-xs">{i + 1}</td>
