@@ -112,8 +112,13 @@ export default function Electricity() {
         totalElectricUnits += log.units_used || 0;
         
         if (log.current_water_value && log.previous_water_value) {
-          const waterDiff = log.current_water_value - log.previous_water_value;
-          if (waterDiff > 0) totalWaterUnits += waterDiff;
+          const waterDiff = log.current_water_value >= log.previous_water_value 
+            ? log.current_water_value - log.previous_water_value 
+            : (10000 - log.previous_water_value) + log.current_water_value;
+
+          if (waterDiff > 0) {
+            totalWaterUnits += waterDiff;
+          }
         }
       }
     });
@@ -214,11 +219,6 @@ export default function Electricity() {
       const currentVal = parseFloat(currentValue);
       const prevVal = parseFloat(customPrevValue) || 0;
 
-      if (currentVal < prevVal) {
-        toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์ไฟฟ้าน้อยกว่าครั้งก่อนหน้า (${prevVal})` });
-        return;
-      }
-
       const currentTimeStr = new Date().toTimeString().split(' ')[0]; 
       const finalCreatedAt = new Date(`${recordDate}T${currentTimeStr}`).toISOString();
 
@@ -233,10 +233,6 @@ export default function Electricity() {
         const currentWaterVal = parseFloat(currentWaterValue);
         const prevWaterVal = parseFloat(customPrevWaterValue) || 0;
         
-        if (currentWaterVal < prevWaterVal) {
-          toast({ variant: "destructive", title: "ข้อมูลผิดพลาด", description: `เลขมิเตอร์น้ำน้อยกว่าครั้งก่อนหน้า (${prevWaterVal})` });
-          return;
-        }
         insertData.current_water_value = currentWaterVal;
         insertData.previous_water_value = prevWaterVal;
       }
@@ -318,7 +314,7 @@ export default function Electricity() {
       'จำนวนหน่วยไฟที่ใช้ประจำงวด (หน่วย)': log.units_used,
       'เลขมิเตอร์น้ำครั้งก่อน': log.previous_water_value || '-',
       'เลขมิเตอร์น้ำล่าสุด': log.current_water_value || '-',
-      'จำนวนหน่วยน้ำที่ใช้ประจำงวด (หน่วย)': log.current_water_value && log.previous_water_value ? (log.current_water_value - log.previous_water_value) : '-'
+      'จำนวนหน่วยน้ำที่ใช้ประจำงวด (หน่วย)': log.current_water_value && log.previous_water_value ? (log.current_water_value >= log.previous_water_value ? log.current_water_value - log.previous_water_value : (10000 - log.previous_water_value) + log.current_water_value) : '-'
     });
 
     const categories = [
@@ -597,7 +593,7 @@ export default function Electricity() {
                     <TableCell className="text-xs text-right text-slate-500 py-2.5">{log.previous_water_value || '-'}</TableCell>
                     <TableCell className="text-xs text-right font-medium text-slate-700 py-2.5">{log.current_water_value || '-'}</TableCell>
                     <TableCell className="text-xs text-right font-bold text-blue-600 bg-blue-50/30 py-2.5">
-                      {log.current_water_value && log.previous_water_value ? (log.current_water_value - log.previous_water_value).toLocaleString() : '-'}
+                      {log.current_water_value && log.previous_water_value ? (log.current_water_value >= log.previous_water_value ? log.current_water_value - log.previous_water_value : (10000 - log.previous_water_value) + log.current_water_value).toLocaleString() : '-'}
                     </TableCell>
                   </TableRow>
                 ))
