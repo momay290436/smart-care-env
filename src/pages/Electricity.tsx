@@ -226,6 +226,7 @@ export default function Electricity() {
         meter_id: selectedMeterId,
         current_value: currentVal,
         previous_value: prevVal,
+        units_used: currentVal >= prevVal ? currentVal - prevVal : (10000 - prevVal) + currentVal,
         created_at: finalCreatedAt 
       };
 
