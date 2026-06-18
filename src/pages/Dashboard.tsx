@@ -20,15 +20,15 @@ import { Wrench, CheckCircle, Flame, Trash2, Search, FlaskConical, AlertTriangle
 
 type WasteFilter = "day" | "week" | "month" | "custom";
 
-const CHART_COLORS = ["#0097a7", "#26a69a", "#42a5f5", "#ef5350", "#ffa726", "#ab47bc", "#66bb6a", "#ec407a"];
+const CHART_COLORS = ["#0097a7", "#e91e63", "#ffeb3b", "#673ab7", "#259b24", "#ab47bc", "#66bb6a", "#ec407a"];
 
 const WASTE_FORECAST_COST_PER_KG: Record<string, number> = {
-  general: 2,
-  infectious: 15,
-  recycle: 1,
-  hazardous: 25,
-  organic: 3,
-  other: 10,
+  general: 0,
+  infectious: 11,
+  recycle: 0,
+  hazardous: 0,
+  organic: 0,
+  other: 0,
 };
 
 const WASTE_TYPE_LABELS: Record<string, string> = {
