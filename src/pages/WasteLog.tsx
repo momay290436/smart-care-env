@@ -23,11 +23,11 @@ import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
-  general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "hsl(210 15% 55%)" },
-  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "hsl(0 72% 55%)" },
-  recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "hsl(152 55% 42%)" },
-  hazardous: { label: "ขยะอันตราย", color: "bg-amber-200 text-amber-900 border-amber-300", chartColor: "hsl(45 90% 50%)" },
-  organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "hsl(100 50% 40%)" },
+  general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "hsl(181, 100%, 36%)" },
+  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "hsl(347, 90%, 46%)" },
+  recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "hsl(198, 90%, 43%)" },
+  hazardous: { label: "ขยะอันตราย", color: "bg-amber-200 text-amber-900 border-amber-300", chartColor: "hsl(268, 90%, 47%)" },
+  organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "hsl(149, 90%, 16%)" },
 };
 
 const WASTE_TYPE_LABELS: Record<string, string> = {
@@ -41,7 +41,7 @@ const WASTE_TYPE_LABELS: Record<string, string> = {
   other: "อื่นๆ",
 };
 
-const PIE_COLORS = ["hsl(210 15% 55%)", "hsl(0 72% 55%)", "hsl(152 55% 42%)", "hsl(45 90% 50%)"];
+const PIE_COLORS = ["hsl(181, 100%, 36%)", "hsl(149, 90%, 16%)", "hsl(347, 90%, 46%)", "hsl(198, 90%, 43%)"];
 
 export default function WasteLog() {
   const { user, profile, isAdmin } = useAuth();
