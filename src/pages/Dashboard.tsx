@@ -501,7 +501,7 @@ export default function Dashboard() {
                         <YAxis tick={{ fontSize: 11 }} />
                         <Tooltip />
                         {wasteData.allTypes.map((type, i) => (
-                          <Area key={type} type="monotone" dataKey={type} stackId="waste" fill={`url(#wasteGrad${i})`} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} />
+                          <Area key={type} type="monotone" dataKey={type} fill={`url(#wasteGrad${i})`} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} />
                         ))}
                       </AreaChart>
                     </ResponsiveContainer>
