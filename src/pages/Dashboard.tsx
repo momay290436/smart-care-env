@@ -20,7 +20,7 @@ import { Wrench, CheckCircle, Flame, Trash2, Search, FlaskConical, AlertTriangle
 
 type WasteFilter = "day" | "week" | "month" | "custom";
 
-const CHART_COLORS = ["#0097a7", "#e91e63", "#ffeb3b", "#673ab7", "#259b24", "#ab47bc", "#66bb6a", "#ec407a"];
+const CHART_COLORS = ["#388c0e", "#729df1", "#ef5b8d", "#673ab7", "#259b24", "#08a8cb", "#66bb6a", "#ec407a"];
 
 const WASTE_FORECAST_COST_PER_KG: Record<string, number> = {
   general: 0,
