@@ -690,14 +690,14 @@ export default function WasteLog() {
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground font-semibold">ขยะแหลม</p>
+                    <p className="text-xs text-muted-foreground font-semibold">ขยะมีคม</p>
                     <p className="text-2xl font-bold text-red-600">
                       {Math.round(infectiousWasteRecords.reduce((sum: number, r: any) => sum + (Number(r.sharp_waste_kg) || 0), 0) * 100) / 100}
                     </p>
                     <p className="text-xs text-muted-foreground">กก.</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground font-semibold">ขยะไม่แหลม</p>
+                    <p className="text-xs text-muted-foreground font-semibold">ขยะไม่มีคม</p>
                     <p className="text-2xl font-bold text-orange-600">
                       {Math.round(infectiousWasteRecords.reduce((sum: number, r: any) => sum + (Number(r.non_sharp_waste_kg) || 0), 0) * 100) / 100}
                     </p>
