@@ -40,8 +40,8 @@ const WASTE_TYPE_LABELS: Record<string, string> = {
   other: "อื่นๆ",
 };
 
-const PIE_COLORS = ["#057971", "#008932", "#007bc1", "#7627ff", "#c50915"];
-const CHART_COLORS = ["#057971", "#008932", "#007bc1", "#7627ff", "#c50915"];
+const PIE_COLORS = ["#057971", "#c50915", "#007bc1", "#7627ff", "#008932"];
+const CHART_COLORS = ["#057971", "#c50915", "#007bc1", "#7627ff", "#008932"];
 
 export default function WasteLog() {
   const { user, profile, isAdmin } = useAuth();
