@@ -673,27 +673,41 @@ return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100)
         </TabsList>
 
         <Card className="shadow-lg mt-4 border border-slate-200 rounded-2xl bg-white">
-          <CardContent className="p-4 space-y-2">
-            <div className="flex flex-wrap gap-2">
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="h-10 text-sm w-32 rounded-2xl">{getWasteTypeLabelByKey(filterType)}</SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ทุกประเภท</SelectItem>
-                  {Object.entries(typesMap).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-                <SelectTrigger className="h-10 text-sm w-28 rounded-2xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ทั้งหมด</SelectItem>
-                  <SelectItem value="day">วันนี้</SelectItem>
-                  <SelectItem value="week">สัปดาห์นี้</SelectItem>
-                  <SelectItem value="month">เดือนนี้</SelectItem>
-                  <SelectItem value="custom">เลือกวันที่</SelectItem>
-                </SelectContent>
-              </Select>
-              <Badge variant="secondary" className="h-10 px-4 flex items-center text-sm rounded-2xl">{combinedLogs.length} รายการ</Badge>
-            </div>
+  <CardContent className="p-4 space-y-2">
+    <div className="flex flex-wrap gap-2">
+      
+      {/* ดรอปดาวน์เลือกประเภทขยะ */}
+      <Select value={filterType} onValueChange={setFilterType}>
+        <SelectTrigger className="h-10 text-sm w-32 rounded-2xl">
+          {getWasteTypeLabelByKey(filterType)}
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">ทุกประเภท</SelectItem>
+          {Object.entries(typesMap).map(([k, v]) => (
+            <SelectItem key={k} value={k}>{v.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* ดรอปดาวน์เลือกช่วงเวลา */}
+      <Select value={filterPeriod} onValueChange={setFilterPeriod}>
+        <SelectTrigger className="h-10 text-sm w-28 rounded-2xl">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">ทั้งหมด</SelectItem>
+          <SelectItem value="day">วันนี้</SelectItem>
+          <SelectItem value="week">สัปดาห์นี้</SelectItem>
+          <SelectItem value="month">เดือนนี้</SelectItem>
+          <SelectItem value="custom">เลือกวันที่</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* ป้ายแสดงจำนวนรายการรวม */}
+      <Badge variant="secondary" className="h-10 px-4 flex items-center text-sm rounded-2xl">
+        {combinedLogs.length} รายการ
+      </Badge>
+    </div>
             {filterPeriod === "custom" && (
               <div className="flex flex-wrap gap-2">
                 <Popover>
