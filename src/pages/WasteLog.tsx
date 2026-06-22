@@ -23,7 +23,7 @@ import * as XLSX from "xlsx";
 
 const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
   general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "#057971" },
-  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "#c50915" },
+  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "#e51c23" },
   recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "#007bc1" },
   hazardous: { label: "ขยะอันตราย", color: "bg-amber-200 text-amber-900 border-amber-300", chartColor: "#7627ff" },
   organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "#008932" },
@@ -40,8 +40,8 @@ const WASTE_TYPE_LABELS: Record<string, string> = {
   other: "อื่นๆ",
 };
 
-const PIE_COLORS = ["#057971", "#008932", "#ec407a", "#7627ff", "#007bc1"];
-const CHART_COLORS = ["#057971", "#008932", "#ec407a", "#7627ff", "#007bc1"];
+const PIE_COLORS = ["#057971", "#008932", "##e51c23", "#7627ff", "#007bc1"];
+const CHART_COLORS = ["#057971", "#008932", "##e51c23", "#7627ff", "#007bc1"];
 
 export default function WasteLog() {
   const { user, profile, isAdmin } = useAuth();
