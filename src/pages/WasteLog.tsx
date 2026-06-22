@@ -359,48 +359,50 @@ export default function WasteLog() {
     return filteredInfectious.reduce((s, r: any) => s + (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0), 0);
   }, [filteredInfectious]);
 
-  const combinedLogs = useMemo(() => {
-    const normalizedFilter = normalizeWasteType(filterType);
-    const baseLogs = [...filteredLogs];
-    
-    if (normalizedFilter !== "infectious" && normalizedFilter !== "all" && filterType !== "all") {
-      return baseLogs;
-    }
-
-    const existingKeys = new Set(
-      baseLogs
-        .filter((log: any) => normalizeWasteType(log.waste_type) === "infectious")
-        .map((log: any) => {
-          const dateStr = log.created_at ? log.created_at.substring(0, 10) : "";
-          return `${dateStr}|${Number(log.weight)}`;
-        })
-    );
-
-    filteredInfectious.forEach((record: any) => {
-      const weight = Number(record.sharp_waste_kg || 0) + Number(record.non_sharp_waste_kg || 0);
-      const dateStr = record.collection_date 
-        ? record.collection_date.substring(0, 10) 
-        : (record.created_at || record.transfer_date || new Date().toISOString()).substring(0, 10);
-      
-      const key = `${dateStr}|${weight}`;
-      
-      if (!existingKeys.has(key)) {
-        baseLogs.push({
-          id: `infectious-${dateStr}|${weight}`,
-          waste_type: "infectious",
-          weight,
-          created_at: `${dateStr}T08:00:00`,
-          department_id: "",
-          recorded_by: "",
-          recorded_by_name: "",
-          departments: { name: "" },
-        } as any);
-        existingKeys.add(key);
-      }
-    });
-    
+ const combinedLogs = useMemo(() => {
+  const normalizedFilter = normalizeWasteType(filterType);
+  const baseLogs = [...filteredLogs];
+  
+  if (normalizedFilter !== "infectious" && normalizedFilter !== "all" && filterType !== "all") {
     return baseLogs;
-  }, [filteredLogs, filterType, filteredInfectious]);
+  }
+
+  // แก้ไข: คีย์เช็กซ้ำโดยใช้แค่วันที่ (YYYY-MM-DD) และน้ำหนักพอครับ เพื่อป้องกันเรื่องความต่างของ Timezone / เวลาชั่วโมงนาที
+  const existingKeys = new Set(
+    baseLogs
+      .filter((log: any) => normalizeWasteType(log.waste_type) === "infectious")
+      .map((log: any) => {
+        const dateStr = log.created_at ? log.created_at.substring(0, 10) : "";
+        return `${dateStr}|${Number(log.weight)}`;
+      })
+  );
+
+  filteredInfectious.forEach((record: any) => {
+    const weight = Number(record.sharp_waste_kg || 0) + Number(record.non_sharp_waste_kg || 0);
+    // ดึงเฉพาะวันที่ YYYY-MM-DD
+    const dateStr = record.collection_date 
+      ? record.collection_date.substring(0, 10) 
+      : (record.created_at || record.transfer_date || new Date().toISOString()).substring(0, 10);
+    
+    const key = `${dateStr}|${weight}`;
+    
+    if (!existingKeys.has(key)) {
+      baseLogs.push({
+        id: `infectious-${dateStr}|${weight}`,
+        waste_type: "infectious",
+        weight,
+        created_at: `${dateStr}T08:00:00`, // ให้เป็น Standard เดียวกัน
+        department_id: "",
+        recorded_by: "",
+        recorded_by_name: "",
+        departments: { name: "" },
+      } as any);
+      existingKeys.add(key);
+    }
+  });
+  
+  return baseLogs;
+}, [filteredLogs, filterType, filteredInfectious]);
 
   const handleEditLog = (log: any) => {
     setEditingLogId(log.id);
@@ -533,17 +535,11 @@ export default function WasteLog() {
     return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100, allTypes: Array.from(allTypes) };
   }, [combinedLogs, chartFrom, chartTo]);
 
-  // คืนค่าการคำนวณราคารวมที่สัมพันธ์กับตัวกรองประเภทขยะ (filterType) ด้านบน
+  // คืนค่าการคำนวณราคารวมที่แม่นยำและสัมพันธ์กับตารางขวา
   const totalCost = useMemo(() => {
     let cost = 0;
     Object.keys(typesMap).forEach((k) => {
       const normalizedKey = normalizeWasteType(k);
-      
-      // ถ้าเลือก filterType เจาะจงประเภทขยะ ประเภทขยะที่ไม่ตรงจะข้ามไปเพื่อแสดงยอดตามตัวกรองจริง
-      if (filterType !== "all" && normalizeWasteType(filterType) !== normalizedKey) {
-        return;
-      }
-
       const weight = normalizedKey === "infectious"
         ? infectiousFilteredTotal
         : filteredLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
@@ -551,7 +547,7 @@ export default function WasteLog() {
       cost += weight * rate;
     });
     return Math.round(cost * 100) / 100;
-  }, [filteredLogs, infectiousFilteredTotal, typesMap, costPerKg, filterType]);
+  }, [filteredLogs, infectiousFilteredTotal, typesMap, costPerKg]);
 
   const handleAdvancedExport = () => {
     const sourceLogs = filteredLogs.length > 0 ? filteredLogs : logs;
@@ -596,7 +592,11 @@ export default function WasteLog() {
   };
 
   const handleInfectiousExport = () => {
-    if (!filteredInfectious || filteredInfectious.length === 0) { toast.info("ไม่มีข้อมูลขยะติดเชื้อให้ส่งออก"); return; }
+    if (!filteredInfectious || filteredInfectious.length === 0) { 
+      toast.info("ไม่มีข้อมูลขยะติดเชื้อให้ส่งออก"); 
+      return; 
+    }
+    
     const headers = ["วันที่รับขยะ", "แหล่งที่มา/หน่วยงาน", "ขยะมีคม (กก.)", "ขยะไม่มีคม (กก.)", "น้ำหนักรวม (กก.)", "ผู้ส่งมอบ", "วันที่ส่งต่อกำจัด"];
     const buildInfRows = (rows: any[]) => [...rows]
       .sort((a: any, b: any) => new Date(a.collection_date || a.created_at).getTime() - new Date(b.collection_date || b.created_at).getTime())
@@ -625,12 +625,14 @@ export default function WasteLog() {
       const centerName = r.health_center_name || "ไม่ระบุหน่วยงาน";
       (byCenter[centerName] = byCenter[centerName] || []).push(r);
     });
+    
     Object.entries(byCenter).forEach(([centerName, rows]) => {
       const ws = XLSX.utils.aoa_to_sheet([headers, ...buildInfRows(rows)]);
       ws["!cols"] = headers.map(() => ({ wch: 16 }));
       const safeName = centerName.substring(0, 28).replace(/[\\/*?[\]:]/g, "-");
       XLSX.utils.book_append_sheet(wb, ws, safeName);
     });
+    
     XLSX.writeFile(wb, `infectious-waste-report_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
     toast.success("ส่งออกข้อมูลขยะติดเชื้อสำเร็จ");
   };
@@ -643,7 +645,19 @@ export default function WasteLog() {
         </Button>
       </PageHeader>
 
-      <Button className="w-full h-14 rounded-2xl text-base font-bold gap-2 shadow-elevated bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white" onClick={() => { setEditingLogId(null); setWeight(""); setCustomDateTime(""); setCustomRecorder(""); setInfRows([emptyInfRow()]); setInfCollectionDate(new Date()); setInfTransferDate(undefined); setShowForm(true); }} >
+      <Button
+        className="w-full h-14 rounded-2xl text-base font-bold gap-2 shadow-elevated bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+        onClick={() => {
+          setEditingLogId(null);
+          setWeight("");
+          setCustomDateTime("");
+          setCustomRecorder("");
+          setInfRows([emptyInfRow()]);
+          setInfCollectionDate(new Date());
+          setInfTransferDate(undefined);
+          setShowForm(true);
+        }}
+      >
         <Plus className="h-5 w-5" /> บันทึกน้ำหนักขยะ
       </Button>
 
@@ -651,31 +665,22 @@ export default function WasteLog() {
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto rounded-2xl bg-muted/60 p-1 gap-1">
           <TabsTrigger value="dashboard" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">แดชบอร์ด</TabsTrigger>
           <TabsTrigger value="records" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">รายการ</TabsTrigger>
-          <TabsTrigger value="infectious" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm">ขยะติดเชื้อ รพ.สต.</TabsTrigger>
-          <TabsTrigger value="settings" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">ตั้งค่า</TabsTrigger>
+          <TabsTrigger value="infectious" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm">ขยะติดเชื้อ</TabsTrigger>
+          <TabsTrigger value="cost" className="rounded-xl text-sm md:text-base font-semibold text-slate-700 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">ต้นทุน</TabsTrigger>
         </TabsList>
 
         <Card className="shadow-lg mt-4 border border-slate-200 rounded-2xl bg-white">
           <CardContent className="p-4 space-y-2">
             <div className="flex flex-wrap gap-2">
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="h-10 text-sm w-32 rounded-2xl">
-                  {getWasteTypeLabelByKey(filterType)}
-                </SelectTrigger>
+                <SelectTrigger className="h-10 text-sm w-32 rounded-2xl">{getWasteTypeLabelByKey(filterType)}</SelectTrigger>
                 <SelectContent>
-                  <SelectScrollUpButton />
                   <SelectItem value="all">ทุกประเภท</SelectItem>
-                  {Object.entries(typesMap).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                  ))}
-                  <SelectScrollDownButton />
+                  {Object.entries(typesMap).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
                 </SelectContent>
               </Select>
-
               <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-                <SelectTrigger className="h-10 text-sm w-28 rounded-2xl">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-10 text-sm w-28 rounded-2xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">ทั้งหมด</SelectItem>
                   <SelectItem value="day">วันนี้</SelectItem>
@@ -684,46 +689,639 @@ export default function WasteLog() {
                   <SelectItem value="custom">เลือกวันที่</SelectItem>
                 </SelectContent>
               </Select>
-
-              {filterPeriod === "custom" && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-10 rounded-2xl text-xs gap-1">
-                        <CalendarIcon className="h-3.5 w-3.5" />
-                        {customFrom ? format(customFrom, "d MMM yy", { locale: th }) : "จากวันที่"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={customFrom} onSelect={setCustomFrom} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                  <span className="text-xs text-muted-foreground">ถึง</span>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-10 rounded-2xl text-xs gap-1">
-                        <CalendarIcon className="h-3.5 w-3.5" />
-                        {customTo ? format(customTo, "d MMM yy", { locale: th }) : "ถึงวันที่"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={customTo} onSelect={setCustomTo} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              )}
-
-              <Badge variant="secondary" className="h-10 px-4 flex items-center text-sm rounded-2xl">
-                {combinedLogs.length} รายการ
-              </Badge>
+              <Badge variant="secondary" className="h-10 px-4 flex items-center text-sm rounded-2xl">{combinedLogs.length} รายการ</Badge>
             </div>
+            {filterPeriod === "custom" && (
+              <div className="flex flex-wrap gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-sm h-10 w-40 justify-start rounded-2xl font-semibold text-slate-900 border-slate-400">
+                      {customFrom ? format(customFrom, "d MMM yy", { locale: th }) : "วันเริ่มต้น"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={customFrom} onSelect={setCustomFrom} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-sm h-10 w-40 justify-start rounded-2xl font-semibold text-slate-900 border-slate-400">
+                      {customTo ? format(customTo, "d MMM yy", { locale: th }) : "วันสิ้นสุด"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={customTo} onSelect={setCustomTo} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* ส่วน TabsContent ต่างๆ สามารถใส่ต่อไว้ตามโค้ดเดิมในระบบหลักของคุณได้เลยครับ */}
+        <TabsContent value="dashboard" className="space-y-4 mt-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <Card className="shadow-lg border-0 rounded-3xl bg-gradient-to-br from-sky-50 to-sky-100/50 backdrop-blur-sm">
+              <CardContent className="p-4 text-center">
+                <p className="text-2xl font-extrabold text-sky-600">{chartData.totalWeight}</p>
+                <p className="text-xs text-muted-foreground mt-1">น้ำหนักรวม (กก.)</p>
+              </CardContent>
+            </Card>
+            {Object.entries(typesMap).map(([k, v]) => {
+              const normalizedTypeKey = normalizeWasteType(k);
+              const typeWeight = normalizedTypeKey === "infectious"
+                ? infectiousFilteredTotal
+                : combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedTypeKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
+              return (
+                <Card key={k} className="shadow-lg border-0 rounded-3xl bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
+                  <CardContent className="p-4 text-center">
+                    <div className="w-8 h-8 rounded-full mx-auto mb-2 shadow-sm" style={{ background: v.chartColor, opacity: 0.8 }} />
+                    <p className="text-2xl font-extrabold" style={{ color: v.chartColor }}>{Math.round(typeWeight * 100) / 100}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{v.label} (กก.)</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {chartData.lineData.length > 0 && (
+            <Card className="shadow-card border border-border/50 rounded-3xl bg-white">
+              <CardContent className="p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">แนวโน้มขยะรายวัน</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">น้ำหนักรวมแต่ละประเภท (กก.) · ค่าเริ่มต้น 7 วันล่าสุด</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" variant="outline" className="h-9 rounded-2xl text-xs" onClick={() => { const d = new Date(); const f = new Date(); f.setDate(f.getDate() - 6); setChartFrom(startOfDay(f)); setChartTo(d); }}>7 วัน</Button>
+                    <Button size="sm" variant="outline" className="h-9 rounded-2xl text-xs" onClick={() => { const d = new Date(); const f = new Date(); f.setDate(f.getDate() - 29); setChartFrom(startOfDay(f)); setChartTo(d); }}>30 วัน</Button>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-9 rounded-2xl text-xs gap-1"><CalendarIcon className="h-3.5 w-3.5" />{format(chartFrom, "d MMM", { locale: th })}</Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="end"><Calendar mode="single" selected={chartFrom} onSelect={(d) => d && setChartFrom(d)} disabled={(d) => d > chartTo} initialFocus className="p-3 pointer-events-auto" /></PopoverContent>
+                    </Popover>
+                    <span className="text-xs text-muted-foreground">—</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-9 rounded-2xl text-xs gap-1"><CalendarIcon className="h-3.5 w-3.5" />{format(chartTo, "d MMM", { locale: th })}</Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="end"><Calendar mode="single" selected={chartTo} onSelect={(d) => d && setChartTo(d)} disabled={(d) => d < chartFrom} initialFocus className="p-3 pointer-events-auto" /></PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData.lineData}>
+                      <defs>
+                        {chartData.allTypes.map((type, i) => (
+                          <linearGradient key={type} id={`wasteGrad${i}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={CHART_COLORS[i % CHART_COLORS.length]} stopOpacity={0.4} />
+                            <stop offset="95%" stopColor={CHART_COLORS[i % CHART_COLORS.length]} stopOpacity={0.05} />
+                          </linearGradient>
+                        ))}
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value: any) => `${Number(value).toFixed(2)} กก.`} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      {chartData.allTypes.map((type, i) => (
+                        <Area key={type} type="monotone" dataKey={type} fill={`url(#wasteGrad${i})`} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} />
+                      ))}
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {chartData.pieData.length > 0 && (
+              <Card className="shadow-card border border-border/50 rounded-3xl bg-white">
+                <CardContent className="p-5">
+                  <h3 className="text-base font-bold text-foreground mb-4">สัดส่วนประเภทขยะ</h3>
+                  <div className="h-60 w-full flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={chartData.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                          {chartData.pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => `${Number(value).toFixed(2)} กก.`} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {chartData.deptData.length > 0 && (
+              <Card className="shadow-card border border-border/50 rounded-3xl bg-white">
+                <CardContent className="p-5">
+                  <h3 className="text-base font-bold text-foreground mb-4">ปริมาณขยะแยกตามแผนก (กก.)</h3>
+                  <div className="h-60 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData.deptData} layout="vertical" margin={{ left: 10, right: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 10 }} />
+                        <YAxis dataKey="dept" type="category" tick={{ fontSize: 10 }} width={70} />
+                        <Tooltip formatter={(value) => `${Number(value).toFixed(2)} กก.`} />
+                        <Bar dataKey="total" fill="#0ea5e9" radius={[0, 4, 4, 0]} name="น้ำหนักรวม" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="records" className="mt-4">
+          <Card className="shadow-card border border-border/50 rounded-3xl bg-white overflow-hidden">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs uppercase font-bold">
+                      <th className="p-4">วันที่</th>
+                      <th className="p-4">ประเภท</th>
+                      <th className="p-4">แผนก</th>
+                      <th className="p-4">น้ำหนัก (กก.)</th>
+                      <th className="p-4">ผู้บันทึก</th>
+                      <th className="p-4 text-center">จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {combinedLogs.map((log: any) => {
+                      const meta = getWasteTypeMeta(log.waste_type);
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4 font-medium text-slate-700">{format(new Date(log.created_at), "d MMM yyyy · HH:mm", { locale: th })}</td>
+                          <td className="p-4">
+                            <Badge variant="outline" className={cn("rounded-xl px-2.5 py-0.5 text-xs font-semibold border shadow-sm", meta?.color)}>
+                              {getWasteTypeLabel(log.waste_type)}
+                            </Badge>
+                          </td>
+                          <td className="p-4 text-slate-600">{log.departments?.name || "ไม่ระบุ"}</td>
+                          <td className="p-4 font-bold text-slate-900">{Number(log.weight).toFixed(2)}</td>
+                          <td className="p-4 text-xs text-slate-500">{log.recorded_by_name || "ระบบ"}</td>
+                          <td className="p-4 text-center">
+                            <div className="flex justify-center gap-1">
+                              {isAdmin && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl" onClick={() => handleEditLog(log)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl" onClick={() => { if(confirm("ต้องการลบรายการนี้หรือไม่?")) deleteLog.mutate(log.id); }}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {combinedLogs.length === 0 && (
+                      <tr><td colSpan={6} className="text-center py-8 text-slate-400">ไม่มีข้อมูลตามตัวกรองที่เลือก</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="infectious" className="mt-4 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">ทะเบียนคุมขยะติดเชื้อรายหน่วยงาน</h3>
+              <p className="text-xs text-slate-500 mt-0.5">รวมน้ำหนักตามตัวกรองช่วงเวลาด้านบน: <span className="font-bold text-orange-600">{infectiousFilteredTotal.toFixed(2)} กก.</span></p>
+            </div>
+            <Button size="sm" variant="outline" className="rounded-2xl text-xs h-9 gap-1" onClick={handleInfectiousExport}>
+              <Download className="h-3.5 w-3.5" /> Export Excel
+            </Button>
+          </div>
+
+          <Card className="shadow-card border border-border/50 rounded-3xl bg-white overflow-hidden">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-bold">
+                      <th className="p-4">วันที่รับขยะ</th>
+                      <th className="p-4">แหล่งที่มา / หน่วยงาน</th>
+                      <th className="p-4">ขยะมีคม (กก.)</th>
+                      <th className="p-4">ขยะไม่มีคม (กก.)</th>
+                      <th className="p-4">น้ำหนักรวม (กก.)</th>
+                      <th className="p-4">ผู้ส่งมอบ</th>
+                      <th className="p-4">วันที่ส่งต่อกำจัด</th>
+                      {isAdmin && <th className="p-4 text-center">จัดการ</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                    {filteredInfectious.map((r: any) => {
+                      const total = (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0);
+                      return (
+                        <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4 font-medium">{r.collection_date ? format(new Date(r.collection_date), "d MMM yyyy", { locale: th }) : "-"}</td>
+                          <td className="p-4 font-semibold text-slate-900">{r.health_center_name}</td>
+                          <td className="p-4">{Number(r.sharp_waste_kg || 0).toFixed(2)}</td>
+                          <td className="p-4">{Number(r.non_sharp_waste_kg || 0).toFixed(2)}</td>
+                          <td className="p-4 font-bold text-orange-600">{total.toFixed(2)}</td>
+                          <td className="p-4 text-xs text-slate-500">{r.delivered_by || "-"}</td>
+                          <td className="p-4 text-xs">{r.transfer_date ? format(new Date(r.transfer_date), "d MMM yy", { locale: th }) : <span className="text-slate-400">ยังไม่ส่งมอบ</span>}</td>
+                          {isAdmin && (
+                            <td className="p-4 text-center">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl" 
+                                onClick={() => handleEditInfectiousDirect(r.collection_date)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                    {filteredInfectious.length === 0 && (
+                      <tr><td colSpan={isAdmin ? 8 : 7} className="text-center py-8 text-slate-400">ไม่มีข้อมูลตามตัวกรองที่เลือก</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cost" className="mt-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="shadow-lg border-0 rounded-3xl bg-gradient-to-br from-emerald-50 to-emerald-100/60 md:col-span-1">
+              <CardContent className="p-5 text-center flex flex-col justify-center h-full">
+                <p className="text-3xl font-black text-emerald-700">฿{totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                <p className="text-sm font-semibold text-emerald-800 mt-1">ประมาณการค่าใช้จ่ายรวม</p>
+                <p className="text-xs text-muted-foreground mt-0.5">คำนวณตามน้ำหนักขยะในช่วงเวลาที่เลือก</p>
+                {isAdmin && (
+                  <div className="mt-4 flex gap-2 justify-center">
+                    <Button size="sm" variant="outline" className="rounded-xl text-xs bg-white/80" onClick={() => setManageTypesOpen(true)}>ตั้งค่าราคาต่อกิโล</Button>
+                    <Button size="sm" variant="outline" className="rounded-xl text-xs bg-white/80" onClick={() => setManageDeptsOpen(true)}>จัดการรายชื่อแผนก</Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-card border border-border/50 rounded-3xl bg-white md:col-span-2 overflow-hidden">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-bold">
+                        <th className="p-4">ประเภทขยะ</th>
+                        <th className="p-4">น้ำหนักรวม (กก.)</th>
+                        <th className="p-4">อัตราค่ากำจัด (บาท/กก.)</th>
+                        <th className="p-4 text-right">คิดเป็นเงิน (บาท)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {Object.entries(typesMap).map(([k, v]) => {
+                        const normalizedKey = normalizeWasteType(k);
+                        const weight = normalizedKey === "infectious"
+                          ? infectiousFilteredTotal
+                          : filteredLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
+                        const rate = costPerKg[normalizedKey] || 0;
+                        const amt = weight * rate;
+                        if (weight === 0 && rate === 0) return null;
+                        return (
+                          <tr key={k} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="p-4 font-medium text-slate-800">{v.label}</td>
+                            <td className="p-4 font-semibold text-slate-700">{Number(weight).toFixed(2)}</td>
+                            <td className="p-4 text-slate-500">฿{rate.toFixed(2)}</td>
+                            <td className="p-4 text-right font-bold text-slate-900">฿{amt.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
 
-      {/* Dialog และโมดอลตั้งค่าอื่นๆ */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <div className="w-2 h-6 bg-emerald-500 rounded-full" />
+              {editingLogId ? "แก้ไขข้อมูลและน้ำหนักขยะ" : "บันทึกข้อมูลและน้ำหนักขยะประจำวัน"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 mt-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-600">ประเภทขยะที่ต้องการบันทึก</Label>
+                <Select value={wasteType} onValueChange={setWasteType}>
+                  <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" className="max-h-[300px] overflow-y-auto bg-white z-[9999]">
+                    <SelectScrollUpButton />
+                    {Object.entries(typesMap).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                    <SelectScrollDownButton />
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-600">แผนก/อาคารที่รับผิดชอบ</Label>
+                <Select value={selectedDept} onValueChange={setSelectedDept}>
+                  <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
+                    <SelectValue placeholder="เลือกแผนก" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" className="max-h-[300px] overflow-y-auto bg-white z-[9999]">
+                    <SelectScrollUpButton />
+                    {departments.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    <SelectScrollDownButton />
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {wasteType !== "infectious" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-slate-600">น้ำหนักสุทธิ (กิโลกรัม)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    className="h-11 rounded-xl bg-white border-slate-200 text-lg font-bold text-slate-900"
+                  />
+                </div>
+              )}
+            </div>
+
+            {wasteType === "infectious" && (
+              <div className="space-y-4 border border-orange-100 bg-orange-50/30 p-4 rounded-2xl">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-orange-100 pb-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-orange-900">รายละเอียดขยะติดเชื้อรายหน่วยงาน (รพ.สต.)</h4>
+                    <p className="text-xs text-orange-700/80 mt-0.5">กรอกข้อมูลแยกแต่ละ รพ.สต.</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-slate-500">วันที่รับขยะ</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-9 rounded-xl bg-white text-xs gap-1 font-bold border-slate-200">
+                            <CalendarIcon className="h-3 w-3 text-orange-500" />
+                            {infCollectionDate ? format(infCollectionDate, "d MMM yy", { locale: th }) : "เลือกวัน"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar mode="single" selected={infCollectionDate} onSelect={setInfCollectionDate} initialFocus className="p-2" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-slate-500">วันที่ส่งต่อกำจัด</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-9 rounded-xl bg-white text-xs gap-1 font-bold border-slate-200">
+                            <CalendarIcon className="h-3 w-3 text-slate-400" />
+                            {infTransferDate ? format(infTransferDate, "d MMM yy", { locale: th }) : "ยังไม่ส่งต่อ"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar mode="single" selected={infTransferDate} onSelect={setInfTransferDate} initialFocus className="p-2" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1">
+                  {infRows.map((row, i) => (
+                    <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-2 bg-white p-3 rounded-xl border border-slate-100 shadow-sm items-end relative group">
+                      <div className="md:col-span-3 space-y-1">
+                        <span className="text-[11px] font-bold text-slate-500">แหล่งที่มา ({i+1})</span>
+                        <Select
+                          value={row.health_center_name}
+                          onValueChange={(val) => setInfRows(prev => { const n = [...prev]; n[i].health_center_name = val; return n; })}
+                        >
+                          <SelectTrigger className="h-9 text-xs rounded-lg">
+                            <SelectValue placeholder="เลือก รพ.สต." />
+                          </SelectTrigger>
+                          <SelectContent position="popper" className="max-h-[300px] overflow-y-auto bg-white z-[9999]">
+                            <SelectScrollUpButton />
+                            {HEALTH_CENTERS.map((hc) => <SelectItem key={hc} value={hc}>{hc}</SelectItem>)}
+                            <SelectScrollDownButton />
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="md:col-span-2 space-y-1">
+                        <span className="text-[11px] font-bold text-slate-500">ขยะมีคม (กก.)</span>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          placeholder="0.0"
+                          value={row.sharp_waste_kg}
+                          onChange={(e) => setInfRows(prev => { const n = [...prev]; n[i].sharp_waste_kg = e.target.value; return n; })}
+                          className="h-9 text-xs rounded-lg font-mono font-bold"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2 space-y-1">
+                        <span className="text-[11px] font-bold text-slate-500">ขยะไม่มีคม (กก.)</span>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          placeholder="0.0"
+                          value={row.non_sharp_waste_kg}
+                          onChange={(e) => setInfRows(prev => { const n = [...prev]; n[i].non_sharp_waste_kg = e.target.value; return n; })}
+                          className="h-9 text-xs rounded-lg font-mono font-bold"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2 space-y-1">
+                        <span className="text-[11px] font-bold text-slate-500">ผู้ส่งมอบ/คนขับ</span>
+                        <Input
+                          placeholder="ชื่อผู้ส่ง"
+                          value={row.delivered_by}
+                          onChange={(e) => setInfRows(prev => { const n = [...prev]; n[i].delivered_by = e.target.value; return n; })}
+                          className="h-9 text-xs rounded-lg"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2 space-y-1">
+                        <span className="text-[11px] font-bold text-slate-500">ประเภทรถ/ถัง</span>
+                        <Input
+                          placeholder="เช่น รถกระบะ"
+                          value={row.source_type}
+                          onChange={(e) => setInfRows(prev => { const n = [...prev]; n[i].source_type = e.target.value; return n; })}
+                          className="h-9 text-xs rounded-lg"
+                        />
+                      </div>
+
+                      <div className="md:col-span-1 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={infRows.length === 1}
+                          className="h-9 w-9 text-slate-400 hover:text-rose-500 rounded-lg"
+                          onClick={() => setInfRows(prev => prev.filter((_, idx) => idx !== i))}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-10 border-dashed border-orange-300 text-orange-700 hover:bg-orange-50 rounded-xl font-bold gap-1 mt-1"
+                  onClick={() => setInfRows(prev => [...prev, emptyInfRow()])}
+                >
+                  <Plus className="h-4 w-4" /> เพิ่มรายชื่อ รพ.สต. ถัดไป
+                </Button>
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="p-4 bg-amber-50/50 border border-amber-200/60 rounded-2xl space-y-3">
+                <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">แผงควบคุมสิทธิ์ผู้ดูแลระบบ (ลงบันทึกย้อนหลัง)</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-slate-600">กำหนดวันเวลาลงบันทึกเจาะจง</Label>
+                    <Input
+                      type="datetime-local"
+                      value={customDateTime}
+                      onChange={(e) => setCustomDateTime(e.target.value)}
+                      className="h-10 text-xs rounded-xl bg-white border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-slate-600">ชื่อผู้บันทึกแทน (Override Name)</Label>
+                    <Input
+                      placeholder="ใส่ชื่อเจ้าหน้าที่กรณีบันทึกย้อนหลังแทน"
+                      value={customRecorder}
+                      onChange={(e) => setCustomRecorder(e.target.value)}
+                      className="h-10 text-xs rounded-xl bg-white border-slate-200"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end border-t pt-4">
+              <Button type="button" variant="ghost" className="rounded-xl h-11 px-5" onClick={() => setShowForm(false)}>ยกเลิก</Button>
+              <Button
+                type="button"
+                className="rounded-xl h-11 px-6 font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md"
+                onClick={() => createLog.mutate()}
+                disabled={createLog.isPending}
+              >
+                {createLog.isPending ? "กำลังบันทึก..." : "ยืนยันการบันทึกข้อมูล"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manageDeptsOpen} onOpenChange={setManageDeptsOpen}>
+        <DialogContent className="max-w-md bg-white rounded-2xl">
+          <DialogHeader><DialogTitle className="text-base font-bold">จัดการรายชื่อแผนก/อาคาร</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder="ชื่อแผนกใหม่"
+                value={deptEditName}
+                onChange={(e) => setDeptEditName(e.target.value)}
+                className="h-10 rounded-xl"
+              />
+              <Button size="sm" className="h-10 rounded-xl px-4 font-bold" onClick={() => saveDepartment.mutate({ id: deptEditId, name: deptEditName })} disabled={saveDepartment.isPending}>
+                {deptEditId ? "แก้ไข" : "เพิ่ม"}
+              </Button>
+            </div>
+            <div className="max-h-48 overflow-y-auto border rounded-xl divide-y text-sm">
+              {departments.map((d: any) => (
+                <div key={d.id} className="p-2.5 flex justify-between items-center bg-white hover:bg-slate-50">
+                  <span className="font-medium text-slate-700">{d.name}</span>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500" onClick={() => { setDeptEditId(d.id); setDeptEditName(d.name); }}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-500" onClick={() => { if(confirm("ลบแผนกนี้?")) deleteDepartment.mutate(d.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manageTypesOpen} onOpenChange={setManageTypesOpen}>
+        <DialogContent className="max-w-md bg-white rounded-2xl">
+          <DialogHeader><DialogTitle className="text-base font-bold">ตั้งค่าอัตราค่ากำจัดขยะ (บาท/กก.)</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            {Object.entries(typesMap).map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between gap-4 border-b pb-2">
+                <span className="text-sm font-bold text-slate-700">{v.label} ({k})</span>
+                <div className="flex items-center gap-1 w-28">
+                  <span className="text-xs text-slate-400">฿</span>
+                  <Input
+                    type="number"
+                    value={costPerKg[normalizeWasteType(k)] ?? 0}
+                    onChange={(e) => setCostPerKg(prev => ({ ...prev, [normalizeWasteType(k)]: parseFloat(e.target.value) || 0 }))}
+                    className="h-9 font-bold text-right rounded-lg"
+                  />
+                </div>
+              </div>
+            ))}
+
+            <div className="p-3 bg-slate-50 rounded-xl space-y-2 border border-slate-100 mt-2">
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">เพิ่มประเภทขยะระบบภายในเพิ่มเติม</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="คีย์ (เช่น organic)" value={newTypeKey} onChange={(e) => setNewTypeKey(e.target.value)} className="h-12 rounded-2xl" />
+                <Input placeholder="ป้ายชื่อใหม่" value={newTypeLabel} onChange={(e) => setNewTypeLabel(e.target.value)} className="h-12 rounded-2xl" />
+              </div>
+              <Button className="h-12 rounded-2xl w-full" onClick={() => {
+                const trimmedKey = newTypeKey.trim();
+                const trimmedLabel = newTypeLabel.trim();
+                if (!trimmedKey || !trimmedLabel) {
+                  toast.error("กรุณากรอกคีย์และป้ายชื่อ");
+                  return;
+                }
+                if (typesMap[trimmedKey]) {
+                  toast.error("คีย์นี้มีอยู่แล้ว");
+                  return;
+                }
+                setTypesMap(prev => ({
+                  ...prev,
+                  [trimmedKey]: {
+                    label: trimmedLabel,
+                    color: "bg-slate-200 text-slate-800 border-slate-300",
+                    chartColor: "hsl(210 15% 55%)",
+                  },
+                }));
+                setNewTypeKey("");
+                setNewTypeLabel("");
+              }}>
+                เพิ่มประเภทใหม่
+              </Button>
+            </div>
+            <Button className="w-full h-12 rounded-2xl" onClick={() => saveWasteSettings.mutate()} disabled={saveWasteSettings.isPending}>
+              {saveWasteSettings.isPending ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
