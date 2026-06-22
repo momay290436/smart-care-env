@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectScrollUpButton, SelectScrollDownButton } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -1015,8 +1015,10 @@ export default function WasteLog() {
                   <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" className="max-h-[300px] overflow-y-auto bg-white z-[9999]">
+                    <SelectScrollUpButton />
                     {Object.entries(typesMap).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                    <SelectScrollDownButton />
                   </SelectContent>
                 </Select>
               </div>
@@ -1027,8 +1029,10 @@ export default function WasteLog() {
                   <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
                     <SelectValue placeholder="เลือกแผนก" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" className="max-h-[300px] overflow-y-auto bg-white z-[9999]">
+                    <SelectScrollUpButton />
                     {departments.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    <SelectScrollDownButton />
                   </SelectContent>
                 </Select>
               </div>
@@ -1099,8 +1103,10 @@ export default function WasteLog() {
                           <SelectTrigger className="h-9 text-xs rounded-lg">
                             <SelectValue placeholder="เลือก รพ.สต." />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent position="popper" className="max-h-[300px] overflow-y-auto bg-white z-[9999]">
+                            <SelectScrollUpButton />
                             {HEALTH_CENTERS.map((hc) => <SelectItem key={hc} value={hc}>{hc}</SelectItem>)}
+                            <SelectScrollDownButton />
                           </SelectContent>
                         </Select>
                       </div>
