@@ -540,17 +540,17 @@ return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100)
 
   // คืนค่าการคำนวณราคารวมที่แม่นยำและสัมพันธ์กับตารางขวา
   const totalCost = useMemo(() => {
-    let cost = 0;
-    Object.keys(typesMap).forEach((k) => {
-      const normalizedKey = normalizeWasteType(k);
-      const weight = normalizedKey === "infectious"
-        ? infectiousFilteredTotal
-        : filteredLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
-      const rate = costPerKg[normalizedKey] || 0;
-      cost += weight * rate;
-    });
-    return Math.round(cost * 100) / 100;
-  }, [filteredLogs, infectiousFilteredTotal, typesMap, costPerKg]);
+  let cost = 0;
+  Object.keys(typesMap).forEach((k) => {
+    const normalizedKey = normalizeWasteType(k);
+    const weight = normalizedKey === "infectious"
+      ? infectiousFilteredTotal
+      : filteredLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
+    const rate = costPerKg[normalizedKey] || 0;
+    cost += weight * rate;
+  });
+  return Math.round(cost * 100) / 100;
+}, [filteredLogs, infectiousFilteredTotal, typesMap, costPerKg]); //
 
   const handleAdvancedExport = () => {
     const sourceLogs = filteredLogs.length > 0 ? filteredLogs : logs;
