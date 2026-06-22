@@ -459,10 +459,7 @@ export default function WasteLog() {
     
     if (matches.length > 0) {
       const sampleRecord = matches[0];
-    const totalWeight = combinedLogs.reduce((s: number, l: any) => s + Number(l.weight), 0);
-
-return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100, allTypes: Array.from(allTypes) };
-}, [combinedLogs, chartFrom, chartTo]); //
+      const totalWeight = matches.reduce((s, r) => s + (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0), 0);
       
       const pseudoLog = {
         id: `infectious-${sampleRecord.collection_date ? new Date(sampleRecord.collection_date).toISOString() : new Date(sampleRecord.created_at).toISOString()}|${totalWeight}`,
@@ -540,17 +537,17 @@ return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100)
 
   // คืนค่าการคำนวณราคารวมที่แม่นยำและสัมพันธ์กับตารางขวา
   const totalCost = useMemo(() => {
-  let cost = 0;
-  Object.keys(typesMap).forEach((k) => {
-    const normalizedKey = normalizeWasteType(k);
-    const weight = normalizedKey === "infectious"
-      ? infectiousFilteredTotal
-      : filteredLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
-    const rate = costPerKg[normalizedKey] || 0;
-    cost += weight * rate;
-  });
-  return Math.round(cost * 100) / 100;
-}, [filteredLogs, infectiousFilteredTotal, typesMap, costPerKg]); //
+    let cost = 0;
+    Object.keys(typesMap).forEach((k) => {
+      const normalizedKey = normalizeWasteType(k);
+      const weight = normalizedKey === "infectious"
+        ? infectiousFilteredTotal
+        : filteredLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
+      const rate = costPerKg[normalizedKey] || 0;
+      cost += weight * rate;
+    });
+    return Math.round(cost * 100) / 100;
+  }, [filteredLogs, infectiousFilteredTotal, typesMap, costPerKg]);
 
   const handleAdvancedExport = () => {
     const sourceLogs = filteredLogs.length > 0 ? filteredLogs : logs;
@@ -673,41 +670,27 @@ return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100)
         </TabsList>
 
         <Card className="shadow-lg mt-4 border border-slate-200 rounded-2xl bg-white">
-  <CardContent className="p-4 space-y-2">
-    <div className="flex flex-wrap gap-2">
-      
-      {/* ดรอปดาวน์เลือกประเภทขยะ */}
-      <Select value={filterType} onValueChange={setFilterType}>
-        <SelectTrigger className="h-10 text-sm w-32 rounded-2xl">
-          {getWasteTypeLabelByKey(filterType)}
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">ทุกประเภท</SelectItem>
-          {Object.entries(typesMap).map(([k, v]) => (
-            <SelectItem key={k} value={k}>{v.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* ดรอปดาวน์เลือกช่วงเวลา */}
-      <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-        <SelectTrigger className="h-10 text-sm w-28 rounded-2xl">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">ทั้งหมด</SelectItem>
-          <SelectItem value="day">วันนี้</SelectItem>
-          <SelectItem value="week">สัปดาห์นี้</SelectItem>
-          <SelectItem value="month">เดือนนี้</SelectItem>
-          <SelectItem value="custom">เลือกวันที่</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {/* ป้ายแสดงจำนวนรายการรวม */}
-      <Badge variant="secondary" className="h-10 px-4 flex items-center text-sm rounded-2xl">
-        {combinedLogs.length} รายการ
-      </Badge>
-    </div>
+          <CardContent className="p-4 space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="h-10 text-sm w-32 rounded-2xl">{getWasteTypeLabelByKey(filterType)}</SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทุกประเภท</SelectItem>
+                  {Object.entries(typesMap).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterPeriod} onValueChange={setFilterPeriod}>
+                <SelectTrigger className="h-10 text-sm w-28 rounded-2xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทั้งหมด</SelectItem>
+                  <SelectItem value="day">วันนี้</SelectItem>
+                  <SelectItem value="week">สัปดาห์นี้</SelectItem>
+                  <SelectItem value="month">เดือนนี้</SelectItem>
+                  <SelectItem value="custom">เลือกวันที่</SelectItem>
+                </SelectContent>
+              </Select>
+              <Badge variant="secondary" className="h-10 px-4 flex items-center text-sm rounded-2xl">{combinedLogs.length} รายการ</Badge>
+            </div>
             {filterPeriod === "custom" && (
               <div className="flex flex-wrap gap-2">
                 <Popover>
