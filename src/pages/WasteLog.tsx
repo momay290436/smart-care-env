@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectScrollUpButton, SelectScrollDownButton } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -42,7 +42,6 @@ const WASTE_TYPE_LABELS: Record<string, string> = {
 
 const PIE_COLORS = ["#057971", "#008932", "#ec407a", "#7627ff", "#007bc1"];
 const CHART_COLORS = ["#057971", "#008932", "#ec407a", "#7627ff", "#007bc1"];
-
 
 export default function WasteLog() {
   const { user, profile, isAdmin } = useAuth();
@@ -359,50 +358,37 @@ export default function WasteLog() {
     return filteredInfectious.reduce((s, r: any) => s + (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0), 0);
   }, [filteredInfectious]);
 
- const combinedLogs = useMemo(() => {
-  const normalizedFilter = normalizeWasteType(filterType);
-  const baseLogs = [...filteredLogs];
-  
-  if (normalizedFilter !== "infectious" && normalizedFilter !== "all" && filterType !== "all") {
-    return baseLogs;
-  }
-
-  // แก้ไข: คีย์เช็กซ้ำโดยใช้แค่วันที่ (YYYY-MM-DD) และน้ำหนักพอครับ เพื่อป้องกันเรื่องความต่างของ Timezone / เวลาชั่วโมงนาที
-  const existingKeys = new Set(
-    baseLogs
-      .filter((log: any) => normalizeWasteType(log.waste_type) === "infectious")
-      .map((log: any) => {
-        const dateStr = log.created_at ? log.created_at.substring(0, 10) : "";
-        return `${dateStr}|${Number(log.weight)}`;
-      })
-  );
-
-  filteredInfectious.forEach((record: any) => {
-    const weight = Number(record.sharp_waste_kg || 0) + Number(record.non_sharp_waste_kg || 0);
-    // ดึงเฉพาะวันที่ YYYY-MM-DD
-    const dateStr = record.collection_date 
-      ? record.collection_date.substring(0, 10) 
-      : (record.created_at || record.transfer_date || new Date().toISOString()).substring(0, 10);
-    
-    const key = `${dateStr}|${weight}`;
-    
-    if (!existingKeys.has(key)) {
-      baseLogs.push({
-        id: `infectious-${dateStr}|${weight}`,
-        waste_type: "infectious",
-        weight,
-        created_at: `${dateStr}T08:00:00`, // ให้เป็น Standard เดียวกัน
-        department_id: "",
-        recorded_by: "",
-        recorded_by_name: "",
-        departments: { name: "" },
-      } as any);
-      existingKeys.add(key);
+  const combinedLogs = useMemo(() => {
+    const normalizedFilter = normalizeWasteType(filterType);
+    const baseLogs = [...filteredLogs];
+    if (normalizedFilter !== "infectious" && normalizedFilter !== "all" && filterType !== "all") {
+      return baseLogs;
     }
-  });
-  
-  return baseLogs;
-}, [filteredLogs, filterType, filteredInfectious]);
+
+    const existingKeys = new Set(baseLogs
+      .filter((log: any) => normalizeWasteType(log.waste_type) === "infectious")
+      .map((log: any) => `${new Date(log.created_at).toISOString()}|${Number(log.weight)}`));
+
+    filteredInfectious.forEach((record: any) => {
+      const weight = Number(record.sharp_waste_kg || 0) + Number(record.non_sharp_waste_kg || 0);
+      const createdAt = record.collection_date ? new Date(record.collection_date).toISOString() : new Date(record.created_at || record.transfer_date || new Date()).toISOString();
+      const key = `${createdAt}|${weight}`;
+      if (!existingKeys.has(key)) {
+        baseLogs.push({
+          id: `infectious-${createdAt}|${weight}`,
+          waste_type: "infectious",
+          weight,
+          created_at: createdAt,
+          department_id: "",
+          recorded_by: "",
+          recorded_by_name: "",
+          departments: { name: "" },
+        } as any);
+        existingKeys.add(key);
+      }
+    });
+    return baseLogs;
+  }, [filteredLogs, filterType, filteredInfectious]);
 
   const handleEditLog = (log: any) => {
     setEditingLogId(log.id);
@@ -530,14 +516,7 @@ export default function WasteLog() {
       };
     });
 
-    const totalWeight = combinedLogs.reduce((s: number, l: any) => {
-  const type = normalizeWasteType(l.waste_type);
-  let w = Number(l.weight || 0);
-  if (type === "infectious" && w === 0) {
-    w = Number(l.sharp_waste_kg || 0) + Number(l.non_sharp_waste_kg || 0);
-  }
-  return s + w;
-}, 0);
+    const totalWeight = combinedLogs.reduce((s: number, l: any) => s + Number(l.weight), 0);
 
     return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100, allTypes: Array.from(allTypes) };
   }, [combinedLogs, chartFrom, chartTo]);
@@ -1035,10 +1014,8 @@ export default function WasteLog() {
                   <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent position="popper" className="max-h-[300px] overflow-y-auto bg-white z-[9999]">
-                    <SelectScrollUpButton />
+                  <SelectContent>
                     {Object.entries(typesMap).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
-                    <SelectScrollDownButton />
                   </SelectContent>
                 </Select>
               </div>
@@ -1049,10 +1026,8 @@ export default function WasteLog() {
                   <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
                     <SelectValue placeholder="เลือกแผนก" />
                   </SelectTrigger>
-                  <SelectContent position="popper" className="max-h-[300px] overflow-y-auto bg-white z-[9999]">
-                    <SelectScrollUpButton />
+                  <SelectContent>
                     {departments.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                    <SelectScrollDownButton />
                   </SelectContent>
                 </Select>
               </div>
@@ -1123,10 +1098,8 @@ export default function WasteLog() {
                           <SelectTrigger className="h-9 text-xs rounded-lg">
                             <SelectValue placeholder="เลือก รพ.สต." />
                           </SelectTrigger>
-                          <SelectContent position="popper" className="max-h-[300px] overflow-y-auto bg-white z-[9999]">
-                            <SelectScrollUpButton />
+                          <SelectContent>
                             {HEALTH_CENTERS.map((hc) => <SelectItem key={hc} value={hc}>{hc}</SelectItem>)}
-                            <SelectScrollDownButton />
                           </SelectContent>
                         </Select>
                       </div>
