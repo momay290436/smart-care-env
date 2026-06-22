@@ -530,7 +530,14 @@ export default function WasteLog() {
       };
     });
 
-    const totalWeight = combinedLogs.reduce((s: number, l: any) => s + Number(l.weight), 0);
+    const totalWeight = combinedLogs.reduce((s: number, l: any) => {
+  const type = normalizeWasteType(l.waste_type);
+  let w = Number(l.weight || 0);
+  if (type === "infectious" && w === 0) {
+    w = Number(l.sharp_waste_kg || 0) + Number(l.non_sharp_waste_kg || 0);
+  }
+  return s + w;
+}, 0);
 
     return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100, allTypes: Array.from(allTypes) };
   }, [combinedLogs, chartFrom, chartTo]);
