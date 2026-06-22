@@ -459,7 +459,10 @@ export default function WasteLog() {
     
     if (matches.length > 0) {
       const sampleRecord = matches[0];
-      const totalWeight = matches.reduce((s, r) => s + (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0), 0);
+    const totalWeight = combinedLogs.reduce((s: number, l: any) => s + Number(l.weight), 0);
+
+return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100, allTypes: Array.from(allTypes) };
+}, [combinedLogs, chartFrom, chartTo]); //
       
       const pseudoLog = {
         id: `infectious-${sampleRecord.collection_date ? new Date(sampleRecord.collection_date).toISOString() : new Date(sampleRecord.created_at).toISOString()}|${totalWeight}`,
