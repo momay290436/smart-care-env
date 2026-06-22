@@ -64,6 +64,7 @@ export default function WasteLog() {
   const [costPerKg, setCostPerKg] = useState<Record<string, number>>({ general: 2, infectious: 15, recycle: 0, hazardous: 25 });
   const [customDateTime, setCustomDateTime] = useState("");
   const [customRecorder, setCustomRecorder] = useState("");
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
   const [chartFrom, setChartFrom] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() - 6); return startOfDay(d); });
   const [chartTo, setChartTo] = useState<Date>(() => new Date());
@@ -73,7 +74,7 @@ export default function WasteLog() {
     "รพ.สต.วาวี","รพ.สต.บ้านดอยช้าง","รพ.สต.แม่สรวย","รพ.สต.เจดีย์หลวง",
     "รพ.สต.ศรีถ้อย","รพ.สต.ห้วยน้ำขุ่น","รพ.สต.ท่าก๊อ","รพ.สต.ป่าแดด","คลินิกเอกชน","ปริมาณขวด"
   ];
-  const emptyInfRow = () => ({ health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "", source_type: "", bottle_count: "" });
+  const emptyInfRow = () => ({ id: undefined, health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "", source_type: "", bottle_count: "" });
   const [infCollectionDate, setInfCollectionDate] = useState<Date | undefined>(new Date());
   const [infTransferDate, setInfTransferDate] = useState<Date | undefined>();
   const [infRows, setInfRows] = useState<any[]>([emptyInfRow()]);
@@ -133,6 +134,12 @@ export default function WasteLog() {
         const valid = infRows.filter((r: any) => r.health_center_name?.trim());
         if (valid.length === 0) throw new Error("กรุณากรอกชื่อหน่วยงานอย่างน้อย 1 รายการ");
         if (!infCollectionDate) throw new Error("กรุณาเลือกวันที่รับขยะ");
+
+        if (editingLogId) {
+          const { error: errDelOld } = await supabase.from("infectious_waste_records").delete().eq("collection_date", format(infCollectionDate, "yyyy-MM-dd"));
+          if (errDelOld) throw errDelOld;
+        }
+
         const inserts = valid.map((r: any) => ({
           collection_date: format(infCollectionDate, "yyyy-MM-dd"),
           transfer_date: infTransferDate ? format(infTransferDate, "yyyy-MM-dd") : null,
@@ -156,8 +163,17 @@ export default function WasteLog() {
           };
           if (isAdmin && customDateTime) aggPayload.created_at = new Date(customDateTime).toISOString();
           else aggPayload.created_at = new Date(format(infCollectionDate, "yyyy-MM-dd") + "T08:00:00").toISOString();
-          const { error: errAgg } = await supabase.from("waste_logs").insert(aggPayload);
-          if (errAgg) throw errAgg;
+          
+          if (editingLogId && !editingLogId.startsWith("infectious-")) {
+            const { error: errAgg } = await supabase.from("waste_logs").update(aggPayload).eq("id", editingLogId);
+            if (errAgg) throw errAgg;
+          } else {
+            if (editingLogId && editingLogId.startsWith("infectious-")) {
+              await supabase.from("waste_logs").delete().eq("id", editingLogId);
+            }
+            const { error: errAgg } = await supabase.from("waste_logs").insert(aggPayload);
+            if (errAgg) throw errAgg;
+          }
         }
         return;
       }
@@ -173,17 +189,24 @@ export default function WasteLog() {
       if (isAdmin && customDateTime) {
         payload.created_at = new Date(customDateTime).toISOString();
       }
-      const { error } = await supabase.from("waste_logs").insert(payload);
-      if (error) throw error;
+
+      if (editingLogId && !editingLogId.startsWith("infectious-")) {
+        const { error } = await supabase.from("waste_logs").update(payload).eq("id", editingLogId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("waste_logs").insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("บันทึกน้ำหนักขยะสำเร็จ");
+      toast.success(editingLogId ? "แก้ไขข้อมูลสำเร็จ" : "บันทึกน้ำหนักขยะสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
       queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
       setShowForm(false);
       setWeight("");
       setCustomDateTime("");
       setCustomRecorder("");
+      setEditingLogId(null);
       setInfRows([emptyInfRow()]);
       setInfCollectionDate(new Date());
       setInfTransferDate(undefined);
@@ -193,12 +216,21 @@ export default function WasteLog() {
 
   const deleteLog = useMutation({
     mutationFn: async (id: string) => {
+      if (id.startsWith("infectious-")) {
+        const parts = id.split("|");
+        if (parts.length > 0) {
+          const dateStr = parts[0].replace("infectious-", "").substring(0, 10);
+          const { error } = await supabase.from("infectious_waste_records").delete().eq("collection_date", dateStr);
+          if (error) throw error;
+        }
+      }
       const { error } = await supabase.from("waste_logs").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("ลบสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -339,7 +371,7 @@ export default function WasteLog() {
       const key = `${createdAt}|${weight}`;
       if (!existingKeys.has(key)) {
         baseLogs.push({
-          id: `infectious-${createdAt}-${weight}`,
+          id: `infectious-${createdAt}|${weight}`,
           waste_type: "infectious",
           weight,
           created_at: createdAt,
@@ -353,6 +385,53 @@ export default function WasteLog() {
     });
     return baseLogs;
   }, [filteredLogs, filterType, filterPeriod, customFrom, customTo, infectiousWasteRecords]);
+
+  const handleEditLog = (log: any) => {
+    setEditingLogId(log.id);
+    const normalizedType = normalizeWasteType(log.waste_type);
+    setWasteType(normalizedType);
+    setSelectedDept(log.department_id || "");
+    
+    if (normalizedType === "infectious") {
+      const logDateStr = log.created_at ? log.created_at.substring(0, 10) : "";
+      const matches = (infectiousWasteRecords as any[]).filter(
+        (r) => r.collection_date === logDateStr || (r.created_at && r.created_at.substring(0, 10) === logDateStr)
+      );
+      if (matches.length > 0) {
+        setInfCollectionDate(matches[0].collection_date ? new Date(matches[0].collection_date) : new Date(matches[0].created_at));
+        setInfTransferDate(matches[0].transfer_date ? new Date(matches[0].transfer_date) : undefined);
+        setInfRows(matches.map(r => {
+          let extra: any = {};
+          if (r.notes) {
+            try { extra = JSON.parse(r.notes); } catch(e){}
+          }
+          return {
+            id: r.id,
+            health_center_name: r.health_center_name,
+            sharp_waste_kg: r.sharp_waste_kg?.toString() || "",
+            non_sharp_waste_kg: r.non_sharp_waste_kg?.toString() || "",
+            delivered_by: r.delivered_by || "",
+            source_type: extra.source_type || "",
+            bottle_count: extra.bottle_count || ""
+          };
+        }));
+      } else {
+        setInfCollectionDate(new Date(log.created_at));
+        setInfRows([{ ...emptyInfRow(), sharp_waste_kg: log.weight?.toString() }]);
+      }
+    } else {
+      setWeight(log.weight?.toString() || "");
+    }
+
+    if (log.created_at) {
+      const d = new Date(log.created_at);
+      const tzoffset = d.getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(d.getTime() - tzoffset)).toISOString().slice(0, 16);
+      setCustomDateTime(localISOTime);
+    }
+    setCustomRecorder(log.recorded_by_name || "");
+    setShowForm(true);
+  };
 
   const chartData = useMemo(() => {
     const dayMap: Record<string, { sortKey: string; label: string; types: Record<string, number> }> = {};
@@ -547,7 +626,16 @@ export default function WasteLog() {
 
       <Button
         className="w-full h-14 rounded-2xl text-base font-bold gap-2 shadow-elevated bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
-        onClick={() => setShowForm(true)}
+        onClick={() => {
+          setEditingLogId(null);
+          setWeight("");
+          setCustomDateTime("");
+          setCustomRecorder("");
+          setInfRows([emptyInfRow()]);
+          setInfCollectionDate(new Date());
+          setInfTransferDate(undefined);
+          setShowForm(true);
+        }}
       >
         <Plus className="h-5 w-5" /> บันทึกน้ำหนักขยะ
       </Button>
@@ -759,9 +847,16 @@ export default function WasteLog() {
                           <td className="p-4 font-bold text-slate-900">{Number(log.weight).toFixed(2)}</td>
                           <td className="p-4 text-xs text-slate-500">{log.recorded_by_name || "ระบบ"}</td>
                           <td className="p-4 text-center">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl" onClick={() => { if(confirm("ต้องการลบรายการนี้หรือไม่?")) deleteLog.mutate(log.id); }}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex justify-center gap-1">
+                              {isAdmin && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl" onClick={() => handleEditLog(log)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl" onClick={() => { if(confirm("ต้องการลบรายการนี้หรือไม่?")) deleteLog.mutate(log.id); }}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -887,7 +982,7 @@ export default function WasteLog() {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <div className="w-2 h-6 bg-emerald-500 rounded-full" />
-              บันทึกข้อมูลและน้ำหนักขยะประจำวัน
+              {editingLogId ? "แก้ไขข้อมูลและน้ำหนักขยะ" : "บันทึกข้อมูลและน้ำหนักขยะประจำวัน"}
             </DialogTitle>
           </DialogHeader>
 
