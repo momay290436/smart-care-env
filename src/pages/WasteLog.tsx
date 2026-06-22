@@ -433,6 +433,28 @@ export default function WasteLog() {
     setShowForm(true);
   };
 
+  const handleEditInfectiousDirect = (collectionDate: string) => {
+    if (!collectionDate) return;
+    const matches = (infectiousWasteRecords as any[]).filter(
+      (r) => r.collection_date === collectionDate || (r.created_at && r.created_at.substring(0, 10) === collectionDate)
+    );
+    
+    if (matches.length > 0) {
+      const sampleRecord = matches[0];
+      const totalWeight = matches.reduce((s, r) => s + (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0), 0);
+      
+      const pseudoLog = {
+        id: `infectious-${sampleRecord.collection_date ? new Date(sampleRecord.collection_date).toISOString() : new Date(sampleRecord.created_at).toISOString()}|${totalWeight}`,
+        waste_type: "infectious",
+        weight: totalWeight,
+        created_at: sampleRecord.collection_date ? `${sampleRecord.collection_date}T08:00:00` : sampleRecord.created_at,
+        department_id: "",
+        recorded_by_name: "",
+      };
+      handleEditLog(pseudoLog);
+    }
+  };
+
   const chartData = useMemo(() => {
     const dayMap: Record<string, { sortKey: string; label: string; types: Record<string, number> }> = {};
     const typeMap: Record<string, number> = {};
@@ -895,6 +917,7 @@ export default function WasteLog() {
                       <th className="p-4">น้ำหนักรวม (กก.)</th>
                       <th className="p-4">ผู้ส่งมอบ</th>
                       <th className="p-4">วันที่ส่งต่อกำจัด</th>
+                      {isAdmin && <th className="p-4 text-center">จัดการ</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
@@ -909,11 +932,23 @@ export default function WasteLog() {
                           <td className="p-4 font-bold text-orange-600">{total.toFixed(2)}</td>
                           <td className="p-4 text-xs text-slate-500">{r.delivered_by || "-"}</td>
                           <td className="p-4 text-xs">{r.transfer_date ? format(new Date(r.transfer_date), "d MMM yy", { locale: th }) : <span className="text-slate-400">ยังไม่ส่งมอบ</span>}</td>
+                          {isAdmin && (
+                            <td className="p-4 text-center">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl" 
+                                onClick={() => handleEditInfectiousDirect(r.collection_date)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
                     {filteredInfectious.length === 0 && (
-                      <tr><td colSpan={7} className="text-center py-8 text-slate-400">ไม่มีข้อมูลตามตัวกรองที่เลือก</td></tr>
+                      <tr><td colSpan={isAdmin ? 8 : 7} className="text-center py-8 text-slate-400">ไม่มีข้อมูลตามตัวกรองที่เลือก</td></tr>
                     )}
                   </tbody>
                 </table>
