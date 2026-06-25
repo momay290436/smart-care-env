@@ -22,11 +22,11 @@ import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
-  general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "#0277bd" },
-  organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "#056f00" },
-  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "#dd191d" },
-  recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "#5d4037" },
-  hazardous: { label: "ขยะอันตราย", color: "bg-amber-200 text-amber-900 border-amber-300", chartColor: "#4527a0" },
+  general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "#4C6085" },
+  organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "#36F1CD" },
+  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "#F38181" },
+  recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "#E2AF90" },
+  hazardous: { label: "ขยะอันตราย", color: "bg-amber-200 text-amber-900 border-amber-300", chartColor: "#4C6085" },
 };
 
 const WASTE_TYPE_LABELS: Record<string, string> = {
@@ -40,10 +40,9 @@ const WASTE_TYPE_LABELS: Record<string, string> = {
   other: "อื่นๆ",
 };
 
-// วางทับบรรทัด 43-44 เดิมด้วยเซ็ตสีใหม่ที่คุณต้องการ
-const PIE_COLORS = ["#0277bd", "#5d4037", "#5d4037", "#dd191d", "#4527a0"];
-const CHART_COLORS = ["#0277bd", "#5d4037", "#5d4037", "#dd191d", "#4527a0"];
-
+// ปรับค่าอาร์เรย์สีเริ่มต้นให้ตรงตามเฉดสีที่คุณกำหนดไว้เพื่อความปลอดภัย
+const PIE_COLORS = ["#4C6085", "#36F1CD", "#F38181", "#E2AF90", "#4C6085"];
+const CHART_COLORS = ["#4C6085", "#36F1CD", "#F38181", "#E2AF90", "#4C6085"];
 
 export default function WasteLog() {
   const { user, profile, isAdmin } = useAuth();
