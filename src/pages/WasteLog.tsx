@@ -40,40 +40,9 @@ const WASTE_TYPE_LABELS: Record<string, string> = {
   other: "อื่นๆ",
 };
 
-<Pie
-  data={chartData.pieData}
-  cx="50%"
-  cy="50%"
-  labelLine={false}
-  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-  outerRadius={80}
-  fill="#8884d8"
-  dataKey="value"
->
-  {chartData.pieData.map((entry, index) => {
-    // แก้ไข: ค้นหา Key ภาษาอังกฤษจากชื่อภาษาไทยเพื่อดึงสีที่ล็อกไว้ใน typesMap
-    const typeKey = Object.keys(typesMap).find(k => typesMap[k].label === entry.name) || "general";
-    const cellColor = typesMap[typeKey]?.chartColor || "#4C6085";
-    return <Cell key={`cell-${index}`} fill={cellColor} />;
-  })}
-</Pie>
-
-{chartData.allTypes.map((typeKey, index) => {
-  // แก้ไข: ค้นหา Key ภาษาอังกฤษจากป้ายชื่อภาษาไทยเพื่อดึงสีเส้นกราฟให้ตรงประเภทขยะ
-  const engKey = Object.keys(typesMap).find(k => typesMap[k].label === typeKey) || "general";
-  const lineColor = typesMap[engKey]?.chartColor || "#4C6085";
-  return (
-    <Line
-      key={typeKey}
-      type="monotone"
-      dataKey={typeKey}
-      name={typeKey}
-      stroke={lineColor} // ใช้สีที่ผูกกับประเภทขยะโดยตรงแทน CHART_COLORS[index]
-      strokeWidth={3}
-      activeDot={{ r: 8 }}
-    />
-  );
-})}
+// ปรับค่าอาร์เรย์สีเริ่มต้นให้ตรงตามเฉดสีที่คุณกำหนดไว้เพื่อความปลอดภัย
+const PIE_COLORS = ["#283593", "#0d5302", "#c41411", "#5d4037", "#4527a0"];
+const CHART_COLORS = ["#283593", "#0d5302", "#c41411", "#5d4037", "#4527a0"];
 
 export default function WasteLog() {
   const { user, profile, isAdmin } = useAuth();
