@@ -40,8 +40,9 @@ const WASTE_TYPE_LABELS: Record<string, string> = {
   other: "อื่นๆ",
 };
 
-const PIE_COLORS = ["#057971", "#008932", "#ec407a", "#7627ff", "#007bc1"];
-const CHART_COLORS = ["#057971", "#008932", "#ec407a", "#7627ff", "#007bc1"];
+// วางทับบรรทัด 43-44 เดิมด้วยเซ็ตสีใหม่ที่คุณต้องการ
+const PIE_COLORS = ["#4C6085", "#36F1CD", "#F38181", "#E2AF90", "#4C6085"];
+const CHART_COLORS = ["#4C6085", "#36F1CD", "#F38181", "#E2AF90", "#4C6085"];
 
 
 export default function WasteLog() {
