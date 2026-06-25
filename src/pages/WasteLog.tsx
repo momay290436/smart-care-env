@@ -22,11 +22,11 @@ import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
-  general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "#283593" },
-  organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "#0d5302" },
-  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "#c41411" },
-  recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "#5d4037" },
-  hazardous: { label: "ขยะอันตราย", color: "bg-amber-200 text-amber-900 border-amber-300", chartColor: "#4527a0" },
+  general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "#4C6085" },
+  organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "#36F1CD" },
+  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "#F38181" },
+  recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "#E2AF90" },
+  hazardous: { label: "ขยะอันตราย", color: "bg-amber-200 text-amber-900 border-amber-300", chartColor: "#4C6085" },
 };
 
 const WASTE_TYPE_LABELS: Record<string, string> = {
@@ -40,9 +40,8 @@ const WASTE_TYPE_LABELS: Record<string, string> = {
   other: "อื่นๆ",
 };
 
-// ปรับค่าอาร์เรย์สีเริ่มต้นให้ตรงตามเฉดสีที่คุณกำหนดไว้เพื่อความปลอดภัย
-const PIE_COLORS = ["#283593", "#0d5302", "#c41411", "#5d4037", "#4527a0"];
-const CHART_COLORS = ["#283593", "#0d5302", "#c41411", "#5d4037", "#4527a0"];
+// ย้าย Fallback Color สำหรับกรณีดึงค่าคีย์แปลกปลอมมาแสดงผล
+const FALLBACK_CHART_COLORS = ["#4C6085", "#36F1CD", "#F38181", "#E2AF90", "#4C6085"];
 
 export default function WasteLog() {
   const { user, profile, isAdmin } = useAuth();
@@ -367,7 +366,6 @@ export default function WasteLog() {
     return baseLogs;
   }
 
-  // แก้ไข: คีย์เช็กซ้ำโดยใช้แค่วันที่ (YYYY-MM-DD) และน้ำหนักพอครับ เพื่อป้องกันเรื่องความต่างของ Timezone / เวลาชั่วโมงนาที
   const existingKeys = new Set(
     baseLogs
       .filter((log: any) => normalizeWasteType(log.waste_type) === "infectious")
@@ -379,7 +377,6 @@ export default function WasteLog() {
 
   filteredInfectious.forEach((record: any) => {
     const weight = Number(record.sharp_waste_kg || 0) + Number(record.non_sharp_waste_kg || 0);
-    // ดึงเฉพาะวันที่ YYYY-MM-DD
     const dateStr = record.collection_date 
       ? record.collection_date.substring(0, 10) 
       : (record.created_at || record.transfer_date || new Date().toISOString()).substring(0, 10);
@@ -391,7 +388,7 @@ export default function WasteLog() {
         id: `infectious-${dateStr}|${weight}`,
         waste_type: "infectious",
         weight,
-        created_at: `${dateStr}T08:00:00`, // ให้เป็น Standard เดียวกัน
+        created_at: `${dateStr}T08:00:00`,
         department_id: "",
         recorded_by: "",
         recorded_by_name: "",
@@ -535,7 +532,6 @@ export default function WasteLog() {
     return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100, allTypes: Array.from(allTypes) };
   }, [combinedLogs, chartFrom, chartTo]);
 
-  // คืนค่าการคำนวณราคารวมที่แม่นยำและสัมพันธ์กับตารางขวา
   const totalCost = useMemo(() => {
     let cost = 0;
     Object.keys(typesMap).forEach((k) => {
@@ -548,6 +544,13 @@ export default function WasteLog() {
     });
     return Math.round(cost * 100) / 100;
   }, [filteredLogs, infectiousFilteredTotal, typesMap, costPerKg]);
+
+  // ฟังก์ชันช่วยเหลือในการจับคู่สีชาร์ตจากคีย์ดึงมาจากฐานข้อมูลจริง
+  const getColorByLabelName = (labelName: string) => {
+    const entry = Object.entries(typesMap).find(([_, v]) => v.label === labelName);
+    if (entry) return entry[1].chartColor;
+    return FALLBACK_CHART_COLORS[0];
+  };
 
   const handleAdvancedExport = () => {
     const sourceLogs = filteredLogs.length > 0 ? filteredLogs : logs;
@@ -774,20 +777,30 @@ export default function WasteLog() {
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData.lineData}>
                       <defs>
-                        {chartData.allTypes.map((type, i) => (
-                          <linearGradient key={type} id={`wasteGrad${i}`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={CHART_COLORS[i % CHART_COLORS.length]} stopOpacity={0.4} />
-                            <stop offset="95%" stopColor={CHART_COLORS[i % CHART_COLORS.length]} stopOpacity={0.05} />
-                          </linearGradient>
-                        ))}
+                        {chartData.allTypes.map((typeLabel, i) => {
+                          const calculatedColor = getColorByLabelName(typeLabel);
+                          return (
+                            <linearGradient key={typeLabel} id={`wasteGrad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={calculatedColor} stopOpacity={0.4} />
+                              <stop offset="95%" stopColor={calculatedColor} stopOpacity={0.05} />
+                            </linearGradient>
+                          );
+                        })}
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 11 }} />
                       <Tooltip formatter={(value: any) => `${Number(value).toFixed(2)} กก.`} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      {chartData.allTypes.map((type, i) => (
-                        <Area key={type} type="monotone" dataKey={type} fill={`url(#wasteGrad${i})`} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} />
+                      {chartData.allTypes.map((typeLabel, i) => (
+                        <Area 
+                          key={typeLabel} 
+                          type="monotone" 
+                          dataKey={typeLabel} 
+                          fill={`url(#wasteGrad-${i})`} 
+                          stroke={getColorByLabelName(typeLabel)} 
+                          strokeWidth={2} 
+                        />
                       ))}
                     </AreaChart>
                   </ResponsiveContainer>
@@ -806,7 +819,7 @@ export default function WasteLog() {
                       <PieChart>
                         <Pie data={chartData.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                           {chartData.pieData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                            <Cell key={`cell-${index}`} fill={getColorByLabelName(entry.name)} />
                           ))}
                         </Pie>
                         <Tooltip formatter={(value) => `${Number(value).toFixed(2)} กก.`} />
