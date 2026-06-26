@@ -16,10 +16,20 @@ import { toast } from "sonner";
 import { format, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid, BarChart, Bar } from "recharts";
 import PageHeader from "@/components/PageHeader";
-import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
+import { Plus, Download, Pencil, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
+
+// กำหนด Interface เพื่อระบุ Type ให้ถูกต้องสำหรับแถวข้อมูลขยะติดเชื้อ ป้องกัน Build Failed
+interface InfectiousRow {
+  id?: string;
+  health_center_name: string;
+  sharp_waste_kg: string;
+  non_sharp_waste_kg: string;
+  delivered_by: string;
+  source_type: string;
+  bottle_count: string;
+}
 
 const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
   general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "#4C6085" },
@@ -46,62 +56,9 @@ export default function WasteLog() {
   const { user, profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [typesMap, setTypesMap] = useState<Record<string, { label: string; color: string; chartColor: string }>>(DEFAULT_WASTE_TYPES);
-  const [manageDeptsOpen, setManageDeptsOpen] = useState(false);
-  const [deptEditName, setDeptEditName] = useState("");
-  const [deptEditId, setDeptEditId] = useState<string | null>(null);
   const [manageTypesOpen, setManageTypesOpen] = useState(false);
   const [newTypeKey, setNewTypeKey] = useState("");
   const [newTypeLabel, setNewTypeLabel] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [wasteType, setWasteType] = useState("general");
-  const [weight, setWeight] = useState("");
-  const [selectedDept, setSelectedDept] = useState(profile?.department_id || "");
-  const [filterType, setFilterType] = useState("all");
-  const [filterPeriod, setFilterPeriod] = useState("all");
-  const [customFrom, setCustomFrom] = useState<Date | undefined>();
-  const [customTo, setCustomTo] = useState<Date | undefined>();
-  const [costPerKg, setCostPerKg] = useState<Record<string, number>>({ general: 2, infectious: 15, recycle: 0, hazardous: 25 });
-  const [customDateTime, setCustomDateTime] = useState("");
-  const [customRecorder, setCustomRecorder] = useState("");
-  const [editingLogId, setEditingLogId] = useState<string | null>(null);
-
-  const [chartFrom, setChartFrom] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() - 6); return startOfDay(d); });
-  const [chartTo, setChartTo] = useState<Date>(() => new Date());
-
-  const HEALTH_CENTERS = [
-    "โรงพยาบาลแม่สรวย","รพ.สต.โป่งปูเฟือง","รพ.สต.โป่งกลางน้ำ","รพ.สต.ทุ่งพร้าว","รพ.สต.ห้วยไคร้",
-    "รพ.สต.วาวี","รพ.สต.บ้านดอยช้าง","รพ.สต.แม่สรวย","รพ.สต.เจดีย์หลวง",
-    "รพ.สต.ศรีถ้อย","รพ.สต.ห้วยน้ำขุ่น","รพ.สต.ท่าก๊อ","รพ.สต.ป่าแดด","คลินิกเอกชน","ปริมาณขวด"
-  ];
-  const emptyInfRow = () => ({ id: undefined, health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "", source_type: "", bottle_count: "" });
-  const [infCollectionDate, setInfCollectionDate] = useState<Date | undefined>(new Date());
-  const [infTransferDate, setInfTransferDate] = useState<Date | undefined>();
-  const [infRows, setInfRows] = useState<any[]>([emptyInfRow()]);
-
-  const { data: departments = [] } = useQuery({
-    queryKey: ["departments"],
-    queryFn: async () => {
-      const { data } = await supabase.from("departments").select("*").order("name");
-      return data || [];
-    },
-  });
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data: wt } = await supabase.from("app_settings").select("value").eq("key", "waste_types").maybeSingle();
-        if (wt && wt.value) {
-          const parsed = JSON.parse(wt.value);
-          if (parsed && typeof parsed === "object") setTypesMap(parsed);
-        }
-        const { data: wc } = await supabase.from("app_settings").select("value").eq("key", "waste_costs").maybeSingle();
-        if (wc && wc.value) {
-          const parsed = JSON.parse(wc.value);
-          if (parsed && typeof parsed === "object") setCostPerKg(parsed);
-        }
-      } catch (e) {}
-    })();
-  }, []);
-
-  const { data: logs = [] } = useQuery({
-    queryKey:
+  const [weight, setWeight] =
