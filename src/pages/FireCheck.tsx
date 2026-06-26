@@ -23,6 +23,15 @@ import { Wrench } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import { createAutoIssue, getIssueSeverity, hasFireCheckAnomaly } from "@/lib/createAutoIssue";
 import PageHeader from "@/components/PageHeader";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RefreshCw, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { toast } from "sonner";
 
 interface InspectionDetails {
   body_ok: boolean; hose_ok: boolean; handle_ok: boolean;
@@ -748,6 +757,170 @@ export default function FireCheck() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+// กุญแจสำหรับล็อกประวัติการซิงค์ลงเบราว์เซอร์เพื่อประหยัด IO
+const SYNC_KEY = "fire_extinguisher_last_sync";
+
+export default function FireCheckPage() {
+  const queryClient = useQueryClient();
+  const [showUncheckedModal, setShowUncheckedModal] = useState(false);
+  const [lastSyncText, setLastSyncText] = useState<string>("");
+
+  // 1. ดึงข้อมูลถังดับเพลิงทั้งหมด (สมมติว่าตารางชื่อ fire_extinguishers)
+  const { data: allTanks = [] } = useQuery({
+    queryKey: ["all-fire-extinguishers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fire_extinguishers")
+        .select("*")
+        .eq("status", "active"); // ดึงเฉพาะถังที่ใช้งานอยู่
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // 2. ดึงประวัติการตรวจเฉพาะเดือนปัจจุบัน (ประหยัดการ Read ข้อมูลเก่า)
+  const { data: monthlyRecords = [], refetch: refetchRecords, isFetching } = useQuery({
+    queryKey: ["monthly-fire-checks"],
+    queryFn: async () => {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const { data, error } = await supabase
+        .from("fire_check_records") // สมมติตารางประวัติการตรวจชื่อนี้
+        .select("fire_extinguisher_id, created_at")
+        .gte("created_at", startOfMonth.toISOString());
+      
+      if (error) throw error;
+      return data || [];
+    },
+    // เปิดการทำงานดึงข้อมูลอัตโนมัติตามเงื่อนไขวันที่ 15 เพื่อเซฟ IO Budget
+    enabled: (() => {
+      const today = new Date();
+      const todayStr = today.toISOString().split("T")[0];
+      const lastSync = localStorage.getItem(SYNC_KEY);
+
+      // เงื่อนไข: ถ้าเป็นวันที่ 15 และวันนี้ยังไม่มีการดึงข้อมูลเลย ให้ดึงอัตโนมัติ
+      if (today.getDate() === 15 && lastSync !== todayStr) {
+        localStorage.setItem(SYNC_KEY, todayStr);
+        return true;
+      }
+      // ถ้ามีข้อมูลแคชอยู่แล้ว ไม่ต้องยิงไปฐานข้อมูลพร่ำเพรื่อ
+      return !lastSync; 
+    })(),
+  });
+
+  // อัปเดตข้อความวันเวลาที่ซิงค์ล่าสุดแสดงบนหน้าจอ
+  useEffect(() => {
+    const lastSync = localStorage.getItem(SYNC_KEY);
+    if (lastSync) {
+      setLastSyncText(lastSync);
+    } else {
+      setLastSyncText("ยังไม่ได้ซิงค์ข้อมูลเดือนนี้");
+    }
+  }, [monthlyRecords]);
+
+  // 3. ฟังก์ชันสำหรับให้แอดมินกดดึงข้อมูลใหม่เองแบบแมนนวล (Manual Refresh)
+  const handleManualRefresh = async () => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    localStorage.setItem(SYNC_KEY, todayStr);
+    await refetchRecords();
+    toast.success("อัปเดตข้อมูลการตรวจถังดับเพลิงประจำเดือนเรียบร้อย");
+  };
+
+  // 4. ตรรกะคำนวณหาถังที่ยังไม่ได้ตรวจ (ประมวลผลฝั่งเครื่องผู้ใช้ ไม่เสียค่าฐานข้อมูล)
+  const uncheckedTanks = useMemo(() => {
+    // เอา ID ถังที่ถูกตรวจแล้วในเดือนนี้มาทำเป็น Set เพื่อค้นหาไว ๆ
+    const checkedTankIds = new Set(monthlyRecords.map((r: any) => r.fire_extinguisher_id));
+    // กรองหาถังดับเพลิงที่ ID ไม่ได้อยู่ในกลุ่มที่ตรวจแล้ว
+    return allTanks.filter((tank: any) => !checkedTankIds.has(tank.id));
+  }, [allTanks, monthlyRecords]);
+
+  return (
+    <div className="space-y-4 p-4">
+      {/* ส่วนบน: เพิ่มปุ่มแมนนวลรีเฟรช และข้อความแสดงการอัปเดต */}
+      <div className="flex items-center justify-between bg-white p-3 rounded-2xl shadow-sm">
+        <div className="text-xs text-muted-foreground">
+          ข้อมูลอัปเดตล่าสุด: <span className="font-semibold text-slate-700">{lastSyncText}</span>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleManualRefresh}
+          disabled={isFetching}
+          className="h-8 rounded-xl gap-1 text-xs"
+        >
+          <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
+          ดึงข้อมูลใหม่
+        </Button>
+      </div>
+
+      {/* แถบแจ้งเตือนสีส้ม/ชมพู สรุปถังที่ค้างตรวจ */}
+      {uncheckedTanks.length > 0 ? (
+        <Card 
+          className="border-0 bg-amber-50 rounded-2xl shadow-sm cursor-pointer hover:bg-amber-100/70 transition-all"
+          onClick={() => setShowUncheckedModal(true)}
+        >
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-900">พบถังดับเพลิงยังไม่ได้ตรวจประจำเดือนนี้!</p>
+                <p className="text-xs text-amber-700">ค้างตรวจทั้งหมด {uncheckedTanks.length} จาก {allTanks.length} ถัง</p>
+              </div>
+            </div>
+            <Badge className="bg-amber-600 hover:bg-amber-700 rounded-xl">คลิกดูรายชื่อ</Badge>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-0 bg-emerald-50 rounded-2xl shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+              <CheckCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-emerald-900">ตรวจครบทุกถังแล้ว!</p>
+              <p className="text-xs text-emerald-700">ประจำเดือนนี้ไม่มีถังดับเพลิงค้างตรวจ</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ป๊อปอัพ (Modal) แสดงรายชื่อถังดับเพลิงที่ยังไม่ได้ตรวจ */}
+      <Dialog open={showUncheckedModal} onOpenChange={setShowUncheckedModal}>
+        <DialogContent className="rounded-3xl max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-amber-900">
+              <XCircle className="h-5 w-5 text-amber-600" />
+              รายชื่อถังดับเพลิงค้างตรวจประจำเดือน
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            <p className="text-xs text-muted-foreground pb-2 border-b">ต้องตรวจให้ครบทุกถังไม่เกินวันศุกร์สัปดาห์ที่ 2 ของเดือน</p>
+            <div className="space-y-1.5 max-h-[50vh] overflow-y-auto pr-1">
+              {uncheckedTanks.map((tank: any, index: number) => (
+                <div key={tank.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-mono w-5">{index + 1}</span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">รหัสถัง: {tank.code || tank.id}</p>
+                      <p className="text-[10px] text-muted-foreground">ตำแหน่งติดตั้ง: {tank.location || "ไม่ได้ระบุ"}</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] rounded-lg bg-amber-100 text-amber-800 border-0">
+                    ยังไม่ได้ตรวจ
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
