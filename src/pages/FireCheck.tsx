@@ -405,7 +405,7 @@ export default function FireCheck() {
           <CardContent className="p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3 bg-white px-6 py-3 rounded-2xl border border-rose-100 shadow-sm w-full sm:w-auto justify-center sm:justify-start">
               <span className="text-xs font-bold text-slate-500">จำนวนถังรวม:</span>
-              <span className="text-3xl font-black bg-gradient-to-r from-rose-600 to-orange-600 bg-clip-text text-transparent">87</span>
+              <span className="text-3xl font-black bg-gradient-to-r from-rose-600 to-orange-600 bg-clip-text text-transparent">88</span>
               <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">ถัง</span>
             </div>
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-center sm:justify-end text-xs">
@@ -417,7 +417,7 @@ export default function FireCheck() {
               <div className="flex items-center gap-2 bg-white/90 border border-emerald-100 px-4 py-2.5 rounded-xl shadow-sm">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
                 <span className="text-slate-600 font-medium">สีเขียว:</span>
-                <span className="font-bold text-emerald-700 text-sm">39 ถัง</span>
+                <span className="font-bold text-emerald-700 text-sm">40 ถัง</span>
               </div>
               <div className="flex items-center gap-2 bg-white/90 border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm">
                 <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span>
