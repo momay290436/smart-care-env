@@ -21,145 +21,177 @@ import PageHeader from "@/components/PageHeader";
 import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 
-interface WasteSettings {
-  infectious_carrier_cost: number;
-}
-
-const defaultWasteSettings: WasteSettings = {
-  infectious_carrier_cost: 40,
+const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
+  general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "#4C6085" },
+  organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "#36F1CD" },
+  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "#F38181" },
+  recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "#E2AF90" },
+  hazardous: { label: "ขยะอันตราย", color: "bg-amber-200 text-amber-900 border-amber-300", chartColor: "#4C6085" },
 };
 
+const WASTE_TYPE_LABELS: Record<string, string> = {
+  general: "ขยะทั่วไป",
+  infectious: "ขยะติดเชื้อ",
+  recycle: "ขยะรีไซเคิล",
+  recyclable: "ขยะรีไซเคิล",
+  hazardous: "ขยะอันตราย",
+  organic: "ขยะเปียก",
+  "organic waste": "ขยะเปียก",
+  other: "อื่นๆ",
+};
+
+// ย้าย Fallback Color สำหรับกรณีดึงค่าคีย์แปลกปลอมมาแสดงผล
+const FALLBACK_CHART_COLORS = ["#4C6085", "#36F1CD", "#F38181", "#E2AF90", "#4C6085"];
+
 export default function WasteLog() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [typesMap, setTypesMap] = useState<Record<string, { label: string; color: string; chartColor: string }>>(DEFAULT_WASTE_TYPES);
+  const [manageDeptsOpen, setManageDeptsOpen] = useState(false);
+  const [deptEditName, setDeptEditName] = useState("");
+  const [deptEditId, setDeptEditId] = useState<string | null>(null);
+  const [manageTypesOpen, setManageTypesOpen] = useState(false);
+  const [newTypeKey, setNewTypeKey] = useState("");
+  const [newTypeLabel, setNewTypeLabel] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [editingLog, setEditingLog] = useState<any>(null);
-  
-  const [wasteType, setWasteType] = useState("");
+  const [wasteType, setWasteType] = useState("general");
   const [weight, setWeight] = useState("");
-  const [collectedAt, setCollectedAt] = useState<Date>(new Date());
-  const [carrierName, setCarrierName] = useState("");
-  const [manifestNo, setManifestNo] = useState("");
-  const [cost, setCost] = useState("");
-  
+  const [selectedDept, setSelectedDept] = useState(profile?.department_id || "");
+  const [filterType, setFilterType] = useState("all");
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
+  const [costPerKg, setCostPerKg] = useState<Record<string, number>>({ general: 2, infectious: 15, recycle: 0, hazardous: 25 });
+  const [customDateTime, setCustomDateTime] = useState("");
+  const [customRecorder, setCustomRecorder] = useState("");
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState<WasteSettings>({ ...defaultWasteSettings });
+  const [chartFrom, setChartFrom] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() - 6); return startOfDay(d); });
+  const [chartTo, setChartTo] = useState<Date>(() => new Date());
 
-  const [newTypeKey, setNewTypeKey] = useState("");
-  const [newTypeLabel, setNewTypeLabel] = useState("");
+  const HEALTH_CENTERS = [
+    "โรงพยาบาลแม่สรวย","รพ.สต.โป่งปูเฟือง","รพ.สต.โป่งกลางน้ำ","รพ.สต.ทุ่งพร้าว","รพ.สต.ห้วยไคร้",
+    "รพ.สต.วาวี","รพ.สต.บ้านดอยช้าง","รพ.สต.แม่สรวย","รพ.สต.เจดีย์หลวง",
+    "รพ.สต.ศรีถ้อย","รพ.สต.ห้วยน้ำขุ่น","รพ.สต.ท่าก๊อ","รพ.สต.ป่าแดด","คลินิกเอกชน","ปริมาณขวด"
+  ];
+  const emptyInfRow = () => ({ id: undefined, health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "", source_type: "", bottle_count: "" });
+  const [infCollectionDate, setInfCollectionDate] = useState<Date | undefined>(new Date());
+  const [infTransferDate, setInfTransferDate] = useState<Date | undefined>();
+  const [infRows, setInfRows] = useState<any[]>([emptyInfRow()]);
 
-  const [typesMap, setTypesMap] = useState<Record<string, { label: string; color: string; chartColor: string }>>({
-    general: { label: "ขยะทั่วไป", color: "bg-blue-100 text-blue-800 border-blue-200", chartColor: "hsl(215 25% 65%)" },
-    recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-100 text-emerald-800 border-emerald-200", chartColor: "hsl(145 25% 60%)" },
-    infectious: { label: "ขยะติดเชื้อ", color: "bg-rose-100 text-rose-800 border-rose-200", chartColor: "hsl(355 25% 65%)" },
-    hazardous: { label: "ขยะอันตราย", color: "bg-amber-100 text-amber-800 border-amber-200", chartColor: "hsl(35 25% 60%)" },
-  });
-
-  // 💡 ป้องกัน Warning เรื่องการอิมพอร์ต SelectScrollUpButton และ SelectScrollDownButton มาแต่ไม่ได้ใช้
-  useEffect(() => {
-    if (false as any) {
-      console.log(SelectScrollUpButton, SelectScrollDownButton, LineChart, Line, AreaChart, Area);
-    }
-  }, []);
-
-  const { data: dbSettings } = useQuery({
-    queryKey: ["waste-settings"],
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("system_settings").select("value").eq("key", "waste_management_settings").maybeSingle();
-      if (error) return null;
-      return data?.value as unknown as WasteSettings | null;
-    },
-  });
-
-  useEffect(() => {
-    if (dbSettings) {
-      setSettings(dbSettings);
-    }
-  }, [dbSettings]);
-
-  const saveWasteSettings = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("system_settings").upsert({
-        key: "waste_management_settings",
-        value: settings as any,
-        updated_by: user?.id,
-      }, { onConflict: "key" });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("บันทึกการตั้งค่าสำเร็จ");
-      setSettingsOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["waste-settings"] });
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  const { data: logs } = useQuery({
-    queryKey: ["waste-logs"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("waste_logs")
-        .select("*")
-        .order("collected_at", { ascending: false });
-      if (error) throw error;
+      const { data } = await supabase.from("departments").select("*").order("name");
       return data || [];
     },
   });
 
   useEffect(() => {
-    if (editingLog) {
-      setWasteType(editingLog.waste_type);
-      setWeight(editingLog.weight_kg.toString());
-      setCollectedAt(new Date(editingLog.collected_at));
-      setCarrierName(editingLog.carrier_name || "");
-      setManifestNo(editingLog.manifest_no || "");
-      setCost(editingLog.cost_thb ? editingLog.cost_thb.toString() : "");
-      setShowForm(true);
-    } else {
-      resetForm();
-    }
-  }, [editingLog]);
+    (async () => {
+      try {
+        const { data: wt } = await supabase.from("app_settings").select("value").eq("key", "waste_types").maybeSingle();
+        if (wt && wt.value) {
+          const parsed = JSON.parse(wt.value);
+          if (parsed && typeof parsed === "object") setTypesMap(parsed);
+        }
+        const { data: wc } = await supabase.from("app_settings").select("value").eq("key", "waste_costs").maybeSingle();
+        if (wc && wc.value) {
+          const parsed = JSON.parse(wc.value);
+          if (parsed && typeof parsed === "object") setCostPerKg(parsed);
+        }
+      } catch (e) {}
+    })();
+  }, []);
 
-  useEffect(() => {
-    if (wasteType === "infectious" && !cost && weight) {
-      const w = parseFloat(weight);
-      if (!isNaN(w)) {
-        setCost((w * settings.infectious_carrier_cost).toFixed(2));
-      }
-    }
-  }, [wasteType, weight, settings.infectious_carrier_cost]);
+  const { data: logs = [] } = useQuery({
+    queryKey: ["waste-logs"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("waste_logs")
+        .select("*, departments(name)")
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+  });
 
-  const resetForm = () => {
-    setWasteType("");
-    setWeight("");
-    setCollectedAt(new Date());
-    setCarrierName("");
-    setManifestNo("");
-    setCost("");
-    setEditingLog(null);
-  };
+  const { data: infectiousWasteRecords = [] } = useQuery({
+    queryKey: ["infectious-waste"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("infectious_waste_records")
+        .select("*")
+        .order("collection_date", { ascending: false });
+      return data || [];
+    },
+  });
 
-  const logMutation = useMutation({
+  const createLog = useMutation({
     mutationFn: async () => {
-      if (!wasteType || !weight) throw new Error("กรุณากรอกข้อมูลที่จำเป็น");
-      const payload = {
-        waste_type: wasteType,
-        weight_kg: parseFloat(weight),
-        collected_at: collectedAt.toISOString(),
-        carrier_name: wasteType === "infectious" ? carrierName : null,
-        manifest_no: wasteType === "infectious" ? manifestNo : null,
-        cost_thb: cost ? parseFloat(cost) : null,
-        recorded_by: user?.id,
-        department_id: profile?.department_id,
-      };
+      if (!user) throw new Error("ไม่ได้เข้าสู่ระบบ");
 
-      if (editingLog) {
-        const { error } = await supabase.from("waste_logs").update(payload).eq("id", editingLog.id);
+      if (wasteType === "infectious") {
+        const valid = infRows.filter((r: any) => r.health_center_name?.trim());
+        if (valid.length === 0) throw new Error("กรุณากรอกชื่อหน่วยงานอย่างน้อย 1 รายการ");
+        if (!infCollectionDate) throw new Error("กรุณาเลือกวันที่รับขยะ");
+
+        if (editingLogId) {
+          const { error: errDelOld } = await supabase.from("infectious_waste_records").delete().eq("collection_date", format(infCollectionDate, "yyyy-MM-dd"));
+          if (errDelOld) throw errDelOld;
+        }
+
+        const inserts = valid.map((r: any) => ({
+          collection_date: format(infCollectionDate, "yyyy-MM-dd"),
+          transfer_date: infTransferDate ? format(infTransferDate, "yyyy-MM-dd") : null,
+          health_center_name: r.health_center_name.trim(),
+          sharp_waste_kg: r.sharp_waste_kg ? parseFloat(r.sharp_waste_kg) : 0,
+          non_sharp_waste_kg: r.non_sharp_waste_kg ? parseFloat(r.non_sharp_waste_kg) : 0,
+          delivered_by: r.delivered_by?.trim() || null,
+          notes: (r.source_type || r.bottle_count) ? JSON.stringify({ source_type: r.source_type, bottle_count: r.bottle_count }) : null,
+          recorded_by: user.id,
+        }));
+        const { error: errInf } = await supabase.from("infectious_waste_records").insert(inserts);
+        if (errInf) throw errInf;
+
+        const totalKg = inserts.reduce((s, x) => s + (x.sharp_waste_kg || 0) + (x.non_sharp_waste_kg || 0), 0);
+        if (totalKg > 0) {
+          const aggPayload: any = {
+            waste_type: "infectious",
+            weight: totalKg,
+            department_id: selectedDept || profile?.department_id || null,
+            recorded_by: user.id,
+          };
+          if (isAdmin && customDateTime) aggPayload.created_at = new Date(customDateTime).toISOString();
+          else aggPayload.created_at = new Date(format(infCollectionDate, "yyyy-MM-dd") + "T08:00:00").toISOString();
+          
+          if (editingLogId && !editingLogId.startsWith("infectious-")) {
+            const { error: errAgg } = await supabase.from("waste_logs").update(aggPayload).eq("id", editingLogId);
+            if (errAgg) throw errAgg;
+          } else {
+            if (editingLogId && editingLogId.startsWith("infectious-")) {
+              await supabase.from("waste_logs").delete().eq("id", editingLogId);
+            }
+            const { error: errAgg } = await supabase.from("waste_logs").insert(aggPayload);
+            if (errAgg) throw errAgg;
+          }
+        }
+        return;
+      }
+
+      const w = parseFloat(weight);
+      const payload: any = {
+        waste_type: wasteType,
+        weight: w,
+        department_id: selectedDept || profile?.department_id || null,
+        recorded_by: user.id,
+        recorded_by_name: (isAdmin && customRecorder.trim()) ? customRecorder.trim() : (profile?.full_name || ""),
+      };
+      if (isAdmin && customDateTime) {
+        payload.created_at = new Date(customDateTime).toISOString();
+      }
+
+      if (editingLogId && !editingLogId.startsWith("infectious-")) {
+        const { error } = await supabase.from("waste_logs").update(payload).eq("id", editingLogId);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("waste_logs").insert(payload);
@@ -167,18 +199,140 @@ export default function WasteLog() {
       }
     },
     onSuccess: () => {
-      toast.success(editingLog ? "แก้ไขข้อมูลสำเร็จ" : "บันทึกข้อมูลสำเร็จ");
-      setShowForm(false);
-      resetForm();
+      toast.success(editingLogId ? "แก้ไขข้อมูลสำเร็จ" : "บันทึกน้ำหนักขยะสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
+      setShowForm(false);
+      setWeight("");
+      setCustomDateTime("");
+      setCustomRecorder("");
+      setEditingLogId(null);
+      setInfRows([emptyInfRow()]);
+      setInfCollectionDate(new Date());
+      setInfTransferDate(undefined);
     },
     onError: (e: any) => toast.error(e.message),
   });
 
   const deleteLog = useMutation({
     mutationFn: async (id: string) => {
+      if (id.startsWith("infectious-")) {
+        const parts = id.split("|");
+        if (parts.length > 0) {
+          const dateStr = parts[0].replace("infectious-", "").substring(0, 10);
+          const { error } = await supabase.from("infectious_waste_records").delete().eq("collection_date", dateStr);
+          if (error) throw error;
+        }
+      }
       const { error } = await supabase.from("waste_logs").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("ลบ
+      toast.success("ลบสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const saveDepartment = useMutation({
+    mutationFn: async ({ id, name }: { id?: string | null; name: string }) => {
+      if (!name.trim()) throw new Error("กรุณาระบุชื่อแผนก");
+      if (id) {
+        const { error } = await supabase.from("departments").update({ name: name.trim() }).eq("id", id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("departments").insert({ name: name.trim() });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("บันทึกแผนกสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+      setDeptEditId(null);
+      setDeptEditName("");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteDepartment = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("departments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบแผนกสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const saveWasteSettings = useMutation({
+    mutationFn: async () => {
+      const typeValue = JSON.stringify(typesMap);
+      const costValue = JSON.stringify(costPerKg);
+
+      const { data: existingTypes } = await supabase.from("app_settings").select("id").eq("key", "waste_types").maybeSingle();
+      if (existingTypes) {
+        await supabase.from("app_settings").update({ value: typeValue }).eq("key", "waste_types");
+      } else {
+        await supabase.from("app_settings").insert({ key: "waste_types", value: typeValue });
+      }
+
+      const { data: existingCosts } = await supabase.from("app_settings").select("id").eq("key", "waste_costs").maybeSingle();
+      if (existingCosts) {
+        await supabase.from("app_settings").update({ value: costValue }).eq("key", "waste_costs");
+      } else {
+        await supabase.from("app_settings").insert({ key: "waste_costs", value: costValue });
+      }
+    },
+    onSuccess: () => {
+      toast.success("บันทึกการตั้งค่าเรียบร้อยแล้ว");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const normalizeWasteType = (type: string) => {
+    const key = String(type || "").trim().toLowerCase();
+    if (key === "recyclable") return "recycle";
+    if (key === "organic waste" || key === "organic" || key === "ขยะเปียก") return "organic";
+    if (key === "general waste" || key === "ขยะทั่วไป") return "general";
+    if (key === "ขยะรีไซเคิล") return "recycle";
+    if (key === "ขยะติดเชื้อ") return "infectious";
+    if (key === "ขยะอันตราย") return "hazardous";
+    return key || "other";
+  };
+
+  const getWasteTypeLabel = (rawType: string) => {
+    const normalized = normalizeWasteType(rawType);
+    return WASTE_TYPE_LABELS[normalized] || typesMap[normalized]?.label || rawType;
+  };
+
+  const getWasteTypeMeta = (rawType: string) => {
+    const normalized = normalizeWasteType(rawType);
+    return typesMap[rawType] || typesMap[normalized] || typesMap.general;
+  };
+
+  const getWasteTypeLabelByKey = (key: string) => {
+    const normalized = normalizeWasteType(key);
+    if (key === "all") return "ทุกประเภท";
+    return typesMap[key]?.label || typesMap[normalized]?.label || key;
+  };
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log: any) => {
+      if (filterType !== "all" && normalizeWasteType(log.waste_type) !== normalizeWasteType(filterType)) return false;
+      const created = new Date(log.created_at);
+      const now = new Date();
+      if (filterPeriod === "day" && created < startOfDay(now)) return false;
+      if (filterPeriod === "week" && created < startOfWeek(now, { weekStartsOn: 1 })) return false;
+      if (filterPeriod === "month" && created < startOfMonth(now)) return false;
+      if (filterPeriod === "custom" && customFrom && customTo) {
+        if (created < startOfDay(customFrom) || created > new Date(startOfDay(customTo).getTime() + 86400000 - 1)) return false;
+      }
+      return true;
+    });
+  }, [logs, filterType, filterPeriod, customFrom, customTo]);
+
+  const filteredInfectious = useMemo(() => {
+    let recs = [...infectiousWasteRecords]
