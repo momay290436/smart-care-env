@@ -27,7 +27,7 @@ const WATER_TYPES = [
 
 const WASTEWATER_PARAMS = [
   { name: "ค่า pH", standard: "5-9", unit: "" },
-  { name: "ปริมาณของแข็งละลายน้ำทั้งหมด", standard: "ไม่เกิน 500", unit: "mg./l." },
+  { name: "ปริมาณของแข็งละลายน้ำทั้งหมด", standard: "ไม่เกิน 1,000", unit: "mg./l." },
   { name: "ปริมาณของแข็งแขวนลอยทั้งหมด", standard: "ไม่เกิน 30", unit: "mg./l." },
   { name: "ปริมาณตะกอนหนัก", standard: "ไม่เกิน 0.5", unit: "mg./l." },
   { name: "ซัลไฟด์", standard: "ไม่เกิน 1", unit: "mg./l." },
