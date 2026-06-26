@@ -37,7 +37,7 @@ const WASTEWATER_PARAMS = [
   { name: "TKN", standard: "ไม่เกิน 35", unit: "mg./l." },
   { name: "Total Coliform Bacteria", standard: "ไม่เกิน 5,000", unit: "MPN/100ml." },
   { name: "Fecal Coliform Bacteria", standard: "ไม่เกิน 1,000", unit: "MPN/100ml." },
-  { name: "Chlorine residual", standard: "ไม่เกิน 0.5", unit: "mg./l." },
+  { name: "Chlorine residual", standard: "ไม่เกิน 1", unit: "mg./l." },
 ];
 
 const TAP_WATER_PARAMS = [
