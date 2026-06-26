@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectScrollUpButton, SelectScrollDownButton } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -16,9 +16,9 @@ import { toast } from "sonner";
 import { format, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid, BarChart, Bar, Area, AreaChart } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
 import PageHeader from "@/components/PageHeader";
-import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
+import { Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 
 interface WasteSettings {
@@ -92,7 +92,6 @@ export default function WasteLog() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // ปรับปรุงการเรียงลำดับ: เปลี่ยนจาก "created_at" เป็น "collected_at" (วันที่รับขยะ) เพื่อให้เรียงจากใหม่ไปเก่าอย่างถูกต้อง
   const { data: logs } = useQuery({
     queryKey: ["waste-logs"],
     queryFn: async () => {
@@ -159,3 +158,142 @@ export default function WasteLog() {
         const { error } = await supabase.from("waste_logs").insert(payload);
         if (error) throw error;
       }
+    },
+    onSuccess: () => {
+      toast.success(editingLog ? "แก้ไขข้อมูลสำเร็จ" : "บันทึกข้อมูลสำเร็จ");
+      setShowForm(false);
+      resetForm();
+      queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteLog = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("waste_logs").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบข้อมูลสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // กรองข้อมูลตามระยะเวลาที่เลือก
+  const filteredLogs = useMemo(() => {
+    if (!logs) return [];
+    return logs.filter((log) => {
+      const date = new Date(log.collected_at);
+      const now = new Date();
+      if (filterPeriod === "day" && date < startOfDay(now)) return false;
+      if (filterPeriod === "week" && date < startOfWeek(now, { weekStartsOn: 1 })) return false;
+      if (filterPeriod === "month" && date < startOfMonth(now)) return false;
+      if (filterPeriod === "custom" && customFrom && customTo) {
+        if (date < startOfDay(customFrom) || date > new Date(startOfDay(customTo).getTime() + 86400000 - 1)) return false;
+      }
+      return true;
+    });
+  }, [logs, filterPeriod, customFrom, customTo]);
+
+  // 💡 แก้ไข: บังคับให้ประวัติขยะติดเชื้อทำการเรียงลำดับตามวันที่รับขยะ (collected_at) จากใหม่ไปเก่าเสมอก่อนแสดงผลในตาราง
+  const sortedInfectiousLogs = useMemo(() => {
+    return filteredLogs
+      .filter((log) => log.waste_type === "infectious")
+      .sort((a, b) => new Date(b.collected_at).getTime() - new Date(a.collected_at).getTime());
+  }, [filteredLogs]);
+
+  const stats = useMemo(() => {
+    const totalWeight = filteredLogs.reduce((acc, log) => acc + log.weight_kg, 0);
+    const totalCost = filteredLogs.reduce((acc, log) => acc + (log.cost_thb || 0), 0);
+    
+    const byType = filteredLogs.reduce((acc, log) => {
+      if (!acc[log.waste_type]) acc[log.waste_type] = { weight: 0, cost: 0, count: 0 };
+      acc[log.waste_type].weight += log.weight_kg;
+      acc[log.waste_type].cost += (log.cost_thb || 0);
+      acc[log.waste_type].count += 1;
+      return acc;
+    }, {} as Record<string, { weight: number; cost: number; count: number }>);
+
+    return { totalWeight, totalCost, byType };
+  }, [filteredLogs]);
+
+  const chartData = useMemo(() => {
+    const daily: Record<string, Record<string, number>> = {};
+    filteredLogs.forEach((log) => {
+      const dayStr = format(new Date(log.collected_at), "d MMM", { locale: th });
+      if (!daily[dayStr]) daily[dayStr] = {};
+      daily[dayStr][log.waste_type] = (daily[dayStr][log.waste_type] || 0) + log.weight_kg;
+    });
+    return Object.entries(daily).map(([name, values]) => ({ name, ...values })).reverse();
+  }, [filteredLogs]);
+
+  const pieData = useMemo(() => {
+    return Object.entries(stats.byType).map(([key, value]) => ({
+      name: typesMap[key]?.label || key,
+      value: value.weight,
+      color: typesMap[key]?.chartColor || "#cbd5e1",
+    }));
+  }, [stats.byType, typesMap]);
+
+  const exportExcel = () => {
+    const data = sortedInfectiousLogs.map((log) => ({
+      "วันที่รับขยะ": format(new Date(log.collected_at), "d MMMM yyyy HH:mm", { locale: th }),
+      "ประเภทขยะ": typesMap[log.waste_type]?.label || log.waste_type,
+      "น้ำหนัก (กก.)": log.weight_kg,
+      "บริษัทที่ขนส่ง": log.carrier_name || "-",
+      "เลขที่ใบกำกับการขนส่ง": log.manifest_no || "-",
+      "ค่ากำจัด (บาท)": log.cost_thb || 0,
+      "วันที่บันทึก": format(new Date(log.created_at), "d MMM yy HH:mm", { locale: th }),
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Waste Logs");
+    XLSX.writeFile(wb, `waste-log-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    toast.success("ส่งออกไฟล์ Excel สำเร็จ");
+  };
+
+  return (
+    <div className="w-full max-w-none px-2 md:px-6 space-y-4 pb-10">
+      <PageHeader title="ระบบจัดการขยะ" subtitle="บันทึกข้อมูล ปริมาณขยะ และขยะติดเชื้อ">
+        <Button size="sm" variant="outline" className="h-9 rounded-2xl text-xs gap-1" onClick={() => setSettingsOpen(true)}>⚙️ ตั้งค่า</Button>
+        <Button size="sm" variant="outline" className="h-9 rounded-2xl text-xs gap-1 border-emerald-200 text-emerald-700" onClick={exportExcel}><Download className="h-3.5 w-3.5" /> Excel</Button>
+        <Button size="sm" className="h-9 rounded-2xl text-xs" onClick={() => { setEditingLog(null); setShowForm(!showForm); }}>{showForm ? "ซ่อนฟอร์ม" : "+ บันทึกขยะ"}</Button>
+      </PageHeader>
+
+      <Card className="border border-border/50 shadow-card rounded-2xl">
+        <CardContent className="p-4 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <Select value={filterPeriod} onValueChange={setFilterPeriod}>
+              <SelectTrigger className="h-10 text-sm w-36 rounded-2xl"><SelectValue placeholder="เลือกช่วงเวลา" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทั้งหมด</SelectItem>
+                <SelectItem value="day">วันนี้</SelectItem>
+                <SelectItem value="week">สัปดาห์นี้</SelectItem>
+                <SelectItem value="month">เดือนนี้</SelectItem>
+                <SelectItem value="custom">เลือกวันที่</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {filterPeriod === "custom" && (
+            <div className="flex flex-wrap gap-2 animate-fade-in">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("text-sm h-10 w-44 justify-start rounded-2xl", !customFrom && "text-slate-500")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customFrom ? format(customFrom, "d MMM yyyy", { locale: th }) : "วันเริ่มต้น"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={customFrom} onSelect={setCustomFrom} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("text-sm h-10 w-44 justify-start rounded-2xl", !customTo && "text-slate-500")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customTo ? format(customTo, "d MMM yyyy", { locale: th }) : "วันสิ้นสุด"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={customTo} onSelect={setCustomTo} disabled={(d) => d > new Date() || (customFrom ? d < customFrom : false)} initialFocus className="p-3 pointer-events-
