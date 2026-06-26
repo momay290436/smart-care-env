@@ -130,7 +130,7 @@ export default function FireCheck() {
     staleTime: 60000,
   });
 
-  // ระบบดึงไอดีถังที่ผ่านการตรวจในเดือนนี้ แบบคุ้มครอง IO Budget สูงสุดตามเงื่อนไข
+// ระบบดึงไอดีถังที่ผ่านการตรวจในเดือนนี้ แบบคุ้มครอง IO Budget และปลดล็อกให้รีเฟรชแมนนวลได้ทันที
   const { data: monthlyCheckedIds = [], refetch: refetchMonthlyRecords, isFetching: isSyncing } = useQuery({
     queryKey: ["fire-monthly-checked-ids", manualTrigger],
     queryFn: async () => {
@@ -155,20 +155,23 @@ export default function FireCheck() {
         return [];
       }
     },
+    // แก้ไขจุดนี้: ปลดล็อกเงื่อนไขเพื่อให้ปุ่มรีเฟรชแมนนวลสามารถทำงานดึงข้อมูลใหม่ได้เสมอเมื่อผู้ใช้ต้องการ
     enabled: (() => {
+      // ถ้านี่เป็นการกดปุ่มรีเฟรชด้วยมือ (manualTrigger เปลี่ยนค่า) ให้ทำงานทันที
+      if (manualTrigger > 0) return true;
+
       const today = new Date();
-      const todayStr = today.toISOString().split("T")[0];
       const lastSync = localStorage.getItem("fire_extinguisher_last_sync");
       const cachedData = localStorage.getItem("fire_check_cached_ids");
 
-      // เงื่อนไขที่ 1: เป็นวันที่ 15 และวันนี้ยังไม่เคยดึงข้อมูลเลยรอบหลัก ให้ยิงดึงอัตโนมัติ
+      // เงื่อนไขอัตโนมัติประจำวันที่ 15
       if (today.getDate() === 15 && (!lastSync || !lastSync.includes(format(today, "d/M/yyyy")))) {
         return true;
       }
-      // เงื่อนไขที่ 2: หากไม่มีค่าแคชเก่าในเครื่องเลยให้ดึงครั้งแรก
+      // หากไม่มีข้อมูลแคชเลย ให้ดึงข้อมูลครั้งแรก
       if (!lastSync || !cachedData) return true;
       
-      return manualTrigger > 0;
+      return false;
     })(),
   });
 
