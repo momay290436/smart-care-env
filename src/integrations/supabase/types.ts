@@ -280,6 +280,80 @@ export type Database = {
         }
         Relationships: []
       }
+      electricity_logs: {
+        Row: {
+          created_at: string
+          current_value: number
+          current_water_value: number | null
+          id: string
+          meter_id: string | null
+          previous_value: number | null
+          previous_water_value: number | null
+          recorded_by: string | null
+          recorded_by_name: string | null
+          units_used: number | null
+        }
+        Insert: {
+          created_at?: string
+          current_value: number
+          current_water_value?: number | null
+          id?: string
+          meter_id?: string | null
+          previous_value?: number | null
+          previous_water_value?: number | null
+          recorded_by?: string | null
+          recorded_by_name?: string | null
+          units_used?: number | null
+        }
+        Update: {
+          created_at?: string
+          current_value?: number
+          current_water_value?: number | null
+          id?: string
+          meter_id?: string | null
+          previous_value?: number | null
+          previous_water_value?: number | null
+          recorded_by?: string | null
+          recorded_by_name?: string | null
+          units_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electricity_logs_meter_id_fkey"
+            columns: ["meter_id"]
+            isOneToOne: false
+            referencedRelation: "electricity_meters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electricity_meters: {
+        Row: {
+          created_at: string
+          id: string
+          location_code: string
+          meter_name: string
+          qr_url: string | null
+          serial_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_code: string
+          meter_name: string
+          qr_url?: string | null
+          serial_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_code?: string
+          meter_name?: string
+          qr_url?: string | null
+          serial_number?: string | null
+        }
+        Relationships: []
+      }
       env_round_items: {
         Row: {
           category: string

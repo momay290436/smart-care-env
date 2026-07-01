@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
-import { Plus, Download, FlaskConical, Trash2 } from "lucide-react";
+import { Plus, Download, FlaskConical, Trash2, Pencil } from "lucide-react";
 import * as XLSX from "xlsx";
 
 interface Props {
@@ -253,6 +253,8 @@ export default function WastewaterTab() {
   const [openInsert, setOpenInsert] = useState(false);
   const [filterMonth, setFilterMonth] = useState(format(new Date(), "yyyy-MM"));
   const [showAll, setShowAll] = useState(false);
+  const [editRow, setEditRow] = useState<any>(null);
+  const [editForm, setEditForm] = useState<any>({});
 
   const { data: logs = [] } = useQuery({
     queryKey: ["wastewater-logs"],
@@ -280,6 +282,31 @@ export default function WastewaterTab() {
     onSuccess: () => {
       toast.success("ลบสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["wastewater-logs"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateLog = useMutation({
+    mutationFn: async () => {
+      const payload: any = {
+        check_date: editForm.check_date,
+        check_time: editForm.check_time,
+        chlorine_residual: editForm.chlorine_residual !== "" ? Number(editForm.chlorine_residual) : null,
+        ph_value: editForm.ph_value !== "" ? Number(editForm.ph_value) : null,
+        water_appearance: editForm.water_appearance || null,
+        treated_water_color: editForm.treated_water_color || null,
+        aerator_status: editForm.aerator_status,
+        sludge_pump_status: editForm.sludge_pump_status,
+        recorder_name: editForm.recorder_name || null,
+        notes: editForm.notes || null,
+      };
+      const { error } = await (supabase as any).from("wastewater_inspection_logs").update(payload).eq("id", editRow.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("แก้ไขสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["wastewater-logs"] });
+      setEditRow(null);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -390,9 +417,28 @@ export default function WastewaterTab() {
                       <td className="px-2 py-2 text-xs">{l.recorder_name || "-"}</td>
                       {isAdmin && (
                         <td className="px-2 py-2 text-center">
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => { if (confirm("ยืนยันลบ?")) deleteLog.mutate(l.id); }}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          <div className="flex gap-1 justify-center">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:bg-blue-100" onClick={() => {
+                              setEditRow(l);
+                              setEditForm({
+                                check_date: l.check_date || "",
+                                check_time: (l.check_time || "").substring(0, 5),
+                                chlorine_residual: l.chlorine_residual ?? "",
+                                ph_value: l.ph_value ?? "",
+                                water_appearance: l.water_appearance || "",
+                                treated_water_color: l.treated_water_color || "",
+                                aerator_status: l.aerator_status || "normal",
+                                sludge_pump_status: l.sludge_pump_status || "normal",
+                                recorder_name: l.recorder_name || "",
+                                notes: l.notes || "",
+                              });
+                            }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => { if (confirm("ยืนยันลบ?")) deleteLog.mutate(l.id); }}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -408,6 +454,35 @@ export default function WastewaterTab() {
       </Card>
 
       <WastewaterInsertDialog open={openInsert} onOpenChange={setOpenInsert} />
+
+      <Dialog open={!!editRow} onOpenChange={(o) => !o && setEditRow(null)}>
+        <DialogContent className="rounded-3xl max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>แก้ไขข้อมูลตรวจบำบัดน้ำเสีย</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">วันที่</Label><Input type="date" value={editForm.check_date} onChange={(e) => setEditForm({ ...editForm, check_date: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">เวลา</Label><Input type="time" value={editForm.check_time} onChange={(e) => setEditForm({ ...editForm, check_time: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">คลอรีน (mg/l)</Label><Input type="number" step="0.01" value={editForm.chlorine_residual} onChange={(e) => setEditForm({ ...editForm, chlorine_residual: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">PH</Label><Input type="number" step="0.01" value={editForm.ph_value} onChange={(e) => setEditForm({ ...editForm, ph_value: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">ลักษณะน้ำ</Label><Input value={editForm.water_appearance} onChange={(e) => setEditForm({ ...editForm, water_appearance: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">สีของน้ำบำบัด</Label><Input value={editForm.treated_water_color} onChange={(e) => setEditForm({ ...editForm, treated_water_color: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">เครื่องเติมอากาศ</Label>
+                <select value={editForm.aerator_status} onChange={(e) => setEditForm({ ...editForm, aerator_status: e.target.value })} className="h-10 w-full rounded-xl border px-2">
+                  <option value="normal">ปกติ</option><option value="abnormal">ไม่ปกติ</option>
+                </select>
+              </div>
+              <div><Label className="text-xs">เครื่องสูบตะกอน</Label>
+                <select value={editForm.sludge_pump_status} onChange={(e) => setEditForm({ ...editForm, sludge_pump_status: e.target.value })} className="h-10 w-full rounded-xl border px-2">
+                  <option value="normal">ปกติ</option><option value="abnormal">ไม่ปกติ</option>
+                </select>
+              </div>
+            </div>
+            <div><Label className="text-xs">ผู้บันทึก</Label><Input value={editForm.recorder_name} onChange={(e) => setEditForm({ ...editForm, recorder_name: e.target.value })} className="h-10 rounded-xl" /></div>
+            <div><Label className="text-xs">หมายเหตุ</Label><Textarea rows={2} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} className="rounded-xl" /></div>
+            <Button className="w-full h-11 rounded-2xl bg-emerald-600 hover:bg-emerald-700" disabled={updateLog.isPending} onClick={() => updateLog.mutate()}>{updateLog.isPending ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

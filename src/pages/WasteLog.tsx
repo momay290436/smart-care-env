@@ -933,7 +933,13 @@ export default function WasteLog() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                    {filteredInfectious.map((r: any) => {
+                     {[...filteredInfectious]
+                       .sort((a: any, b: any) => {
+                         const da = new Date(a.collection_date || a.created_at || 0).getTime();
+                         const db = new Date(b.collection_date || b.created_at || 0).getTime();
+                         return db - da;
+                       })
+                       .map((r: any) => {
                       const total = (Number(r.sharp_waste_kg) || 0) + (Number(r.non_sharp_waste_kg) || 0);
                       return (
                         <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
@@ -946,14 +952,31 @@ export default function WasteLog() {
                           <td className="p-4 text-xs">{r.transfer_date ? format(new Date(r.transfer_date), "d MMM yy", { locale: th }) : <span className="text-slate-400">ยังไม่ส่งมอบ</span>}</td>
                           {isAdmin && (
                             <td className="p-4 text-center">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl" 
-                                onClick={() => handleEditInfectiousDirect(r.collection_date)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
+                              <div className="flex justify-center gap-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl" 
+                                  onClick={() => handleEditInfectiousDirect(r.collection_date)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl"
+                                  onClick={async () => {
+                                    if (!confirm("ต้องการลบรายการขยะติดเชื้อนี้หรือไม่?")) return;
+                                    const { error } = await supabase.from("infectious_waste_records").delete().eq("id", r.id);
+                                    if (error) { toast.error(error.message); return; }
+                                    toast.success("ลบสำเร็จ");
+                                    queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
+                                    queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </td>
                           )}
                         </tr>

@@ -13,7 +13,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import PageHeader from "@/components/PageHeader";
-import { ChevronRight, Image as ImageIcon } from "lucide-react";
+import { ChevronRight, Image as ImageIcon, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 const SEVERITY_CONFIG: Record<string, { label: string; color: string; bg: string; order: number }> = {
   high: { label: "สูง", color: "text-red-700", bg: "bg-red-50 border-red-200", order: 0 },
@@ -41,6 +42,8 @@ export default function IssueManagement() {
   const [filterDept, setFilterDept] = useState("all");
   const [selected, setSelected] = useState<any>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [addForm, setAddForm] = useState<any>({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "" });
 
   const { data: deptList = [] } = useQuery({
     queryKey: ["departments"],
@@ -90,6 +93,35 @@ export default function IssueManagement() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const createIssue = useMutation({
+    mutationFn: async () => {
+      if (!addForm.title.trim()) throw new Error("กรุณากรอกหัวข้อปัญหา");
+      const payload: any = {
+        title: addForm.title.trim(),
+        description: addForm.description || null,
+        severity: addForm.severity,
+        status: addForm.status,
+        source_module: "manual",
+        created_by: user?.id || null,
+        resolution_notes: addForm.resolution_notes || null,
+        department_name: addForm.department_name || null,
+      };
+      if (addForm.status === "resolved") {
+        payload.resolved_at = new Date().toISOString();
+        payload.resolved_by = user?.id || null;
+      }
+      const { error } = await supabase.from("issues").insert(payload);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("เพิ่มปัญหาสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["issues"] });
+      setShowAddDialog(false);
+      setAddForm({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "" });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const handleStatusChange = (issue: any, newStatus: string) => {
     updateStatus.mutate({ id: issue.id, status: newStatus });
   };
@@ -102,7 +134,11 @@ export default function IssueManagement() {
 
   return (
     <div className="space-y-5 pb-6">
-      <PageHeader title="จัดการปัญหา" subtitle="Issue Management — รวบรวมปัญหาจากทุกระบบ" />
+      <PageHeader title="จัดการปัญหา" subtitle="Issue Management — รวบรวมปัญหาจากทุกระบบ">
+        <Button className="rounded-2xl h-10 gap-1.5 bg-slate-900 hover:bg-slate-800" onClick={() => setShowAddDialog(true)}>
+          <Plus className="h-4 w-4" /> เพิ่มปัญหา
+        </Button>
+      </PageHeader>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -251,6 +287,63 @@ export default function IssueManagement() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Issue Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="text-xl">เพิ่มปัญหาที่พบ</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-semibold">หัวข้อปัญหา *</Label>
+              <Input value={addForm.title} onChange={(e) => setAddForm({ ...addForm, title: e.target.value })} placeholder="เช่น อุปกรณ์ชำรุด" className="h-11 rounded-2xl mt-1" />
+            </div>
+            <div>
+              <Label className="text-sm font-semibold">แผนก / พื้นที่</Label>
+              <Select value={addForm.department_name} onValueChange={(v) => setAddForm({ ...addForm, department_name: v })}>
+                <SelectTrigger className="h-11 rounded-2xl mt-1"><SelectValue placeholder="เลือกแผนก" /></SelectTrigger>
+                <SelectContent>
+                  {deptList.map((d: any) => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm font-semibold">รายละเอียดปัญหาที่พบ</Label>
+              <Textarea rows={3} value={addForm.description} onChange={(e) => setAddForm({ ...addForm, description: e.target.value })} placeholder="อธิบายรายละเอียด..." className="rounded-2xl mt-1" />
+            </div>
+            <div>
+              <Label className="text-sm font-semibold">แนวทางจัดการ</Label>
+              <Textarea rows={2} value={addForm.resolution_notes} onChange={(e) => setAddForm({ ...addForm, resolution_notes: e.target.value })} placeholder="ระบุแนวทางแก้ไข..." className="rounded-2xl mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-semibold">ความรุนแรง</Label>
+                <Select value={addForm.severity} onValueChange={(v) => setAddForm({ ...addForm, severity: v })}>
+                  <SelectTrigger className="h-11 rounded-2xl mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">สูง</SelectItem>
+                    <SelectItem value="medium">ปานกลาง</SelectItem>
+                    <SelectItem value="low">ต่ำ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-semibold">สถานะ</Label>
+                <Select value={addForm.status} onValueChange={(v) => setAddForm({ ...addForm, status: v })}>
+                  <SelectTrigger className="h-11 rounded-2xl mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">รอดำเนินการ</SelectItem>
+                    <SelectItem value="in_progress">กำลังดำเนินการ</SelectItem>
+                    <SelectItem value="resolved">ได้รับการแก้ไขแล้ว</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-base font-bold" disabled={createIssue.isPending} onClick={() => createIssue.mutate()}>
+              {createIssue.isPending ? "กำลังบันทึก..." : "บันทึกปัญหา"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

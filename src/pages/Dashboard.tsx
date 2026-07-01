@@ -262,7 +262,27 @@ export default function Dashboard() {
         .lte("created_at", wasteRange.to)
         .order("created_at", { ascending: true });
       
-      const combinedData = wasteLogsData || [];
+      // Merge infectious waste records not already accounted for in waste_logs
+      const { data: infRecs } = await supabase
+        .from("infectious_waste_records")
+        .select("collection_date, sharp_waste_kg, non_sharp_waste_kg, created_at")
+        .gte("collection_date", wasteRange.from.substring(0, 10))
+        .lte("collection_date", wasteRange.to.substring(0, 10));
+      const existingInfKeys = new Set(
+        (wasteLogsData || [])
+          .filter((l: any) => (l.waste_type || "").toString().toLowerCase().includes("infect") || l.waste_type === "infectious")
+          .map((l: any) => `${(l.created_at || "").substring(0, 10)}|${Number(l.weight)}`)
+      );
+      const extraInf = (infRecs || [])
+        .map((r: any) => {
+          const w = Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0);
+          const day = r.collection_date || (r.created_at || "").substring(0, 10);
+          const key = `${day}|${w}`;
+          if (existingInfKeys.has(key)) return null;
+          return { waste_type: "infectious", weight: w, created_at: `${day}T08:00:00` };
+        })
+        .filter(Boolean) as any[];
+      const combinedData = [...(wasteLogsData || []), ...extraInf];
       if (combinedData.length === 0) return { byType: [], byDay: [], total: 0, allTypes: [] };
       
       const typeMap: Record<string, number> = {}; let total = 0;
