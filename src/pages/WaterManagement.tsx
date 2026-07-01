@@ -1099,26 +1099,32 @@ export default function WaterManagement() {
                                 <td className={cn("px-4 py-3 text-right text-xs", isAbnormal ? "text-red-700" : "text-slate-700")}>{r.outlet_ph ?? "-"}</td>
                                 <td className={cn("px-4 py-3 text-center text-xs", isAbnormal ? "text-red-700" : "text-slate-600")}>{r.inspector_name || "-"}</td>
                                 <td className={cn("px-4 py-3 text-xs", isAbnormal ? "text-red-700" : "text-slate-600")}>{r.notes || "-"}</td>
-                                <td className="px-4 py-3 text-center text-xs flex gap-1 justify-center">
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-green-100 text-green-600" onClick={() => {
-                                    setSelectedQualityLog(r);
-                                    setShowDetailDialog(true);
-                                  }}>
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-blue-100 text-blue-600" onClick={() => {
-                                  setEditingDisinfectantLog(r);
-                                  setEditDisinfectantForm({ source_concentration: String(r.source_concentration || ""), source_ph: String(r.source_ph || ""), outlet_concentration: String(r.outlet_concentration || ""), outlet_ph: String(r.outlet_ph || ""), notes: r.notes || "" });
-                                  setShowEditDisinfectantDialog(true);
-                                }}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-red-100 text-red-600" onClick={() => {
-                                  if (confirm("ยืนยันการลบ?")) deleteDisinfectantLog.mutate(r.id);
-                                }}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </td>
+                                <td className="px-4 py-3 text-center text-xs">
+                                  <div className="flex gap-1 justify-center">
+                                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-green-100 text-green-600" onClick={() => {
+                                      setSelectedQualityLog(r);
+                                      setShowDetailDialog(true);
+                                    }}>
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    {isAdmin && (
+                                      <>
+                                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-blue-100 text-blue-600" onClick={() => {
+                                          setEditingDisinfectantLog(r);
+                                          setEditDisinfectantForm({ source_concentration: String(r.source_concentration || ""), source_ph: String(r.source_ph || ""), outlet_concentration: String(r.outlet_concentration || ""), outlet_ph: String(r.outlet_ph || ""), notes: r.notes || "" });
+                                          setShowEditDisinfectantDialog(true);
+                                        }}>
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-red-100 text-red-600" onClick={() => {
+                                          if (confirm("ยืนยันการลบ?")) deleteDisinfectantLog.mutate(r.id);
+                                        }}>
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
                             </tr>
                           )}
                         ))}
