@@ -15,7 +15,6 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { Plus, Download, FlaskConical, Trash2, Pencil } from "lucide-react";
-import { Input as InputBase } from "@/components/ui/input";
 import * as XLSX from "xlsx";
 
 interface Props {
