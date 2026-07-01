@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Download, Plus, Trash2, BarChart3 } from "lucide-react";
+import { Download, Plus, Trash2, BarChart3, Pencil } from "lucide-react";
 import * as XLSX from "xlsx";
 
 interface DialogProps {
@@ -209,6 +209,8 @@ export default function WastewaterStatsHistory() {
   const queryClient = useQueryClient();
   const [filterMonth, setFilterMonth] = useState(format(new Date(), "yyyy-MM"));
   const [showAll, setShowAll] = useState(false);
+  const [editRow, setEditRow] = useState<any>(null);
+  const [editForm, setEditForm] = useState<any>({});
 
   const { data: rows = [] } = useQuery({
     queryKey: ["wastewater-stats"],
@@ -244,6 +246,30 @@ export default function WastewaterStatsHistory() {
     onSuccess: () => {
       toast.success("ลบสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["wastewater-stats"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const upd = useMutation({
+    mutationFn: async () => {
+      const payload: any = {
+        record_date: editForm.record_date,
+        electricity_usage: editForm.electricity_usage !== "" ? Number(editForm.electricity_usage) : null,
+        water_usage: editForm.water_usage !== "" ? Number(editForm.water_usage) : null,
+        wastewater_volume: editForm.wastewater_volume !== "" ? Number(editForm.wastewater_volume) : null,
+        chemical_substances: editForm.chemical_substances || null,
+        chemical_amount: editForm.chemical_amount !== "" ? Number(editForm.chemical_amount) : null,
+        recorder_name: editForm.recorder_name || null,
+        notes: editForm.notes || null,
+        problems_and_solutions: editForm.problems_and_solutions || null,
+      };
+      const { error } = await (supabase as any).from("wastewater_statistics_logs").update(payload).eq("id", editRow.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("แก้ไขสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["wastewater-stats"] });
+      setEditRow(null);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -355,9 +381,27 @@ export default function WastewaterStatsHistory() {
                     <td className="px-2 py-2">{r.recorder_name || "-"}</td>
                     {isAdmin && (
                       <td className="px-2 py-2 text-center">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => { if (confirm("ยืนยันลบ?")) del.mutate(r.id); }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex gap-1 justify-center">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:bg-blue-100" onClick={() => {
+                            setEditRow(r);
+                            setEditForm({
+                              record_date: r.record_date || "",
+                              electricity_usage: r.electricity_usage ?? "",
+                              water_usage: r.water_usage ?? "",
+                              wastewater_volume: r.wastewater_volume ?? "",
+                              chemical_substances: r.chemical_substances || "",
+                              chemical_amount: r.chemical_amount ?? "",
+                              recorder_name: r.recorder_name || "",
+                              notes: r.notes || "",
+                              problems_and_solutions: r.problems_and_solutions || "",
+                            });
+                          }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => { if (confirm("ยืนยันลบ?")) del.mutate(r.id); }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -371,5 +415,26 @@ export default function WastewaterStatsHistory() {
         </div>
       </CardContent>
     </Card>
+
+    <Dialog open={!!editRow} onOpenChange={(o) => !o && setEditRow(null)}>
+      <DialogContent className="rounded-3xl max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>แก้ไขข้อมูลสถิติบำบัดน้ำเสีย</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label className="text-xs">วันที่</Label><Input type="date" value={editForm.record_date} onChange={(e) => setEditForm({ ...editForm, record_date: e.target.value })} className="h-10 rounded-xl" /></div>
+            <div><Label className="text-xs">ไฟฟ้า</Label><Input type="number" step="0.01" value={editForm.electricity_usage} onChange={(e) => setEditForm({ ...editForm, electricity_usage: e.target.value })} className="h-10 rounded-xl" /></div>
+            <div><Label className="text-xs">น้ำใช้</Label><Input type="number" step="0.01" value={editForm.water_usage} onChange={(e) => setEditForm({ ...editForm, water_usage: e.target.value })} className="h-10 rounded-xl" /></div>
+            <div><Label className="text-xs">น้ำเสีย</Label><Input type="number" step="0.01" value={editForm.wastewater_volume} onChange={(e) => setEditForm({ ...editForm, wastewater_volume: e.target.value })} className="h-10 rounded-xl" /></div>
+            <div><Label className="text-xs">สารเคมี</Label><Input value={editForm.chemical_substances} onChange={(e) => setEditForm({ ...editForm, chemical_substances: e.target.value })} className="h-10 rounded-xl" /></div>
+            <div><Label className="text-xs">ปริมาณสารเคมี</Label><Input type="number" step="0.01" value={editForm.chemical_amount} onChange={(e) => setEditForm({ ...editForm, chemical_amount: e.target.value })} className="h-10 rounded-xl" /></div>
+          </div>
+          <div><Label className="text-xs">ผู้บันทึก</Label><Input value={editForm.recorder_name} onChange={(e) => setEditForm({ ...editForm, recorder_name: e.target.value })} className="h-10 rounded-xl" /></div>
+          <div><Label className="text-xs">ปัญหา/แก้ไข</Label><Input value={editForm.problems_and_solutions} onChange={(e) => setEditForm({ ...editForm, problems_and_solutions: e.target.value })} className="h-10 rounded-xl" /></div>
+          <div><Label className="text-xs">หมายเหตุ</Label><Textarea rows={2} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} className="rounded-xl" /></div>
+          <Button className="w-full h-11 rounded-2xl bg-orange-600 hover:bg-orange-700" disabled={upd.isPending} onClick={() => upd.mutate()}>{upd.isPending ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
