@@ -1037,19 +1037,25 @@ export default function WaterManagement() {
                                 <td className="px-4 py-3 text-right text-xs text-cyan-700 font-bold">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
                                 <td className="px-4 py-3 text-center text-xs text-slate-600">{r.recorder_name || "-"}</td>
                                 <td className="px-4 py-3 text-xs text-slate-600">{r.notes || "-"}</td>
-                                <td className="px-4 py-3 text-center text-xs flex gap-1 justify-center">
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-blue-100 text-blue-600" onClick={() => {
-                                    setEditingMeterRecord(r);
-                                    setEditMeterForm({ meter_reading: String(r.meter_reading), usage_amount: String(r.usage_amount || ""), notes: r.notes || "" });
-                                    setShowEditMeterDialog(true);
-                                  }}>
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-red-100 text-red-600" onClick={() => {
-                                    if (confirm("ยืนยันการลบ?")) deleteMeterRecord.mutate(r.id);
-                                  }}>
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                <td className="px-4 py-3 text-center text-xs">
+                                  {isAdmin ? (
+                                    <div className="flex gap-1 justify-center">
+                                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-blue-100 text-blue-600" onClick={() => {
+                                        setEditingMeterRecord(r);
+                                        setEditMeterForm({ meter_reading: String(r.meter_reading), usage_amount: String(r.usage_amount || ""), notes: r.notes || "" });
+                                        setShowEditMeterDialog(true);
+                                      }}>
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-red-100 text-red-600" onClick={() => {
+                                        if (confirm("ยืนยันการลบ?")) deleteMeterRecord.mutate(r.id);
+                                      }}>
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-300">—</span>
+                                  )}
                                 </td>
                               </tr>
                             ))
