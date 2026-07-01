@@ -460,12 +460,12 @@ export default function WastewaterTab() {
           <DialogHeader><DialogTitle>แก้ไขข้อมูลตรวจบำบัดน้ำเสีย</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">วันที่</Label><InputBase type="date" value={editForm.check_date} onChange={(e) => setEditForm({ ...editForm, check_date: e.target.value })} className="h-10 rounded-xl" /></div>
-              <div><Label className="text-xs">เวลา</Label><InputBase type="time" value={editForm.check_time} onChange={(e) => setEditForm({ ...editForm, check_time: e.target.value })} className="h-10 rounded-xl" /></div>
-              <div><Label className="text-xs">คลอรีน (mg/l)</Label><InputBase type="number" step="0.01" value={editForm.chlorine_residual} onChange={(e) => setEditForm({ ...editForm, chlorine_residual: e.target.value })} className="h-10 rounded-xl" /></div>
-              <div><Label className="text-xs">PH</Label><InputBase type="number" step="0.01" value={editForm.ph_value} onChange={(e) => setEditForm({ ...editForm, ph_value: e.target.value })} className="h-10 rounded-xl" /></div>
-              <div><Label className="text-xs">ลักษณะน้ำ</Label><InputBase value={editForm.water_appearance} onChange={(e) => setEditForm({ ...editForm, water_appearance: e.target.value })} className="h-10 rounded-xl" /></div>
-              <div><Label className="text-xs">สีของน้ำบำบัด</Label><InputBase value={editForm.treated_water_color} onChange={(e) => setEditForm({ ...editForm, treated_water_color: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">วันที่</Label><Input type="date" value={editForm.check_date} onChange={(e) => setEditForm({ ...editForm, check_date: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">เวลา</Label><Input type="time" value={editForm.check_time} onChange={(e) => setEditForm({ ...editForm, check_time: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">คลอรีน (mg/l)</Label><Input type="number" step="0.01" value={editForm.chlorine_residual} onChange={(e) => setEditForm({ ...editForm, chlorine_residual: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">PH</Label><Input type="number" step="0.01" value={editForm.ph_value} onChange={(e) => setEditForm({ ...editForm, ph_value: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">ลักษณะน้ำ</Label><Input value={editForm.water_appearance} onChange={(e) => setEditForm({ ...editForm, water_appearance: e.target.value })} className="h-10 rounded-xl" /></div>
+              <div><Label className="text-xs">สีของน้ำบำบัด</Label><Input value={editForm.treated_water_color} onChange={(e) => setEditForm({ ...editForm, treated_water_color: e.target.value })} className="h-10 rounded-xl" /></div>
               <div><Label className="text-xs">เครื่องเติมอากาศ</Label>
                 <select value={editForm.aerator_status} onChange={(e) => setEditForm({ ...editForm, aerator_status: e.target.value })} className="h-10 w-full rounded-xl border px-2">
                   <option value="normal">ปกติ</option><option value="abnormal">ไม่ปกติ</option>
@@ -477,7 +477,7 @@ export default function WastewaterTab() {
                 </select>
               </div>
             </div>
-            <div><Label className="text-xs">ผู้บันทึก</Label><InputBase value={editForm.recorder_name} onChange={(e) => setEditForm({ ...editForm, recorder_name: e.target.value })} className="h-10 rounded-xl" /></div>
+            <div><Label className="text-xs">ผู้บันทึก</Label><Input value={editForm.recorder_name} onChange={(e) => setEditForm({ ...editForm, recorder_name: e.target.value })} className="h-10 rounded-xl" /></div>
             <div><Label className="text-xs">หมายเหตุ</Label><Textarea rows={2} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} className="rounded-xl" /></div>
             <Button className="w-full h-11 rounded-2xl bg-emerald-600 hover:bg-emerald-700" disabled={updateLog.isPending} onClick={() => updateLog.mutate()}>{updateLog.isPending ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}</Button>
           </div>
