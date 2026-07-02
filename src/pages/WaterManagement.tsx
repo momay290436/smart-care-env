@@ -893,44 +893,42 @@ export default function WaterManagement() {
             {/* Date Range Filter */}
             <Card className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl shadow-2xl border border-slate-200/80 ring-1 ring-slate-200/70">
               <CardContent className="p-5 md:p-6">
-                <div className="grid gap-4 xl:grid-cols-[1.2fr_auto] xl:items-end">
-                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-                    <div className="rounded-[32px] bg-white shadow-sm border border-slate-200 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">กรองวันที่</p>
-                      <div className="mt-3 flex flex-col gap-2">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className={cn("text-sm h-10 rounded-2xl justify-start", !filterStartDate && "text-slate-400")}> 
-                              {filterStartDate ? format(filterStartDate, "d MMM yy", { locale: th }) : "วันเริ่มต้น"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={filterStartDate} onSelect={setFilterStartDate} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
-                          </PopoverContent>
-                        </Popover>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className={cn("text-sm h-10 rounded-2xl justify-start", !filterEndDate && "text-slate-400")}> 
-                              {filterEndDate ? format(filterEndDate, "d MMM yy", { locale: th }) : "วันสิ้นสุด"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={filterEndDate} onSelect={setFilterEndDate} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
+                <div className="flex flex-col xl:flex-row gap-4 xl:items-center xl:justify-between">
+                  <div className="rounded-2xl bg-white shadow-sm border border-slate-200 px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">ช่วงวันที่:</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("text-sm h-9 rounded-xl justify-start", !filterStartDate && "text-slate-400")}>
+                            {filterStartDate ? format(filterStartDate, "d MMM yy", { locale: th }) : "เริ่ม"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={filterStartDate} onSelect={setFilterStartDate} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                      <span className="text-slate-400">–</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("text-sm h-9 rounded-xl justify-start", !filterEndDate && "text-slate-400")}>
+                            {filterEndDate ? format(filterEndDate, "d MMM yy", { locale: th }) : "สิ้นสุด"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={filterEndDate} onSelect={setFilterEndDate} disabled={(d) => d > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
                     </div>
-
-                    <div className="rounded-[32px] bg-white shadow-sm border border-slate-200 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">สรุปข้อมูล</p>
-                      <p className="mt-3 text-3xl font-black text-cyan-700">{meterSummary.totalUsage.toLocaleString()}</p>
-                      <p className="mt-1 text-sm text-slate-600">รวมลบ.ม.</p>
+                    <div className="h-8 w-px bg-slate-200 hidden sm:block" />
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">รวม:</span>
+                      <span className="text-2xl font-black text-cyan-700">{meterSummary.totalUsage.toLocaleString()}</span>
+                      <span className="text-xs text-slate-500">ลบ.ม.</span>
                     </div>
-
-                    <div className="rounded-[32px] bg-white shadow-sm border border-slate-200 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">เฉลี่ยต่อวัน</p>
-                      <p className="mt-3 text-3xl font-black text-slate-900">{meterSummary.averageUsage.toLocaleString()}</p>
-                      <p className="mt-1 text-sm text-slate-600">ลบ.ม./วัน</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">เฉลี่ย/วัน:</span>
+                      <span className="text-2xl font-black text-slate-900">{meterSummary.averageUsage.toLocaleString()}</span>
+                      <span className="text-xs text-slate-500">ลบ.ม./วัน</span>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-end">
