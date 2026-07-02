@@ -637,6 +637,90 @@ function MaintenanceTab() {
 
 // --- Settings Tab ---
 function SettingsTab() {
+  return <SettingsTabInner />;
+}
+
+// --- Issue Areas Tab ---
+function IssueAreasTab() {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const { data: areas = [] } = useQuery({
+    queryKey: ["issue-areas"],
+    queryFn: async () => { const { data } = await supabase.from("issue_areas").select("*").order("name"); return data || []; },
+  });
+
+  const addArea = useMutation({
+    mutationFn: async () => { const { error } = await supabase.from("issue_areas").insert({ name: name.trim() }); if (error) throw error; },
+    onSuccess: () => { toast.success("เพิ่มพื้นที่สำเร็จ"); setName(""); queryClient.invalidateQueries({ queryKey: ["issue-areas"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const updateArea = useMutation({
+    mutationFn: async () => { if (!editId) return; const { error } = await supabase.from("issue_areas").update({ name: editName.trim() }).eq("id", editId); if (error) throw error; },
+    onSuccess: () => { toast.success("แก้ไขสำเร็จ"); setEditId(null); queryClient.invalidateQueries({ queryKey: ["issue-areas"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const deleteArea = useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from("issue_areas").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("ลบสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["issue-areas"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">จัดการรายการ "แผนก / พื้นที่" สำหรับดรอปดาวน์ในหน้าจัดการปัญหา</p>
+      <div className="flex gap-2">
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ชื่อพื้นที่/แผนกใหม่" className="flex-1 h-12 rounded-2xl text-base" />
+        <Button className="h-12 rounded-2xl gap-1.5 px-5" onClick={() => addArea.mutate()} disabled={!name.trim() || addArea.isPending}>
+          <Plus className="h-4 w-4" /> เพิ่ม
+        </Button>
+      </div>
+      {areas.map((a: any) => (
+        <Card key={a.id} className="shadow-card border-0 rounded-2xl">
+          <CardContent className="p-4 flex items-center justify-between gap-2">
+            {editId === a.id ? (
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="flex-1 h-11 rounded-2xl" />
+            ) : (
+              <span className="font-medium text-base">{a.name}</span>
+            )}
+            <div className="flex gap-2">
+              {editId === a.id ? (
+                <>
+                  <Button size="sm" className="rounded-2xl" onClick={() => updateArea.mutate()}>บันทึก</Button>
+                  <Button size="sm" variant="ghost" className="rounded-2xl" onClick={() => setEditId(null)}>ยกเลิก</Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" className="rounded-2xl gap-1.5" onClick={() => { setEditId(a.id); setEditName(a.name); }}>
+                    <Pencil className="h-3.5 w-3.5" /> แก้ไข
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-destructive rounded-2xl gap-1.5" onClick={() => setDeleteId(a.id)}>
+                    <Trash2 className="h-3.5 w-3.5" /> ลบ
+                  </Button>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+      {areas.length === 0 && <p className="text-center text-muted-foreground py-8">ยังไม่มีรายการ</p>}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title="ลบพื้นที่"
+        description="ยืนยันการลบพื้นที่นี้?"
+        confirmLabel="ลบ"
+        onConfirm={() => { if (deleteId) { deleteArea.mutate(deleteId); setDeleteId(null); } }}
+      />
+    </div>
+  );
+}
+
+// --- Settings Tab Inner ---
+function SettingsTabInner() {
   const [lineToken, setLineToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
