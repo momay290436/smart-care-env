@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import PageHeader from "@/components/PageHeader";
+import { exportToExcel } from "@/lib/exportExcel";
 import { ChevronRight, Image as ImageIcon, Plus, CalendarIcon, Trash, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
@@ -195,9 +196,6 @@ export default function IssueManagement() {
         photo_url: i.photo_url || "",
       }));
       const fileName = `issues_export_${format(new Date(), "yyyyMMdd_HHmm")}`;
-      // lazy import helper to avoid bundling issues
-      // @ts-ignore
-      const { exportToExcel } = require("@/lib/exportExcel");
       exportToExcel(rows, fileName, "Issues");
     } catch (e: any) {
       toast.error(e.message || "Export failed");
