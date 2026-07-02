@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import PageHeader from "@/components/PageHeader";
-import { ChevronRight, Image as ImageIcon, Plus, CalendarIcon, Trash } from "lucide-react";
+import { ChevronRight, Image as ImageIcon, Plus, CalendarIcon, Trash, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -66,6 +66,8 @@ export default function IssueManagement() {
       return data || [];
     },
   });
+
+  
 
   const allIssues = useMemo(() => {
     return issues
@@ -176,6 +178,32 @@ export default function IssueManagement() {
     return MODULE_LABELS[m] || null;
   };
 
+  const handleExport = () => {
+    try {
+      const rows = allIssues.map((i: any) => ({
+        id: i.id,
+        title: i.title,
+        description: i.description || "",
+        severity: SEVERITY_CONFIG[i.severity]?.label || i.severity,
+        status: STATUS_CONFIG[i.status]?.label || i.status,
+        module: getModuleLabel(i.source_module) || "",
+        department: i.department_name || "",
+        created_at: i.created_at ? new Date(i.created_at).toISOString() : "",
+        occurred_at: i.occurred_at ? new Date(i.occurred_at).toISOString() : "",
+        resolved_at: i.resolved_at ? new Date(i.resolved_at).toISOString() : "",
+        resolution_notes: i.resolution_notes || "",
+        photo_url: i.photo_url || "",
+      }));
+      const fileName = `issues_export_${format(new Date(), "yyyyMMdd_HHmm")}`;
+      // lazy import helper to avoid bundling issues
+      // @ts-ignore
+      const { exportToExcel } = require("@/lib/exportExcel");
+      exportToExcel(rows, fileName, "Issues");
+    } catch (e: any) {
+      toast.error(e.message || "Export failed");
+    }
+  };
+
   return (
     <div className="space-y-5 pb-6">
       <PageHeader title="จัดการปัญหา" subtitle="Issue Management — รวบรวมปัญหาจากทุกระบบ">
@@ -234,6 +262,9 @@ export default function IssueManagement() {
           </SelectContent>
         </Select>
         <Badge variant="secondary" className="h-12 px-5 flex items-center rounded-2xl text-base">{allIssues.length} รายการ</Badge>
+        <Button variant="outline" className="h-12 rounded-2xl gap-1.5" onClick={handleExport}>
+          <Download className="h-4 w-4" /> Export Excel
+        </Button>
       </div>
 
       {/* Issue List */}
