@@ -44,7 +44,7 @@ const inspectionItems: { key: keyof InspectionDetails; group: string; label: str
 ];
 
 function QrScannerSection({ onResult }: { onResult: (data: string) => void }) {
-  const [showScanner, setShowScanner] = useState(false);
+  const [showScanner, setShowScanner] = useState(true);
   useEffect(() => {
     if (!showScanner) return;
     const scanner = new Html5QrcodeScanner("qr-reader-fire", { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true, facingMode: "environment" } as any, false);
@@ -56,8 +56,8 @@ function QrScannerSection({ onResult }: { onResult: (data: string) => void }) {
   }, [showScanner]);
   return (
     <>
-      <Button variant="outline" className="w-full h-13 rounded-2xl text-base gap-2" onClick={() => setShowScanner(!showScanner)}>
-        📷 {showScanner ? "ปิดกล้อง" : "สแกน QR Code ถังดับเพลิง"}
+      <Button variant="default" className="w-full h-16 rounded-2xl text-lg font-bold gap-2 shadow-lg" onClick={() => setShowScanner(!showScanner)}>
+        📷 {showScanner ? "ปิดกล้อง" : "เปิดกล้องสแกน QR Code"}
       </Button>
       {showScanner && <div id="qr-reader-fire" className="w-full rounded-2xl overflow-hidden" />}
     </>
