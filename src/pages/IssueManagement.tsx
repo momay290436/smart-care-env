@@ -13,8 +13,11 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import PageHeader from "@/components/PageHeader";
-import { ChevronRight, Image as ImageIcon, Plus } from "lucide-react";
+import { ChevronRight, Image as ImageIcon, Plus, CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const SEVERITY_CONFIG: Record<string, { label: string; color: string; bg: string; order: number }> = {
   high: { label: "สูง", color: "text-red-700", bg: "bg-red-50 border-red-200", order: 0 },
@@ -43,13 +46,16 @@ export default function IssueManagement() {
   const [selected, setSelected] = useState<any>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [addForm, setAddForm] = useState<any>({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "" });
+  const [addForm, setAddForm] = useState<any>({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "", photo_url: "", occurred_at: undefined as Date | undefined, resolved_at: undefined as Date | undefined });
+  const [editDates, setEditDates] = useState<{ occurred_at?: Date; resolved_at?: Date }>({});
 
   const { data: deptList = [] } = useQuery({
-    queryKey: ["departments"],
+    queryKey: ["issue-areas-list"],
     queryFn: async () => {
-      const { data } = await supabase.from("departments").select("id, name").order("name");
-      return data || [];
+      const { data } = await supabase.from("issue_areas").select("id, name").order("name");
+      if (data && data.length > 0) return data;
+      const { data: depts } = await supabase.from("departments").select("id, name").order("name");
+      return depts || [];
     },
   });
 
@@ -80,6 +86,8 @@ export default function IssueManagement() {
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const update: any = { status, updated_at: new Date().toISOString(), resolution_notes: resolutionNotes || null };
+      if (editDates.occurred_at) update.occurred_at = editDates.occurred_at.toISOString();
+      if (editDates.resolved_at) update.resolved_at = editDates.resolved_at.toISOString();
       if (status === "resolved") { update.resolved_at = new Date().toISOString(); update.resolved_by = user?.id; }
       const { error } = await supabase.from("issues").update(update).eq("id", id);
       if (error) throw error;
@@ -89,7 +97,21 @@ export default function IssueManagement() {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       setSelected(null);
       setResolutionNotes("");
+      setEditDates({});
     },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const saveDatesOnly = useMutation({
+    mutationFn: async () => {
+      if (!selected) return;
+      const update: any = { updated_at: new Date().toISOString() };
+      update.occurred_at = editDates.occurred_at ? editDates.occurred_at.toISOString() : null;
+      update.resolved_at = editDates.resolved_at ? editDates.resolved_at.toISOString() : null;
+      const { error } = await supabase.from("issues").update(update).eq("id", selected.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("บันทึกวันที่สำเร็จ"); queryClient.invalidateQueries({ queryKey: ["issues"] }); setSelected(null); setEditDates({}); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -105,8 +127,13 @@ export default function IssueManagement() {
         created_by: user?.id || null,
         resolution_notes: addForm.resolution_notes || null,
         department_name: addForm.department_name || null,
+        photo_url: addForm.photo_url?.trim() || null,
+        occurred_at: addForm.occurred_at ? addForm.occurred_at.toISOString() : null,
       };
-      if (addForm.status === "resolved") {
+      if (addForm.resolved_at) {
+        payload.resolved_at = addForm.resolved_at.toISOString();
+        payload.resolved_by = user?.id || null;
+      } else if (addForm.status === "resolved") {
         payload.resolved_at = new Date().toISOString();
         payload.resolved_by = user?.id || null;
       }
@@ -117,7 +144,7 @@ export default function IssueManagement() {
       toast.success("เพิ่มปัญหาสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       setShowAddDialog(false);
-      setAddForm({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "" });
+      setAddForm({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "", photo_url: "", occurred_at: undefined, resolved_at: undefined });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -249,7 +276,40 @@ export default function IssueManagement() {
               {selected.photo_url && (
                 <div>
                   <p className="text-sm font-semibold mb-2">รูปภาพประกอบ</p>
-                  <img src={selected.photo_url} alt="ภาพความผิดปกติ" className="rounded-2xl w-full max-h-60 object-cover border" />
+                  <a href={selected.photo_url} target="_blank" rel="noreferrer" className="block">
+                    <img src={selected.photo_url} alt="ภาพความผิดปกติ" className="rounded-2xl w-full max-h-60 object-cover border" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <p className="text-xs text-blue-600 mt-1 truncate underline">{selected.photo_url}</p>
+                  </a>
+                </div>
+              )}
+
+              {isAdmin && (
+                <div className="grid grid-cols-2 gap-2 border rounded-2xl p-3 bg-slate-50">
+                  <div>
+                    <Label className="text-xs font-semibold">วันที่พบปัญหา</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className={cn("w-full h-10 rounded-xl justify-start mt-1 text-xs", !(editDates.occurred_at || selected.occurred_at) && "text-muted-foreground")}>
+                          <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+                          {editDates.occurred_at ? format(editDates.occurred_at, "d MMM yy", { locale: th }) : selected.occurred_at ? format(new Date(selected.occurred_at), "d MMM yy", { locale: th }) : "เลือกวันที่"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={editDates.occurred_at || (selected.occurred_at ? new Date(selected.occurred_at) : undefined)} onSelect={(d) => setEditDates((p) => ({ ...p, occurred_at: d }))} className="pointer-events-auto p-3" /></PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold">วันที่แก้ไข</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className={cn("w-full h-10 rounded-xl justify-start mt-1 text-xs", !(editDates.resolved_at || selected.resolved_at) && "text-muted-foreground")}>
+                          <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+                          {editDates.resolved_at ? format(editDates.resolved_at, "d MMM yy", { locale: th }) : selected.resolved_at ? format(new Date(selected.resolved_at), "d MMM yy", { locale: th }) : "เลือกวันที่"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={editDates.resolved_at || (selected.resolved_at ? new Date(selected.resolved_at) : undefined)} onSelect={(d) => setEditDates((p) => ({ ...p, resolved_at: d }))} className="pointer-events-auto p-3" /></PopoverContent>
+                    </Popover>
+                  </div>
+                  <Button size="sm" variant="secondary" className="col-span-2 rounded-xl h-9" onClick={() => saveDatesOnly.mutate()} disabled={saveDatesOnly.isPending}>บันทึกวันที่</Button>
                 </div>
               )}
 
@@ -307,10 +367,41 @@ export default function IssueManagement() {
                   {deptList.map((d: any) => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">แอดมินสามารถเพิ่ม/แก้ไขรายการได้ที่หน้า ตั้งค่า → พื้นที่ปัญหา</p>
             </div>
             <div>
               <Label className="text-sm font-semibold">รายละเอียดปัญหาที่พบ</Label>
               <Textarea rows={3} value={addForm.description} onChange={(e) => setAddForm({ ...addForm, description: e.target.value })} placeholder="อธิบายรายละเอียด..." className="rounded-2xl mt-1" />
+            </div>
+            <div>
+              <Label className="text-sm font-semibold">URL รูปภาพ (Google Drive / ลิงก์)</Label>
+              <Input value={addForm.photo_url} onChange={(e) => setAddForm({ ...addForm, photo_url: e.target.value })} placeholder="https://drive.google.com/..." className="h-11 rounded-2xl mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-semibold">วันที่พบปัญหา</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full h-11 rounded-2xl justify-start mt-1", !addForm.occurred_at && "text-muted-foreground")}>
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {addForm.occurred_at ? format(addForm.occurred_at, "d MMM yy", { locale: th }) : "เลือกวันที่"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={addForm.occurred_at} onSelect={(d) => setAddForm({ ...addForm, occurred_at: d })} className="pointer-events-auto p-3" /></PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-sm font-semibold">วันที่แก้ไขเสร็จ</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full h-11 rounded-2xl justify-start mt-1", !addForm.resolved_at && "text-muted-foreground")}>
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {addForm.resolved_at ? format(addForm.resolved_at, "d MMM yy", { locale: th }) : "-"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={addForm.resolved_at} onSelect={(d) => setAddForm({ ...addForm, resolved_at: d })} className="pointer-events-auto p-3" /></PopoverContent>
+                </Popover>
+              </div>
             </div>
             <div>
               <Label className="text-sm font-semibold">แนวทางจัดการ</Label>

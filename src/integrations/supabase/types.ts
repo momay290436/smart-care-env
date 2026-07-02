@@ -795,6 +795,27 @@ export type Database = {
         }
         Relationships: []
       }
+      issue_areas: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       issues: {
         Row: {
           assigned_to: string | null
@@ -803,6 +824,7 @@ export type Database = {
           department_name: string | null
           description: string | null
           id: string
+          occurred_at: string | null
           photo_url: string | null
           resolution_notes: string | null
           resolved_at: string | null
@@ -821,6 +843,7 @@ export type Database = {
           department_name?: string | null
           description?: string | null
           id?: string
+          occurred_at?: string | null
           photo_url?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
@@ -839,6 +862,7 @@ export type Database = {
           department_name?: string | null
           description?: string | null
           id?: string
+          occurred_at?: string | null
           photo_url?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
