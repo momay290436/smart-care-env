@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import PageHeader from "@/components/PageHeader";
-import { ChevronRight, Image as ImageIcon, Plus, CalendarIcon } from "lucide-react";
+import { ChevronRight, Image as ImageIcon, Plus, CalendarIcon, Trash } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -34,7 +34,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
 const MODULE_LABELS: Record<string, string> = {
   env_round: "ENV Round", fire_check: "ตรวจถังดับเพลิง", water_quality: "คุณภาพน้ำ",
   water_pathogen: "ตรวจเชื้อน้ำ", repair: "ระบบแจ้งซ่อม", waste: "จัดการขยะ",
-  hazmat: "คลังสารเคมี", "5s": "ระบบ 5ส", manual: "แจ้งด้วยตนเอง",
+  hazmat: "คลังสารเคมี", "5s": "ระบบ 5ส",
 };
 
 export default function IssueManagement() {
@@ -102,6 +102,19 @@ export default function IssueManagement() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const deleteIssue = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("issues").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบปัญหาสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["issues"] });
+      setSelected(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const saveDatesOnly = useMutation({
     mutationFn: async () => {
       if (!selected) return;
@@ -158,6 +171,10 @@ export default function IssueManagement() {
     in_progress: allIssues.filter(i => i.status === "in_progress").length,
     resolved: allIssues.filter(i => i.status === "resolved").length,
   }), [allIssues]);
+
+  const getModuleLabel = (m: string) => {
+    return MODULE_LABELS[m] || null;
+  };
 
   return (
     <div className="space-y-5 pb-6">
@@ -238,7 +255,9 @@ export default function IssueManagement() {
                   <p className="text-base md:text-lg font-semibold">{issue.title}</p>
                   {issue.description && <p className="text-sm text-muted-foreground mt-2 max-h-16 overflow-hidden">{issue.description}</p>}
                   <div className="flex flex-wrap items-center gap-2 mt-3">
-                    <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{MODULE_LABELS[issue.source_module] || issue.source_module}</Badge>
+                    {getModuleLabel(issue.source_module) && (
+                      <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{getModuleLabel(issue.source_module)}</Badge>
+                    )}
                     <Badge className={`text-sm rounded-full px-3 py-1 ${stat.color}`}>{stat.label}</Badge>
                     <Badge variant="outline" className={`text-sm rounded-full px-3 py-1 ${sev.color}`}>ความรุนแรง: {sev.label}</Badge>
                     <p className="text-sm text-muted-foreground mt-2 ml-1">{format(new Date(issue.created_at), "d MMM yy HH:mm", { locale: th })}{issue.department_name ? ` · ${issue.department_name}` : ""}</p>
@@ -277,6 +296,19 @@ export default function IssueManagement() {
                       >
                         จัดการ
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 rounded-xl text-red-600 border-red-200"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const ok = window.confirm("ยืนยันการลบปัญหานี้หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้");
+                          if (!ok) return;
+                          deleteIssue.mutate(issue.id);
+                        }}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
                     </div>
                   )}
                   <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -305,7 +337,9 @@ export default function IssueManagement() {
                 <p className="text-lg md:text-xl font-bold">{selected.title}</p>
                 <p className="text-sm md:text-base text-muted-foreground mt-2">{selected.description || "-"}</p>
                 <div className="flex gap-2 mt-3 flex-wrap">
-                  <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{MODULE_LABELS[selected.source_module] || selected.source_module}</Badge>
+                  {getModuleLabel(selected.source_module) && (
+                    <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{getModuleLabel(selected.source_module)}</Badge>
+                  )}
                   <Badge variant="outline" className={`text-sm rounded-full px-3 py-1 ${SEVERITY_CONFIG[selected.severity]?.color}`}>ความรุนแรง: {SEVERITY_CONFIG[selected.severity]?.label}</Badge>
                   {selected.department_name && <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{selected.department_name}</Badge>}
                 </div>
