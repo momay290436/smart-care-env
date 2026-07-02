@@ -716,14 +716,15 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="จัดการระบบ" subtitle="Admin Panel" gradient="from-slate-100/80 to-slate-50/80" />
+      <PageHeader title="จัดการระบบ" subtitle="Admin Panel" />
       <Tabs defaultValue="departments">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto rounded-2xl bg-muted/60 shadow-sm p-1 gap-1">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-7 h-auto rounded-2xl bg-muted/60 shadow-sm p-1 gap-1">
           <TabsTrigger value="departments" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">แผนก</TabsTrigger>
           <TabsTrigger value="locations" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ถังดับเพลิง</TabsTrigger>
           <TabsTrigger value="users" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ผู้ใช้</TabsTrigger>
           <TabsTrigger value="permissions" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">สิทธิ์</TabsTrigger>
           <TabsTrigger value="tickets" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">แจ้งซ่อม</TabsTrigger>
+          <TabsTrigger value="issue-areas" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">พื้นที่ปัญหา</TabsTrigger>
           <TabsTrigger value="settings" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ตั้งค่า</TabsTrigger>
         </TabsList>
         <TabsContent value="departments"><DepartmentsTab /></TabsContent>
@@ -731,6 +732,7 @@ export default function AdminPage() {
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="permissions"><PagePermissionsTab /></TabsContent>
         <TabsContent value="tickets"><MaintenanceTab /></TabsContent>
+        <TabsContent value="issue-areas"><IssueAreasTab /></TabsContent>
         <TabsContent value="settings"><SettingsTab /></TabsContent>
       </Tabs>
     </div>
