@@ -225,23 +225,62 @@ export default function IssueManagement() {
           const sev = SEVERITY_CONFIG[issue.severity] || SEVERITY_CONFIG.medium;
           const stat = STATUS_CONFIG[issue.status] || STATUS_CONFIG.pending;
           return (
-            <Card key={issue.id} className={`rounded-2xl border shadow-card hover:shadow-elevated transition-all cursor-pointer ${sev.bg}`} onClick={() => { setSelected(issue); setResolutionNotes(issue.resolution_notes || ""); }}>
+            <Card
+              key={issue.id}
+              className={`bg-slate-50 rounded-2xl border border-slate-200 shadow-md hover:shadow-lg transition-all cursor-pointer`}
+              onClick={() => { setSelected(issue); setResolutionNotes(issue.resolution_notes || ""); }}
+            >
               <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xl font-bold ${issue.severity === "high" ? "bg-red-100 text-red-600" : issue.severity === "medium" ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"}`}>
                   {issue.severity === "high" ? "!" : issue.severity === "medium" ? "·" : "—"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-base md:text-lg font-semibold truncate">{issue.title}</p>
-                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <p className="text-base md:text-lg font-semibold">{issue.title}</p>
+                  {issue.description && <p className="text-sm text-muted-foreground mt-2 max-h-16 overflow-hidden">{issue.description}</p>}
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
                     <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{MODULE_LABELS[issue.source_module] || issue.source_module}</Badge>
-                    <Badge className={`text-sm rounded-full px-3 py-1 ${stat.color}`}>
-                      {stat.label}
-                    </Badge>
+                    <Badge className={`text-sm rounded-full px-3 py-1 ${stat.color}`}>{stat.label}</Badge>
                     <Badge variant="outline" className={`text-sm rounded-full px-3 py-1 ${sev.color}`}>ความรุนแรง: {sev.label}</Badge>
+                    <p className="text-sm text-muted-foreground mt-2 ml-1">{format(new Date(issue.created_at), "d MMM yy HH:mm", { locale: th })}{issue.department_name ? ` · ${issue.department_name}` : ""}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2">{format(new Date(issue.created_at), "d MMM yy HH:mm", { locale: th })}{issue.department_name ? ` · ${issue.department_name}` : ""}</p>
                 </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <div className="flex flex-col items-end gap-2 ml-2">
+                  {isAdmin && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 rounded-xl"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAddForm({
+                            title: issue.title || "",
+                            description: issue.description || "",
+                            severity: issue.severity || "medium",
+                            status: issue.status || "pending",
+                            resolution_notes: issue.resolution_notes || "",
+                            department_name: issue.department_name || "",
+                            photo_url: issue.photo_url || "",
+                            occurred_at: issue.occurred_at ? new Date(issue.occurred_at) : undefined,
+                            resolved_at: issue.resolved_at ? new Date(issue.resolved_at) : undefined,
+                          });
+                          setShowAddDialog(true);
+                        }}
+                      >
+                        แก้ไข
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-9 rounded-xl"
+                        onClick={(e) => { e.stopPropagation(); setSelected(issue); setResolutionNotes(issue.resolution_notes || ""); }}
+                      >
+                        จัดการ
+                      </Button>
+                    </div>
+                  )}
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </div>
               </CardContent>
             </Card>
           );
@@ -258,11 +297,11 @@ export default function IssueManagement() {
 
       {/* Detail Dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="text-xl">รายละเอียดปัญหา</DialogTitle></DialogHeader>
+        <DialogContent className="rounded-3xl w-full max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-y-auto p-6">
+          <DialogHeader><DialogTitle className="text-2xl md:text-3xl">รายละเอียดปัญหา</DialogTitle></DialogHeader>
           {selected && (
             <div className="space-y-5">
-              <div className={`rounded-2xl p-5 ${SEVERITY_CONFIG[selected.severity]?.bg || "bg-slate-50"}`}>
+              <div className="rounded-2xl p-5 bg-slate-50 border border-slate-200">
                 <p className="text-lg md:text-xl font-bold">{selected.title}</p>
                 <p className="text-sm md:text-base text-muted-foreground mt-2">{selected.description || "-"}</p>
                 <div className="flex gap-2 mt-3 flex-wrap">
@@ -352,8 +391,8 @@ export default function IssueManagement() {
 
       {/* Add Issue Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="text-xl">เพิ่มปัญหาที่พบ</DialogTitle></DialogHeader>
+        <DialogContent className="rounded-3xl w-full max-w-2xl md:max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+          <DialogHeader><DialogTitle className="text-2xl md:text-3xl">เพิ่มปัญหาที่พบ</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <Label className="text-sm font-semibold">หัวข้อปัญหา *</Label>
