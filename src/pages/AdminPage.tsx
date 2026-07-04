@@ -799,10 +799,10 @@ export default function AdminPage() {
   if (!isAdmin) return <Navigate to="/" replace />;
 
   return (
-    <div className="space-y-5">
+    <div className="w-full space-y-5">
       <PageHeader title="จัดการระบบ" subtitle="Admin Panel" />
-      <Tabs defaultValue="departments">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-7 h-auto rounded-2xl bg-muted/60 shadow-sm p-1 gap-1">
+      <Tabs defaultValue="departments" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-7 h-auto rounded-2xl bg-muted/60 shadow-sm p-1 gap-1">
           <TabsTrigger value="departments" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">แผนก</TabsTrigger>
           <TabsTrigger value="locations" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ถังดับเพลิง</TabsTrigger>
           <TabsTrigger value="users" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ผู้ใช้</TabsTrigger>
