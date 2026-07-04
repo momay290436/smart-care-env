@@ -189,6 +189,8 @@ export default function WaterQualityBatchForm() {
   const [batchItems, setBatchItems] = useState<any[]>([]);
   const [editingTestDate, setEditingTestDate] = useState(false);
   const [testDateDraft, setTestDateDraft] = useState<Date | undefined>(undefined);
+  const [editingReportPeriod, setEditingReportPeriod] = useState(false);
+  const [reportPeriodDraft, setReportPeriodDraft] = useState("");
 
   const { data: batches = [] } = useQuery({
     queryKey: ["water-quality-batches"],
@@ -279,6 +281,23 @@ export default function WaterQualityBatchForm() {
       toast.success("แก้ไขวันที่ตรวจสำเร็จ");
       setSelectedBatch({ ...selectedBatch, test_date: format(testDateDraft!, "yyyy-MM-dd") });
       setEditingTestDate(false);
+      queryClient.invalidateQueries({ queryKey: ["water-quality-batches"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateReportPeriod = useMutation({
+    mutationFn: async () => {
+      if (!selectedBatch || !reportPeriodDraft.trim()) throw new Error("กรุณากรอกรอบการตรวจ");
+      const { error } = await supabase.from("water_quality_batches")
+        .update({ report_period: reportPeriodDraft.trim() })
+        .eq("id", selectedBatch.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("แก้ไขรอบการตรวจสำเร็จ");
+      setSelectedBatch({ ...selectedBatch, report_period: reportPeriodDraft.trim() });
+      setEditingReportPeriod(false);
       queryClient.invalidateQueries({ queryKey: ["water-quality-batches"] });
     },
     onError: (e: any) => toast.error(e.message),
@@ -493,7 +512,26 @@ export default function WaterQualityBatchForm() {
             <div className="space-y-3">
               <div className="rounded-2xl bg-blue-50 p-3 space-y-1 text-sm">
                 <p><span className="font-semibold">ประเภท:</span> {getSheetName(selectedBatch.water_type)}</p>
-                <p><span className="font-semibold">รอบ:</span> {selectedBatch.report_period}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold">รอบ:</span>
+                  {!editingReportPeriod && (
+                    <>
+                      <span>{selectedBatch.report_period}</span>
+                      {isAdmin && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-lg" onClick={() => { setEditingReportPeriod(true); setReportPeriodDraft(selectedBatch.report_period || ""); }}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {editingReportPeriod && isAdmin && (
+                    <>
+                      <Input value={reportPeriodDraft} onChange={(e) => setReportPeriodDraft(e.target.value)} placeholder="เช่น 2/69" className="h-8 w-32 rounded-xl text-sm" />
+                      <Button size="sm" className="h-8 rounded-xl" onClick={() => updateReportPeriod.mutate()} disabled={updateReportPeriod.isPending}>บันทึก</Button>
+                      <Button size="sm" variant="ghost" className="h-8 rounded-xl" onClick={() => { setEditingReportPeriod(false); setReportPeriodDraft(selectedBatch?.report_period || ""); }}>ยกเลิก</Button>
+                    </>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold">วันที่:</span>
                   {!editingTestDate && (
