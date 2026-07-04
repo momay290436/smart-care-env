@@ -187,6 +187,8 @@ export default function WaterQualityBatchForm() {
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
   const [batchItems, setBatchItems] = useState<any[]>([]);
+  const [editingTestDate, setEditingTestDate] = useState(false);
+  const [testDateDraft, setTestDateDraft] = useState<Date | undefined>(undefined);
 
   const { data: batches = [] } = useQuery({
     queryKey: ["water-quality-batches"],
@@ -233,6 +235,8 @@ export default function WaterQualityBatchForm() {
 
   const viewBatchDetail = async (batch: any) => {
     setSelectedBatch(batch);
+    setEditingTestDate(false);
+    setTestDateDraft(batch?.test_date ? new Date(batch.test_date) : undefined);
     const { data } = await supabase.from("water_quality_batch_items").select("*").eq("batch_id", batch.id).order("sort_order");
     setBatchItems(data || []);
   };
@@ -259,6 +263,23 @@ export default function WaterQualityBatchForm() {
       toast.success("แก้ไขข้อมูลสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["water-quality-batches"] });
       setEditBatch(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateTestDate = useMutation({
+    mutationFn: async () => {
+      if (!selectedBatch || !testDateDraft) throw new Error("กรุณาเลือกวันที่");
+      const { error } = await supabase.from("water_quality_batches")
+        .update({ test_date: format(testDateDraft, "yyyy-MM-dd") })
+        .eq("id", selectedBatch.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("แก้ไขวันที่ตรวจสำเร็จ");
+      setSelectedBatch({ ...selectedBatch, test_date: format(testDateDraft!, "yyyy-MM-dd") });
+      setEditingTestDate(false);
+      queryClient.invalidateQueries({ queryKey: ["water-quality-batches"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -473,7 +494,36 @@ export default function WaterQualityBatchForm() {
               <div className="rounded-2xl bg-blue-50 p-3 space-y-1 text-sm">
                 <p><span className="font-semibold">ประเภท:</span> {getSheetName(selectedBatch.water_type)}</p>
                 <p><span className="font-semibold">รอบ:</span> {selectedBatch.report_period}</p>
-                <p><span className="font-semibold">วันที่:</span> {format(new Date(selectedBatch.test_date), "d MMMM yyyy", { locale: th })}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold">วันที่:</span>
+                  {!editingTestDate && (
+                    <>
+                      <span>{format(new Date(selectedBatch.test_date), "d MMMM yyyy", { locale: th })}</span>
+                      {isAdmin && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-lg" onClick={() => setEditingTestDate(true)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {editingTestDate && isAdmin && (
+                    <>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-8 rounded-xl gap-1.5">
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                            {testDateDraft ? format(testDateDraft, "d MMM yyyy", { locale: th }) : "เลือกวันที่"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={testDateDraft} onSelect={setTestDateDraft} initialFocus className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                      <Button size="sm" className="h-8 rounded-xl" onClick={() => updateTestDate.mutate()} disabled={updateTestDate.isPending}>บันทึก</Button>
+                      <Button size="sm" variant="ghost" className="h-8 rounded-xl" onClick={() => { setEditingTestDate(false); setTestDateDraft(selectedBatch?.test_date ? new Date(selectedBatch.test_date) : undefined); }}>ยกเลิก</Button>
+                    </>
+                  )}
+                </div>
                 <p><span className="font-semibold">ผู้บันทึก:</span> {selectedBatch.recorder_name}</p>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-600">
