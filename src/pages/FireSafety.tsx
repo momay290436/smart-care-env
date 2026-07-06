@@ -16,6 +16,7 @@ import { Loader2, Phone, MapPin, Users, ClipboardList, BookOpen, Flame, AlertTri
 import { useWayfindingGraph, dijkstra, type RouteResult } from "@/hooks/useWayfindingGraph";
 import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
+import fireSafetyMap from "@/assets/fire-safety-map.jpg.asset.json";
 
 const BUILDINGS = ["OPD", "IPD ชาย", "IPD หญิง", "คลังยา", "หน่วยจ่ายกลาง", "อาคารซ่อมบำรุง", "โรงไฟฟ้า", "คลังพัสดุ", "อาคารอำนวยการ", "อาคารแพทย์แผนไทย", "อาคารโภชนาการ", "อาคารซักฟอก"];
 const FLOORS = ["ชั้น 1", "ชั้น 2", "ชั้น 3"];
@@ -258,8 +259,8 @@ export default function FireSafety() {
             </CardContent>
           </Card>
 
-          <div className="relative w-full rounded-2xl overflow-hidden border border-white/20 shadow-card">
-            <img src="/maps/buildings.jpg" alt="แผนที่โรงพยาบาล" className="w-full h-auto block" draggable={false} />
+          <div className="relative w-full rounded-2xl overflow-hidden border border-white/20 shadow-card bg-white">
+            <img src={fireSafetyMap.url} alt="ผังระบบอัคคีภัย โรงพยาบาลแม่สรวย" className="w-full h-auto block" draggable={false} />
             <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
               {edges.map((edge, i) => {
                 const n1 = nodeMap.get(edge.from_node_key); const n2 = nodeMap.get(edge.to_node_key);
