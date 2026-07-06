@@ -16,7 +16,7 @@ import { Loader2, Phone, MapPin, Users, ClipboardList, BookOpen, Flame, AlertTri
 import { useWayfindingGraph, dijkstra, type RouteResult } from "@/hooks/useWayfindingGraph";
 import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
-import fireSafetyMap from "@/assets/fire-safety-map.jpg.asset.json";
+const fireSafetyMap = { url: "/maps/fire-safety-map.jpg" };
 
 const BUILDINGS = ["OPD", "IPD ชาย", "IPD หญิง", "คลังยา", "หน่วยจ่ายกลาง", "อาคารซ่อมบำรุง", "โรงไฟฟ้า", "คลังพัสดุ", "อาคารอำนวยการ", "อาคารแพทย์แผนไทย", "อาคารโภชนาการ", "อาคารซักฟอก"];
 const FLOORS = ["ชั้น 1", "ชั้น 2", "ชั้น 3"];
