@@ -71,9 +71,9 @@ export default function WaterSystemTab() {
   const reserveNeeded = avgDailyUsage * 2; // 48 hours
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       {/* Blueprint Section */}
-      <Card className="bg-white rounded-3xl shadow-lg hover:shadow-2xl border-0 overflow-hidden transition-all duration-300">
+      <Card className="relative w-full bg-white rounded-3xl shadow-lg hover:shadow-2xl border-0 overflow-hidden transition-all duration-300">
         <div className="absolute top-0 left-0 w-32 h-32 bg-blue-100/20 rounded-full -ml-16 -mt-16 backdrop-blur-sm" />
         <CardContent className="p-6 space-y-4 relative z-10">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -90,7 +90,7 @@ export default function WaterSystemTab() {
       </Card>
 
       {/* 48-hour Reserve */}
-      <Card className="bg-white rounded-3xl shadow-lg hover:shadow-2xl border-0 overflow-hidden transition-all duration-300">
+      <Card className="relative w-full bg-white rounded-3xl shadow-lg hover:shadow-2xl border-0 overflow-hidden transition-all duration-300">
         <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-100/20 rounded-full -mr-16 -mt-16 backdrop-blur-sm" />
         <CardContent className="p-6 space-y-4 relative z-10">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -113,7 +113,7 @@ export default function WaterSystemTab() {
       </Card>
 
       {/* Forecast */}
-      <Card className="bg-white rounded-3xl shadow-lg hover:shadow-2xl border-0 overflow-hidden transition-all duration-300">
+      <Card className="relative w-full bg-white rounded-3xl shadow-lg hover:shadow-2xl border-0 overflow-hidden transition-all duration-300">
         <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-100/20 rounded-full -mr-20 -mt-20 backdrop-blur-sm" />
         <CardContent className="p-6 space-y-4 relative z-10">
           <div className="flex items-center justify-between">
