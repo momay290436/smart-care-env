@@ -204,7 +204,6 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
                 />
               )}
             </div>
-          </div>
           <div>
             <Label className="text-xs font-semibold">กลิ่นที่บ่อบำบัด</Label>
             <RadioGroup value={form.treatment_odor} onValueChange={(value) => setForm({ ...form, treatment_odor: value })} className="grid grid-cols-2 gap-2">
