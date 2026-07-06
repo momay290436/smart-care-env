@@ -142,6 +142,19 @@ export default function FireInfoPublic() {
             </div>
           </div>
 
+          {/* Specification card */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2.5">
+              <p className="text-sm font-bold text-white flex items-center gap-2"><Flame className="h-4 w-4" /> ข้อมูลจำเพาะ</p>
+            </div>
+            <div className="px-4 py-2">
+              <InfoRow icon={Palette} label="สีถัง" value={location.color} color="text-pink-600" />
+              <InfoRow icon={Flame} label="ชนิดถังดับเพลิง" value={location.extinguisher_type} color="text-red-600" />
+              <InfoRow icon={Droplets} label="สารดับเพลิง / เชื้อเพลิง" value={location.fuel_type} color="text-orange-600" />
+              <InfoRow icon={Ruler} label="ขนาดถัง" value={location.size} color="text-amber-600" />
+            </div>
+          </div>
+
           {/* Last inspection card */}
           {lastCheck && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
