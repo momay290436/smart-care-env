@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Flame, MapPin, Building, Layers, Palette, Ruler, FileText, Calendar, CheckCircle2, XCircle, Shield, User, Droplets, CalendarClock } from "lucide-react";
+import { Flame, MapPin, Building, Layers, Palette, Ruler, FileText, Calendar, CheckCircle2, XCircle, Shield, User, Droplets, CalendarClock, List } from "lucide-react";
 
 export default function FireInfoPublic() {
   const { id } = useParams<{ id: string }>();
@@ -126,18 +126,19 @@ export default function FireInfoPublic() {
             </div>
           </div>
 
-          {/* Specification card */}
+          {/* Usage instructions card */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2.5">
-              <p className="text-sm font-bold text-white flex items-center gap-2"><Flame className="h-4 w-4" /> ข้อมูลจำเพาะ</p>
+            <div className="bg-gradient-to-r from-slate-700 to-slate-900 px-4 py-2.5">
+              <p className="text-sm font-bold text-white flex items-center gap-2"><List className="h-4 w-4" /> วิธีใช้ถังดับเพลิง</p>
             </div>
-            <div className="px-4 py-2">
-              <InfoRow icon={Flame} label="ชนิดถังดับเพลิง" value={location.extinguisher_type} color="text-red-600" />
-              <InfoRow icon={Droplets} label="สารดับเพลิง / เชื้อเพลิง" value={location.fuel_type} color="text-orange-600" />
-              <InfoRow icon={Ruler} label="ขนาด" value={location.size} color="text-amber-600" />
-              <InfoRow icon={Palette} label="สีถัง" value={location.color} color="text-pink-600" />
-              <InfoRow icon={CalendarClock} label="ปีที่ผลิต" value={location.manufacture_year} color="text-violet-600" />
-              {location.detail && <InfoRow icon={FileText} label="รายละเอียดเพิ่มเติม" value={location.detail} color="text-slate-600" />}
+            <div className="px-4 py-4">
+              <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
+                <li>ดึงสลัก</li>
+                <li>ปลดสาย</li>
+                <li>เล็งที่ฐานเพลิง</li>
+                <li>บีบคันบังคับ</li>
+                <li>กวาดไปมา</li>
+              </ol>
             </div>
           </div>
 
