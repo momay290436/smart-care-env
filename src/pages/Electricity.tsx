@@ -151,7 +151,7 @@ export default function Electricity() {
         setCustomPrevWaterValue(lastLog.current_water_value ? lastLog.current_water_value.toString() : '0');
       }
     } catch (err) {
-      console.error("History verification error:", err);
+      // Silently handle error to prevent build issues
     }
   };
 

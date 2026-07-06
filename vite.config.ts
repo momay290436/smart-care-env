@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
@@ -19,25 +18,12 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select']
-        }
-      }
-    },
-    chunkSizeWarningLimit: 1500,
+    target: "es2020",
+    minify: "esbuild",
     cssCodeSplit: true,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false,
-      },
+    esbuild: {
+      drop: ['console'],
+      pure: ['console.error', 'console.log', 'console.warn'],
     },
-  },
-  esbuild: {
-    logLevel: 'info',
-    target: 'es2020',
   },
 }));
