@@ -1373,6 +1373,7 @@ export type Database = {
           wastewater_volume: number | null
           water_appearance: string | null
           water_appearance_options: string[] | null
+          bod_value: number | null
         }
         Insert: {
           aerator_status?: string | null
@@ -1398,6 +1399,7 @@ export type Database = {
           wastewater_volume?: number | null
           water_appearance?: string | null
           water_appearance_options?: string[] | null
+          bod_value?: number | null
         }
         Update: {
           aerator_status?: string | null
