@@ -201,8 +201,15 @@ export default function WaterQualityBatchForm() {
   });
 
   const filteredBatches = useMemo(() => {
-    if (filterType === "all") return batches;
-    return batches.filter((b: any) => b.water_type === filterType);
+    const list = filterType === "all" ? batches : batches.filter((b: any) => b.water_type === filterType);
+    return [...list].sort((a: any, b: any) => {
+      const ap = parseReportPeriod(a.report_period);
+      const bp = parseReportPeriod(b.report_period);
+      if (ap.year !== bp.year) return bp.year - ap.year;
+      if (ap.month !== bp.month) return bp.month - ap.month;
+      // fallback by test_date desc
+      return new Date(b.test_date).getTime() - new Date(a.test_date).getTime();
+    });
   }, [batches, filterType]);
 
   const params = useMemo(() => flattenParams(getParamsForType(waterType)), [waterType]);
