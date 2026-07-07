@@ -1,0 +1,1 @@
+ALTER TABLE public.wastewater_inspection_logs ADD COLUMN IF NOT EXISTS do_value numeric;

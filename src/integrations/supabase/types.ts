@@ -1351,10 +1351,12 @@ export type Database = {
       wastewater_inspection_logs: {
         Row: {
           aerator_status: string | null
+          bod_value: number | null
           check_date: string
           check_time: string | null
           chlorine_residual: number | null
           created_at: string
+          do_value: number | null
           electricity_meter: string | null
           id: string
           inlet_meter: number | null
@@ -1373,14 +1375,15 @@ export type Database = {
           wastewater_volume: number | null
           water_appearance: string | null
           water_appearance_options: string[] | null
-          bod_value: number | null
         }
         Insert: {
           aerator_status?: string | null
+          bod_value?: number | null
           check_date?: string
           check_time?: string | null
           chlorine_residual?: number | null
           created_at?: string
+          do_value?: number | null
           electricity_meter?: string | null
           id?: string
           inlet_meter?: number | null
@@ -1399,14 +1402,15 @@ export type Database = {
           wastewater_volume?: number | null
           water_appearance?: string | null
           water_appearance_options?: string[] | null
-          bod_value?: number | null
         }
         Update: {
           aerator_status?: string | null
+          bod_value?: number | null
           check_date?: string
           check_time?: string | null
           chlorine_residual?: number | null
           created_at?: string
+          do_value?: number | null
           electricity_meter?: string | null
           id?: string
           inlet_meter?: number | null
