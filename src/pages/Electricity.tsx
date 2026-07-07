@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
 
 declare global { interface Window { Html5Qrcode: any; } }
@@ -129,6 +130,47 @@ export default function Electricity() {
       monthName: now.toLocaleString('th-TH', { month: 'long', year: 'numeric' })
     };
   }, [logs]);
+
+  // สรุปข้อมูลรายเดือน สำหรับกราฟแนวโน้มการใช้ไฟฟ้า / น้ำ (ร้านค้า)
+  const monthlyTrend = React.useMemo(() => {
+    const map: Record<string, { key: string; label: string; electric: number; water: number; sortKey: number }> = {};
+    logs.forEach((log: any) => {
+      if (!log.created_at) return;
+      const d = new Date(log.created_at);
+      let y = d.getFullYear();
+      if (y > 2500) y -= 543;
+      const m = d.getMonth();
+      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+      if (!map[key]) {
+        const monthName = new Date(y, m, 1).toLocaleString('th-TH', { month: 'short', year: '2-digit' });
+        map[key] = { key, label: monthName, electric: 0, water: 0, sortKey: y * 12 + m };
+      }
+      map[key].electric += Number(log.units_used) || 0;
+      if (log.current_water_value && log.previous_water_value) {
+        const diff = log.current_water_value >= log.previous_water_value
+          ? log.current_water_value - log.previous_water_value
+          : (10000 - log.previous_water_value) + log.current_water_value;
+        if (diff > 0) map[key].water += diff;
+      }
+    });
+    return Object.values(map).sort((a, b) => a.sortKey - b.sortKey);
+  }, [logs]);
+
+  const trendKpi = React.useMemo(() => {
+    if (monthlyTrend.length === 0) return { electricAvg: 0, waterAvg: 0, electricLast: 0, waterLast: 0, electricDelta: 0, waterDelta: 0 };
+    const last = monthlyTrend[monthlyTrend.length - 1];
+    const prev = monthlyTrend.length > 1 ? monthlyTrend[monthlyTrend.length - 2] : null;
+    const eAvg = monthlyTrend.reduce((s, r) => s + r.electric, 0) / monthlyTrend.length;
+    const wAvg = monthlyTrend.reduce((s, r) => s + r.water, 0) / monthlyTrend.length;
+    return {
+      electricAvg: Math.round(eAvg),
+      waterAvg: Math.round(wAvg),
+      electricLast: Math.round(last.electric),
+      waterLast: Math.round(last.water),
+      electricDelta: prev ? Math.round(last.electric - prev.electric) : 0,
+      waterDelta: prev ? Math.round(last.water - prev.water) : 0,
+    };
+  }, [monthlyTrend]);
 
   // ฟังก์ชันวิเคราะห์ประวัติย้อนหลังของมิเตอร์เพื่อเปิดฟอร์มแก้เลขตั้งต้น
   const checkMeterHistory = async (meterId: string) => {
