@@ -589,6 +589,98 @@ export default function Electricity() {
         </Card>
       </div>
 
+      {/* กราฟแนวโน้มการใช้ไฟฟ้าและน้ำรายเดือน */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-3 sm:gap-4">
+        {/* กราฟไฟฟ้า 70% */}
+        <Card className="lg:col-span-7 shadow-sm border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+          <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-slate-100 py-3 px-4">
+            <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-amber-500" /> แนวโน้มการใช้ไฟฟ้ารายเดือน
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 space-y-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-100">
+                <p className="text-[10px] text-slate-500 font-semibold uppercase">เดือนล่าสุด</p>
+                <p className="text-lg sm:text-xl font-black text-amber-700">{trendKpi.electricLast.toLocaleString()}</p>
+                <p className="text-[10px] text-slate-500">หน่วย</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-semibold uppercase">เฉลี่ยต่อเดือน</p>
+                <p className="text-lg sm:text-xl font-black text-slate-700">{trendKpi.electricAvg.toLocaleString()}</p>
+                <p className="text-[10px] text-slate-500">หน่วย</p>
+              </div>
+              <div className={`p-2.5 rounded-xl border ${trendKpi.electricDelta >= 0 ? 'bg-rose-50/70 border-rose-100' : 'bg-emerald-50/70 border-emerald-100'}`}>
+                <p className="text-[10px] text-slate-500 font-semibold uppercase">เทียบเดือนก่อน</p>
+                <p className={`text-lg sm:text-xl font-black ${trendKpi.electricDelta >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  {trendKpi.electricDelta >= 0 ? '+' : ''}{trendKpi.electricDelta.toLocaleString()}
+                </p>
+                <p className="text-[10px] text-slate-500">หน่วย</p>
+              </div>
+            </div>
+            <div className="h-56 w-full">
+              {monthlyTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={monthlyTrend} margin={{ top: 5, right: 15, left: 0, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="elecGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#64748b" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#64748b" />
+                    <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} หน่วย`} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }} />
+                    <Line type="monotone" dataKey="electric" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4, fill: '#f59e0b' }} activeDot={{ r: 6 }} name="ไฟฟ้า" />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-slate-400">ยังไม่มีข้อมูลเพียงพอสำหรับแสดงกราฟ</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* กราฟน้ำ (ร้านค้า) 30% */}
+        <Card className="lg:col-span-3 shadow-sm border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-slate-100 py-3 px-4">
+            <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2">
+              <Droplet className="h-4 w-4 text-blue-500" /> น้ำประปารายเดือน (ร้านค้า)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-100">
+                <p className="text-[10px] text-slate-500 font-semibold uppercase">ล่าสุด</p>
+                <p className="text-lg font-black text-blue-700">{trendKpi.waterLast.toLocaleString()}</p>
+                <p className="text-[10px] text-slate-500">หน่วย</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-semibold uppercase">เฉลี่ย</p>
+                <p className="text-lg font-black text-slate-700">{trendKpi.waterAvg.toLocaleString()}</p>
+                <p className="text-[10px] text-slate-500">หน่วย</p>
+              </div>
+            </div>
+            <div className="h-56 w-full">
+              {monthlyTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={monthlyTrend} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="#64748b" />
+                    <YAxis tick={{ fontSize: 10 }} stroke="#64748b" />
+                    <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} หน่วย`} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }} />
+                    <Line type="monotone" dataKey="water" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 4, fill: '#0ea5e9' }} activeDot={{ r: 6 }} name="น้ำ" />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-slate-400">ยังไม่มีข้อมูล</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* ส่วนแสดงตารางประวัติบันทึกข้อมูล */}
       <Card className="shadow-sm border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
         <CardHeader className="bg-slate-50 border-b border-slate-100 py-3 px-4 flex flex-row items-center justify-between">
