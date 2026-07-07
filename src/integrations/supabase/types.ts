@@ -1356,6 +1356,7 @@ export type Database = {
           check_time: string | null
           chlorine_residual: number | null
           created_at: string
+          do_value: number | null
           electricity_meter: string | null
           id: string
           inlet_meter: number | null
@@ -1382,6 +1383,7 @@ export type Database = {
           check_time?: string | null
           chlorine_residual?: number | null
           created_at?: string
+          do_value?: number | null
           electricity_meter?: string | null
           id?: string
           inlet_meter?: number | null
@@ -1408,6 +1410,7 @@ export type Database = {
           check_time?: string | null
           chlorine_residual?: number | null
           created_at?: string
+          do_value?: number | null
           electricity_meter?: string | null
           id?: string
           inlet_meter?: number | null
