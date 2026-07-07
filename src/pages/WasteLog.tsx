@@ -22,11 +22,11 @@ import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
-  general: { label: "ขยะทั่วไป", color: "bg-slate-200 text-slate-800 border-slate-300", chartColor: "#4C6085" },
-  organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "#36F1CD" },
-  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-200 text-red-900 border-red-300", chartColor: "#F38181" },
-  recycle: { label: "ขยะรีไซเคิล", color: "bg-emerald-200 text-emerald-900 border-emerald-300", chartColor: "#E2AF90" },
-  hazardous: { label: "ขยะอันตราย", color: "bg-amber-200 text-amber-900 border-amber-300", chartColor: "#4C6085" },
+  general: { label: "ขยะทั่วไป", color: "bg-blue-100 text-blue-900 border-blue-200", chartColor: "#3b82f6" },
+  organic: { label: "ขยะเปียก", color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "#10b981" },
+  infectious: { label: "ขยะติดเชื้อ", color: "bg-red-100 text-red-900 border-red-200", chartColor: "#ef4444" },
+  recycle: { label: "ขยะรีไซเคิล", color: "bg-yellow-100 text-yellow-900 border-yellow-200", chartColor: "#eab308" },
+  hazardous: { label: "ขยะอันตราย", color: "bg-purple-100 text-purple-900 border-purple-200", chartColor: "#a855f7" },
 };
 
 const WASTE_TYPE_LABELS: Record<string, string> = {
@@ -41,7 +41,16 @@ const WASTE_TYPE_LABELS: Record<string, string> = {
 };
 
 // ย้าย Fallback Color สำหรับกรณีดึงค่าคีย์แปลกปลอมมาแสดงผล
-const FALLBACK_CHART_COLORS = ["#4C6085", "#36F1CD", "#F38181", "#E2AF90", "#4C6085"];
+const FALLBACK_CHART_COLORS = ["#3b82f6", "#10b981", "#ef4444", "#eab308", "#a855f7"];
+
+// สีมาตรฐานตามข้อกำหนด ใช้บังคับให้ทุก chart/badge สอดคล้องกัน แม้ค่าจากฐานข้อมูลจะเป็นค่าเก่า
+const CANONICAL_COLORS: Record<string, { color: string; chartColor: string }> = {
+  general: { color: "bg-blue-100 text-blue-900 border-blue-200", chartColor: "#3b82f6" },
+  organic: { color: "bg-emerald-100 text-emerald-900 border-emerald-200", chartColor: "#10b981" },
+  infectious: { color: "bg-red-100 text-red-900 border-red-200", chartColor: "#ef4444" },
+  recycle: { color: "bg-yellow-100 text-yellow-900 border-yellow-200", chartColor: "#eab308" },
+  hazardous: { color: "bg-purple-100 text-purple-900 border-purple-200", chartColor: "#a855f7" },
+};
 
 export default function WasteLog() {
   const { user, profile, isAdmin } = useAuth();
@@ -93,7 +102,14 @@ export default function WasteLog() {
         const { data: wt } = await supabase.from("app_settings").select("value").eq("key", "waste_types").maybeSingle();
         if (wt && wt.value) {
           const parsed = JSON.parse(wt.value);
-          if (parsed && typeof parsed === "object") setTypesMap(parsed);
+          if (parsed && typeof parsed === "object") {
+            // บังคับใช้สีมาตรฐาน แม้ค่าจากฐานข้อมูลจะเป็นสีเก่า
+            const merged: any = { ...parsed };
+            Object.keys(CANONICAL_COLORS).forEach((k) => {
+              merged[k] = { ...(parsed[k] || DEFAULT_WASTE_TYPES[k]), ...CANONICAL_COLORS[k] };
+            });
+            setTypesMap(merged);
+          }
         }
         const { data: wc } = await supabase.from("app_settings").select("value").eq("key", "waste_costs").maybeSingle();
         if (wc && wc.value) {
