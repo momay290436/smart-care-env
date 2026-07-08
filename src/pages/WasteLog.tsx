@@ -1176,29 +1176,49 @@ export default function WasteLog() {
                         </Select>
                       </div>
 
-                      <div className="md:col-span-2 space-y-1">
-                        <span className="text-[11px] font-bold text-slate-500">ขยะมีคม (กก.)</span>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          placeholder="0.0"
-                          value={row.sharp_waste_kg}
-                          onChange={(e) => setInfRows(prev => { const n = [...prev]; n[i].sharp_waste_kg = e.target.value; return n; })}
-                          className="h-9 text-xs rounded-lg font-mono font-bold"
-                        />
-                      </div>
-
-                      <div className="md:col-span-2 space-y-1">
-                        <span className="text-[11px] font-bold text-slate-500">ขยะไม่มีคม (กก.)</span>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          placeholder="0.0"
-                          value={row.non_sharp_waste_kg}
-                          onChange={(e) => setInfRows(prev => { const n = [...prev]; n[i].non_sharp_waste_kg = e.target.value; return n; })}
-                          className="h-9 text-xs rounded-lg font-mono font-bold"
-                        />
-                      </div>
+                      {row.health_center_name === "โรงพยาบาลแม่สรวย" ? (
+                        <div className="md:col-span-4 space-y-1">
+                          <span className="text-[11px] font-bold text-slate-500">น้ำหนักขยะติดเชื้อ (กก.)</span>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            placeholder="0.0"
+                            value={row.sharp_waste_kg}
+                            onChange={(e) => setInfRows(prev => {
+                              const n = [...prev];
+                              n[i].sharp_waste_kg = e.target.value;
+                              n[i].non_sharp_waste_kg = "";
+                              return n;
+                            })}
+                            className="h-9 text-xs rounded-lg font-mono font-bold"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="md:col-span-2 space-y-1">
+                            <span className="text-[11px] font-bold text-slate-500">ขยะมีคม (กก.)</span>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              placeholder="0.0"
+                              value={row.sharp_waste_kg}
+                              onChange={(e) => setInfRows(prev => { const n = [...prev]; n[i].sharp_waste_kg = e.target.value; return n; })}
+                              className="h-9 text-xs rounded-lg font-mono font-bold"
+                            />
+                          </div>
+                          <div className="md:col-span-2 space-y-1">
+                            <span className="text-[11px] font-bold text-slate-500">ขยะไม่มีคม (กก.)</span>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              placeholder="0.0"
+                              value={row.non_sharp_waste_kg}
+                              onChange={(e) => setInfRows(prev => { const n = [...prev]; n[i].non_sharp_waste_kg = e.target.value; return n; })}
+                              className="h-9 text-xs rounded-lg font-mono font-bold"
+                            />
+                          </div>
+                        </>
+                      )}
 
                       <div className="md:col-span-2 space-y-1">
                         <span className="text-[11px] font-bold text-slate-500">ผู้ส่งมอบ/คนขับ</span>
