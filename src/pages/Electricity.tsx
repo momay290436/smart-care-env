@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp } from 'lucide-react';
+import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp, AlertCircle, Search } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
 
@@ -16,6 +17,38 @@ declare global { interface Window { Html5Qrcode: any; } }
 export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
+
+  // ระบบตรวจสอบสถานที่ที่ยังไม่ได้ลงมิเตอร์ในเดือนที่เลือก (สำหรับแอดมิน)
+  const [pendingOpen, setPendingOpen] = useState(false);
+  const [pendingMonth, setPendingMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingResult, setPendingResult] = useState<{ pending: any[]; done: any[] } | null>(null);
+
+  const loadPendingMeters = async () => {
+    setPendingLoading(true);
+    setPendingResult(null);
+    try {
+      const [y, m] = pendingMonth.split('-').map(Number);
+      const from = new Date(y, m - 1, 1).toISOString();
+      const to = new Date(y, m, 1).toISOString();
+      const [{ data: meters }, { data: monthLogs }] = await Promise.all([
+        supabase.from('electricity_meters').select('id, meter_name, location_code').order('meter_name'),
+        supabase.from('electricity_logs').select('meter_id').gte('created_at', from).lt('created_at', to),
+      ]);
+      const doneIds = new Set((monthLogs || []).map((l: any) => l.meter_id));
+      const pending = (meters || []).filter((m: any) => !doneIds.has(m.id));
+      const done = (meters || []).filter((m: any) => doneIds.has(m.id));
+      setPendingResult({ pending, done });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'โหลดข้อมูลไม่สำเร็จ', description: e.message });
+    } finally {
+      setPendingLoading(false);
+    }
+  };
   
   // States สำหรับบันทึกข้อมูลหลัก
   const [selectedMeterId, setSelectedMeterId] = useState(''); 
