@@ -445,6 +445,15 @@ export default function Electricity() {
           <Button onClick={exportExcel} variant="outline" className="w-full sm:w-auto text-xs sm:text-sm h-10 border-slate-200 text-slate-700 font-medium order-2 sm:order-1">
             <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600"/> Export รายงาน
           </Button>
+          {isAdmin && (
+            <Button
+              onClick={() => { setPendingOpen(true); setPendingResult(null); }}
+              variant="outline"
+              className="w-full sm:w-auto text-xs sm:text-sm h-10 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 font-medium order-2"
+            >
+              <AlertCircle className="mr-2 h-4 w-4"/> ตรวจสถานที่ค้างลงมิเตอร์
+            </Button>
+          )}
           <Dialog onOpenChange={(open) => { if(!open) { setGeneratedQrUrl(''); setNewMeter({name:'', code:'', serial:'', qr_url:''}); } }}>
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto text-xs sm:text-sm h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm order-1 sm:order-2">
@@ -486,6 +495,60 @@ export default function Electricity() {
           </Dialog>
         </div>
       </div>
+
+      {/* Dialog แสดงสถานที่ที่ยังไม่ได้ลงมิเตอร์ในเดือนที่เลือก */}
+      <Dialog open={pendingOpen} onOpenChange={setPendingOpen}>
+        <DialogContent className="max-w-2xl w-[95vw] rounded-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base sm:text-lg flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500"/> สถานที่ที่ยังไม่ได้ลงมิเตอร์ประจำเดือน
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
+              <div className="flex-1">
+                <label className="text-[11px] font-bold text-slate-500 block mb-1">เลือกเดือนที่ต้องการตรวจ</label>
+                <Input type="month" value={pendingMonth} onChange={(e) => setPendingMonth(e.target.value)} className="h-10 text-sm"/>
+              </div>
+              <Button onClick={loadPendingMeters} disabled={pendingLoading} className="h-10 bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm">
+                <Search className="mr-2 h-4 w-4"/> {pendingLoading ? 'กำลังตรวจสอบ...' : 'ดึงข้อมูลตอนนี้'}
+              </Button>
+            </div>
+            <p className="text-[11px] text-slate-500">* ระบบจะดึงข้อมูลเฉพาะเมื่อกดปุ่ม เพื่อประหยัดค่าเรียกใช้งานฐานข้อมูล</p>
+
+            {pendingResult && (
+              <div className="space-y-3 mt-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-center">
+                    <p className="text-[11px] text-rose-500 font-semibold">ค้างลงมิเตอร์</p>
+                    <p className="text-2xl font-black text-rose-600">{pendingResult.pending.length}</p>
+                    <p className="text-[10px] text-slate-500">สถานที่</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-center">
+                    <p className="text-[11px] text-emerald-600 font-semibold">ลงแล้ว</p>
+                    <p className="text-2xl font-black text-emerald-700">{pendingResult.done.length}</p>
+                    <p className="text-[10px] text-slate-500">สถานที่</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-rose-100 overflow-hidden">
+                  <div className="bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">รายชื่อสถานที่ค้างลงมิเตอร์</div>
+                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 text-sm">
+                    {pendingResult.pending.length === 0 ? (
+                      <p className="p-4 text-center text-xs text-slate-400">ลงมิเตอร์ครบทุกสถานที่แล้วในเดือนนี้</p>
+                    ) : pendingResult.pending.map((m: any) => (
+                      <div key={m.id} className="px-3 py-2 flex justify-between items-center hover:bg-rose-50/40">
+                        <span className="font-medium text-slate-800">{m.meter_name}</span>
+                        {m.location_code && <span className="text-[10px] text-slate-400 font-mono">{m.location_code}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ส่วนกล่องลงบันทึกค่างวดมิเตอร์ / กล้องสแกน */}
       <div className="w-full">
