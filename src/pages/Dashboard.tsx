@@ -22,6 +22,17 @@ type WasteFilter = "day" | "week" | "month" | "custom";
 
 const CHART_COLORS = ["#388c0e", "#729df1", "#ef5b8d", "#673ab7", "#259b24", "#08a8cb", "#66bb6a", "#ec407a"];
 
+// สีตามประเภทขยะ (สอดคล้องกับหน้าจัดการขยะ)
+const WASTE_COLORS: Record<string, string> = {
+  general: "#3b82f6",      // ขยะทั่วไป - น้ำเงิน
+  organic: "#10b981",      // ขยะเปียก - เขียว
+  infectious: "#ef4444",   // ขยะติดเชื้อ - แดง
+  recycle: "#eab308",      // ขยะรีไซเคิล - เหลือง
+  hazardous: "#a855f7",    // ขยะอันตราย - ม่วง
+  other: "#94a3b8",
+};
+const getWasteColor = (type: string) => WASTE_COLORS[normalizeWasteType(type)] || WASTE_COLORS.other;
+
 const WASTE_FORECAST_COST_PER_KG: Record<string, number> = {
   general: 0,
   infectious: 11,
@@ -130,7 +141,27 @@ export default function Dashboard() {
         .from("waste_logs")
         .select("waste_type, weight, created_at")
         .order("created_at", { ascending: true });
-      return wasteLogsData || [];
+      const { data: infRecs } = await supabase
+        .from("infectious_waste_records")
+        .select("collection_date, sharp_waste_kg, non_sharp_waste_kg, created_at");
+
+      // รวมข้อมูลขยะติดเชื้อ (สำคัญสำหรับระบบพยากรณ์รายประเภท)
+      const existingInfKeys = new Set(
+        (wasteLogsData || [])
+          .filter((l: any) => normalizeWasteType(l.waste_type) === "infectious")
+          .map((l: any) => `${(l.created_at || "").substring(0, 10)}|${Number(l.weight)}`)
+      );
+      const extraInf = (infRecs || [])
+        .map((r: any) => {
+          const w = Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0);
+          const day = r.collection_date || (r.created_at || "").substring(0, 10);
+          if (!day || w <= 0) return null;
+          const key = `${day}|${w}`;
+          if (existingInfKeys.has(key)) return null;
+          return { waste_type: "infectious", weight: w, created_at: `${day}T08:00:00` };
+        })
+        .filter(Boolean) as any[];
+      return [...(wasteLogsData || []), ...extraInf];
     },
   });
 
@@ -312,7 +343,7 @@ export default function Dashboard() {
   const wasteForecast = useMemo(() => {
     const history = wasteHistory || [];
     const typeMap: Record<string, number> = {};
-    
+
     history.forEach((r: any) => {
       if (normalizeWasteType(r.waste_type) !== selectedForecastType) return;
       const date = new Date(r.created_at);
@@ -321,9 +352,10 @@ export default function Dashboard() {
     });
 
     const months = Object.keys(typeMap).sort();
-    if (months.length === 0) {
+    const hasHistory = months.length > 0;
+    if (!hasHistory) {
       const currentMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-      typeMap[currentMonthKey] = 10;
+      typeMap[currentMonthKey] = 0;
       months.push(currentMonthKey);
     }
 
@@ -334,17 +366,18 @@ export default function Dashboard() {
       return { month: label, monthKey, actual: Number((typeMap[monthKey] || 0).toFixed(2)), forecast: undefined };
     });
 
+    // ใช้ค่าเฉลี่ยของเดือนที่มีข้อมูลจริงเป็น baseline (แยกต่อประเภทขยะ)
+    const activeMonths = actual.filter(a => a.actual > 0);
+    const avgActive = activeMonths.length > 0
+      ? activeMonths.reduce((sum, c) => sum + c.actual, 0) / activeMonths.length
+      : 0;
+    // แนวโน้มการเปลี่ยนแปลง (linear trend) จากเดือนที่มีข้อมูล
     const changes: number[] = [];
-    for (let i = 1; i < actual.length; i += 1) {
-      changes.push(actual[i].actual - actual[i - 1].actual);
+    for (let i = 1; i < activeMonths.length; i += 1) {
+      changes.push(activeMonths[i].actual - activeMonths[i - 1].actual);
     }
     const avgDelta = changes.length > 0 ? changes.reduce((sum, v) => sum + v, 0) / changes.length : 0;
-    let baseline = actual.length > 0 ? actual[actual.length - 1].actual : 10;
-    
-    if (baseline === 0 && actual.length > 0) {
-      const activeMonths = actual.filter(a => a.actual > 0);
-      if (activeMonths.length > 0) baseline = activeMonths.reduce((sum, curr) => sum + curr.actual, 0) / activeMonths.length;
-    }
+    let baseline = avgActive;
 
     const lastMonthKey = actual.length > 0 ? actual[actual.length - 1].monthKey : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
     const [lastYear, lastMonth] = lastMonthKey.split("-").map(Number);
@@ -353,7 +386,7 @@ export default function Dashboard() {
     const forecast: any[] = [];
     for (let i = 1; i <= forecastHorizon; i += 1) {
       const nextDate = addMonths(lastDate, i);
-      baseline = Math.max(10, baseline + avgDelta);
+      baseline = Math.max(0, baseline + avgDelta);
       const mKey = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}`;
       forecast.push({ month: format(nextDate, "MMM yy", { locale: th }), monthKey: mKey, forecast: Number(baseline.toFixed(2)) });
     }
@@ -495,9 +528,9 @@ export default function Dashboard() {
                   <h4 className="text-sm font-semibold text-slate-600 mb-3">สัดส่วนขยะ</h4>
                   <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
-                      <Pie data={wasteData.byType} dataKey="weight" nameKey="label" cx="50%" cy="50%" innerRadius={40} outerRadius={80} paddingAngle={4}>
-                        {wasteData.byType.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                      </Pie>
+                       <Pie data={wasteData.byType} dataKey="weight" nameKey="label" cx="50%" cy="50%" innerRadius={40} outerRadius={80} paddingAngle={4}>
+                         {wasteData.byType.map((entry, i) => <Cell key={i} fill={getWasteColor(entry.type)} />)}
+                       </Pie>
                       <Tooltip formatter={(v) => `${v} กก.`} />
                       <Legend iconType="circle" />
                     </PieChart>
@@ -508,11 +541,11 @@ export default function Dashboard() {
                     <h4 className="text-sm font-semibold text-slate-600 mb-3">แนวโน้มรายวัน</h4>
                     <ResponsiveContainer width="100%" height={220}>
                       <AreaChart data={wasteData.byDay}>
-                        <defs>
+                         <defs>
                           {wasteData.allTypes.map((type, i) => (
                             <linearGradient key={type} id={`wasteGrad${i}`} x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor={CHART_COLORS[i % CHART_COLORS.length]} stopOpacity={0.4} />
-                              <stop offset="95%" stopColor={CHART_COLORS[i % CHART_COLORS.length]} stopOpacity={0.05} />
+                              <stop offset="5%" stopColor={getWasteColor(type)} stopOpacity={0.4} />
+                              <stop offset="95%" stopColor={getWasteColor(type)} stopOpacity={0.05} />
                             </linearGradient>
                           ))}
                         </defs>
@@ -520,8 +553,8 @@ export default function Dashboard() {
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                         <YAxis tick={{ fontSize: 11 }} />
                         <Tooltip />
-                        {wasteData.allTypes.map((type, i) => (
-                          <Area key={type} type="monotone" dataKey={type} fill={`url(#wasteGrad${i})`} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} />
+                         {wasteData.allTypes.map((type, i) => (
+                          <Area key={type} type="monotone" dataKey={type} name={getWasteTypeLabel(type)} fill={`url(#wasteGrad${i})`} stroke={getWasteColor(type)} strokeWidth={2} />
                         ))}
                       </AreaChart>
                     </ResponsiveContainer>
