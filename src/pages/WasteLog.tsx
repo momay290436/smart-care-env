@@ -375,47 +375,65 @@ export default function WasteLog() {
   }, [filteredInfectious]);
 
  const combinedLogs = useMemo(() => {
-  const normalizedFilter = normalizeWasteType(filterType);
-  const baseLogs = [...filteredLogs];
-  
-  if (normalizedFilter !== "infectious" && normalizedFilter !== "all" && filterType !== "all") {
-    return baseLogs;
-  }
+    const normalizedFilter = normalizeWasteType(filterType);
+    const baseLogs = [...filteredLogs];
 
-  const existingKeys = new Set(
-    baseLogs
-      .filter((log: any) => normalizeWasteType(log.waste_type) === "infectious")
-      .map((log: any) => {
-        const dateStr = log.created_at ? log.created_at.substring(0, 10) : "";
-        return `${dateStr}|${Number(log.weight)}`;
-      })
-  );
-
-  filteredInfectious.forEach((record: any) => {
-    const weight = Number(record.sharp_waste_kg || 0) + Number(record.non_sharp_waste_kg || 0);
-    const dateStr = record.collection_date 
-      ? record.collection_date.substring(0, 10) 
-      : (record.created_at || record.transfer_date || new Date().toISOString()).substring(0, 10);
-    
-    const key = `${dateStr}|${weight}`;
-    
-    if (!existingKeys.has(key)) {
-      baseLogs.push({
-        id: `infectious-${dateStr}|${weight}`,
-        waste_type: "infectious",
-        weight,
-        created_at: `${dateStr}T08:00:00`,
-        department_id: "",
-        recorded_by: "",
-        recorded_by_name: "",
-        departments: { name: "" },
-      } as any);
-      existingKeys.add(key);
+    if (normalizedFilter !== "infectious" && normalizedFilter !== "all" && filterType !== "all") {
+      return baseLogs;
     }
-  });
-  
-  return baseLogs;
-}, [filteredLogs, filterType, filteredInfectious]);
+
+    const existingInfectious = new Set(
+      baseLogs
+        .filter((log: any) => normalizeWasteType(log.waste_type) === "infectious")
+        .map((log: any) => {
+          const dateStr = log.created_at ? log.created_at.substring(0, 10) : "";
+          const weight = Math.round(Number(log.weight || 0) * 100) / 100;
+          return `${dateStr}|${weight}`;
+        })
+    );
+
+    filteredInfectious.forEach((record: any) => {
+      const weight = Math.round((Number(record.sharp_waste_kg || 0) + Number(record.non_sharp_waste_kg || 0)) * 100) / 100;
+      const dateStr = record.collection_date
+        ? record.collection_date.substring(0, 10)
+        : (record.created_at || record.transfer_date || new Date().toISOString()).substring(0, 10);
+
+      const key = `${dateStr}|${weight}`;
+      if (!existingInfectious.has(key)) {
+        baseLogs.push({
+          id: `infectious-${dateStr}|${weight}`,
+          waste_type: "infectious",
+          weight,
+          created_at: `${dateStr}T08:00:00`,
+          department_id: "",
+          recorded_by: "",
+          recorded_by_name: "",
+          departments: { name: "" },
+        } as any);
+        existingInfectious.add(key);
+      }
+    });
+
+    return baseLogs;
+  }, [filteredLogs, filterType, filteredInfectious]);
+  const chartRange = useMemo(() => {
+    const now = new Date();
+    if (filterPeriod === "day") return { rangeStart: startOfDay(now).getTime(), rangeEnd: now.getTime() };
+    if (filterPeriod === "week") return { rangeStart: startOfWeek(now, { weekStartsOn: 1 }).getTime(), rangeEnd: now.getTime() };
+    if (filterPeriod === "month") return { rangeStart: startOfMonth(now).getTime(), rangeEnd: now.getTime() };
+    if (filterPeriod === "custom" && customFrom && customTo) {
+      return { rangeStart: startOfDay(customFrom).getTime(), rangeEnd: new Date(startOfDay(customTo).getTime() + 86400000 - 1).getTime() };
+    }
+    return { rangeStart: startOfDay(chartFrom).getTime(), rangeEnd: startOfDay(chartTo).getTime() + 86400000 - 1 };
+  }, [filterPeriod, customFrom, customTo, chartFrom, chartTo]);
+
+  const combinedTypeTotals = useMemo(() => {
+    return combinedLogs.reduce((acc: Record<string, number>, log: any) => {
+      const normalized = normalizeWasteType(log.waste_type);
+      acc[normalized] = (acc[normalized] || 0) + Number(log.weight);
+      return acc;
+    }, {} as Record<string, number>);
+  }, [combinedLogs]);
 
   const handleEditLog = (log: any) => {
     setEditingLogId(log.id);
@@ -492,8 +510,7 @@ export default function WasteLog() {
     const deptMap: Record<string, Record<string, number>> = {};
     const allTypes = new Set<string>();
 
-    const rangeStart = startOfDay(chartFrom).getTime();
-    const rangeEnd = startOfDay(chartTo).getTime() + 86400000 - 1;
+    const { rangeStart, rangeEnd } = chartRange;
     const logsInRange = combinedLogs.filter((l: any) => {
       const t = new Date(l.created_at).getTime();
       return t >= rangeStart && t <= rangeEnd;
@@ -543,23 +560,28 @@ export default function WasteLog() {
       };
     });
 
-    const totalWeight = combinedLogs.reduce((s: number, l: any) => s + Number(l.weight), 0);
+    const totalWeight = logsInRange.reduce((s: number, l: any) => s + Number(l.weight), 0);
 
-    return { lineData, pieData, deptData, totalWeight: Math.round(totalWeight * 100) / 100, allTypes: Array.from(allTypes) };
-  }, [combinedLogs, chartFrom, chartTo]);
+    return {
+      lineData,
+      pieData,
+      deptData,
+      totalWeight: Math.round(totalWeight * 100) / 100,
+      typeTotals: typeMap,
+      allTypes: Array.from(allTypes),
+    };
+  }, [combinedLogs, chartRange]);
 
   const totalCost = useMemo(() => {
     let cost = 0;
     Object.keys(typesMap).forEach((k) => {
       const normalizedKey = normalizeWasteType(k);
-      const weight = normalizedKey === "infectious"
-        ? infectiousFilteredTotal
-        : filteredLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
+      const weight = combinedTypeTotals[normalizedKey] || 0;
       const rate = costPerKg[normalizedKey] || 0;
       cost += weight * rate;
     });
     return Math.round(cost * 100) / 100;
-  }, [filteredLogs, infectiousFilteredTotal, typesMap, costPerKg]);
+  }, [combinedTypeTotals, typesMap, costPerKg]);
 
   // ฟังก์ชันช่วยเหลือในการจับคู่สีชาร์ตจากคีย์ดึงมาจากฐานข้อมูลจริง
   const getColorByLabelName = (labelName: string) => {
@@ -747,9 +769,8 @@ export default function WasteLog() {
             </Card>
             {Object.entries(typesMap).map(([k, v]) => {
               const normalizedTypeKey = normalizeWasteType(k);
-              const typeWeight = normalizedTypeKey === "infectious"
-                ? infectiousFilteredTotal
-                : combinedLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedTypeKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
+              const typeLabel = getWasteTypeLabel(normalizedTypeKey);
+              const typeWeight = chartData.typeTotals?.[typeLabel] || 0;
               return (
                 <Card key={k} className="shadow-lg border-0 rounded-3xl bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
                   <CardContent className="p-4 text-center">
@@ -1039,9 +1060,7 @@ export default function WasteLog() {
                     <tbody className="divide-y divide-slate-100 text-sm">
                       {Object.entries(typesMap).map(([k, v]) => {
                         const normalizedKey = normalizeWasteType(k);
-                        const weight = normalizedKey === "infectious"
-                          ? infectiousFilteredTotal
-                          : filteredLogs.filter((l: any) => normalizeWasteType(l.waste_type) === normalizedKey).reduce((s: number, l: any) => s + Number(l.weight), 0);
+                        const weight = combinedTypeTotals[normalizedKey] || 0;
                         const rate = costPerKg[normalizedKey] || 0;
                         const amt = weight * rate;
                         if (weight === 0 && rate === 0) return null;
