@@ -20,6 +20,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, 
 import PageHeader from "@/components/PageHeader";
 import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
+import { syncInfectiousWasteAggregateToWasteLogs } from "@/lib/infectiousWasteSync";
 
 const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
   general: { label: "ขยะทั่วไป", color: "bg-blue-100 text-blue-900 border-blue-200", chartColor: "#3b82f6" },
@@ -151,13 +152,14 @@ export default function WasteLog() {
         if (valid.length === 0) throw new Error("กรุณากรอกชื่อหน่วยงานอย่างน้อย 1 รายการ");
         if (!infCollectionDate) throw new Error("กรุณาเลือกวันที่รับขยะ");
 
+        const collectionDateStr = format(infCollectionDate, "yyyy-MM-dd");
         if (editingLogId) {
-          const { error: errDelOld } = await supabase.from("infectious_waste_records").delete().eq("collection_date", format(infCollectionDate, "yyyy-MM-dd"));
+          const { error: errDelOld } = await supabase.from("infectious_waste_records").delete().eq("collection_date", collectionDateStr);
           if (errDelOld) throw errDelOld;
         }
 
         const inserts = valid.map((r: any) => ({
-          collection_date: format(infCollectionDate, "yyyy-MM-dd"),
+          collection_date: collectionDateStr,
           transfer_date: infTransferDate ? format(infTransferDate, "yyyy-MM-dd") : null,
           health_center_name: r.health_center_name.trim(),
           sharp_waste_kg: r.sharp_waste_kg ? parseFloat(r.sharp_waste_kg) : 0,
@@ -169,28 +171,22 @@ export default function WasteLog() {
         const { error: errInf } = await supabase.from("infectious_waste_records").insert(inserts);
         if (errInf) throw errInf;
 
-        const totalKg = inserts.reduce((s, x) => s + (x.sharp_waste_kg || 0) + (x.non_sharp_waste_kg || 0), 0);
-        if (totalKg > 0) {
-          const aggPayload: any = {
-            waste_type: "infectious",
-            weight: totalKg,
-            department_id: selectedDept || profile?.department_id || null,
-            recorded_by: user.id,
-          };
-          if (isAdmin && customDateTime) aggPayload.created_at = new Date(customDateTime).toISOString();
-          else aggPayload.created_at = new Date(format(infCollectionDate, "yyyy-MM-dd") + "T08:00:00").toISOString();
-          
-          if (editingLogId && !editingLogId.startsWith("infectious-")) {
-            const { error: errAgg } = await supabase.from("waste_logs").update(aggPayload).eq("id", editingLogId);
-            if (errAgg) throw errAgg;
-          } else {
-            if (editingLogId && editingLogId.startsWith("infectious-")) {
-              await supabase.from("waste_logs").delete().eq("id", editingLogId);
-            }
-            const { error: errAgg } = await supabase.from("waste_logs").insert(aggPayload);
-            if (errAgg) throw errAgg;
-          }
-        }
+        const { data: currentRecords = [] } = await supabase
+          .from("infectious_waste_records")
+          .select("sharp_waste_kg, non_sharp_waste_kg")
+          .eq("collection_date", collectionDateStr);
+        const totalKg = (currentRecords as any[]).reduce((s, x) => s + (Number(x.sharp_waste_kg) || 0) + (Number(x.non_sharp_waste_kg) || 0), 0);
+        const aggCreatedAt = (isAdmin && customDateTime) ? new Date(customDateTime).toISOString() : new Date(collectionDateStr + "T08:00:00").toISOString();
+        const { data: existingLogsForDay = [] } = await supabase.from("waste_logs").select("id,waste_type,created_at").eq("waste_type", "infectious");
+        await syncInfectiousWasteAggregateToWasteLogs({
+          supabaseClient: supabase,
+          collectionDate: infCollectionDate,
+          totalKg,
+          departmentId: selectedDept || profile?.department_id || null,
+          userId: user.id,
+          createdAt: aggCreatedAt,
+          existingLogs: existingLogsForDay || [],
+        });
         return;
       }
 
@@ -236,8 +232,14 @@ export default function WasteLog() {
         const parts = id.split("|");
         if (parts.length > 0) {
           const dateStr = parts[0].replace("infectious-", "").substring(0, 10);
-          const { error } = await supabase.from("infectious_waste_records").delete().eq("collection_date", dateStr);
-          if (error) throw error;
+          const { error: recordError } = await supabase.from("infectious_waste_records").delete().eq("collection_date", dateStr);
+          if (recordError) throw recordError;
+          const { data: existingLogsForDay = [] } = await supabase.from("waste_logs").select("id,waste_type,created_at").eq("waste_type", "infectious");
+          const relevantLogs = (existingLogsForDay || []).filter((log: any) => (log.created_at || "").slice(0, 10) === dateStr);
+          if (relevantLogs.length > 0) {
+            const { error: logError } = await supabase.from("waste_logs").delete().in("id", relevantLogs.map((log: any) => log.id));
+            if (logError) throw logError;
+          }
         }
       }
       const { error } = await supabase.from("waste_logs").delete().eq("id", id);

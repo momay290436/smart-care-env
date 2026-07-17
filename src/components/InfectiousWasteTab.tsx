@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Plus, Trash2, CalendarIcon, Download, Pencil } from "lucide-react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import * as XLSX from "xlsx";
+import { syncInfectiousWasteAggregateToWasteLogs } from "@/lib/infectiousWasteSync";
 
 const HEALTH_CENTERS = [
   "รพ.สต.โป่งปูเฟือง", "รพ.สต.โป่งกลางน้ำ", "รพ.สต.ทุ่งพร้าว", "รพ.สต.ห้วยไคร้",
@@ -95,8 +96,9 @@ export default function InfectiousWasteTab() {
       const validRows = rows.filter(r => r.health_center_name?.trim());
       if (validRows.length === 0) throw new Error("กรุณากรอกชื่อหน่วยงานอย่างน้อย 1 รายการ");
       if (!collectionDate) throw new Error("กรุณาเลือกวันที่รับขยะ");
+      const collectionDateStr = format(collectionDate, "yyyy-MM-dd");
       const inserts = validRows.map(r => ({
-        collection_date: format(collectionDate, "yyyy-MM-dd"),
+        collection_date: collectionDateStr,
         transfer_date: transferDate ? format(transferDate, "yyyy-MM-dd") : null,
         health_center_name: r.health_center_name?.trim() || null,
         sharp_waste_kg: r.sharp_waste_kg ? parseFloat(r.sharp_waste_kg) : null,
@@ -107,6 +109,22 @@ export default function InfectiousWasteTab() {
       }));
       const { error } = await supabase.from("infectious_waste_records").insert(inserts);
       if (error) throw error;
+
+      const { data: currentRecords = [] } = await supabase
+        .from("infectious_waste_records")
+        .select("sharp_waste_kg, non_sharp_waste_kg")
+        .eq("collection_date", collectionDateStr);
+      const totalKg = (currentRecords as any[]).reduce((sum, record) => sum + (Number(record.sharp_waste_kg) || 0) + (Number(record.non_sharp_waste_kg) || 0), 0);
+      const { data: existingLogsForDay = [] } = await supabase.from("waste_logs").select("id,waste_type,created_at").eq("waste_type", "infectious");
+      await syncInfectiousWasteAggregateToWasteLogs({
+        supabaseClient: supabase,
+        collectionDate,
+        totalKg,
+        departmentId: null,
+        userId: user.id,
+        createdAt: new Date(collectionDateStr + "T08:00:00").toISOString(),
+        existingLogs: existingLogsForDay || [],
+      });
     },
     onSuccess: () => {
       toast.success("บันทึกข้อมูลขยะติดเชื้อสำเร็จ");
@@ -119,10 +137,30 @@ export default function InfectiousWasteTab() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const { data: targetRecord } = await supabase.from("infectious_waste_records").select("collection_date").eq("id", id).maybeSingle();
       const { error } = await supabase.from("infectious_waste_records").delete().eq("id", id);
       if (error) throw error;
+
+      const collectionDateStr = targetRecord?.collection_date || "";
+      if (collectionDateStr) {
+        const { data: remainingRecords = [] } = await supabase
+          .from("infectious_waste_records")
+          .select("sharp_waste_kg, non_sharp_waste_kg")
+          .eq("collection_date", collectionDateStr);
+        const totalKg = (remainingRecords as any[]).reduce((sum, record) => sum + (Number(record.sharp_waste_kg) || 0) + (Number(record.non_sharp_waste_kg) || 0), 0);
+        const { data: existingLogsForDay = [] } = await supabase.from("waste_logs").select("id,waste_type,created_at").eq("waste_type", "infectious");
+        await syncInfectiousWasteAggregateToWasteLogs({
+          supabaseClient: supabase,
+          collectionDate: new Date(collectionDateStr + "T00:00:00"),
+          totalKg,
+          departmentId: null,
+          userId: user?.id || "",
+          createdAt: new Date(collectionDateStr + "T08:00:00").toISOString(),
+          existingLogs: existingLogsForDay || [],
+        });
+      }
     },
-    onSuccess: () => { toast.success("ลบสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["infectious-waste"] }); },
+    onSuccess: () => { toast.success("ลบสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["infectious-waste"] }); queryClient.invalidateQueries({ queryKey: ["waste-logs"] }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -139,8 +177,27 @@ export default function InfectiousWasteTab() {
         notes: notesValue,
       }).eq("id", item.id);
       if (error) throw error;
+
+      const collectionDateStr = item.collection_date || "";
+      if (collectionDateStr) {
+        const { data: currentRecords = [] } = await supabase
+          .from("infectious_waste_records")
+          .select("sharp_waste_kg, non_sharp_waste_kg")
+          .eq("collection_date", collectionDateStr);
+        const totalKg = (currentRecords as any[]).reduce((sum, record) => sum + (Number(record.sharp_waste_kg) || 0) + (Number(record.non_sharp_waste_kg) || 0), 0);
+        const { data: existingLogsForDay = [] } = await supabase.from("waste_logs").select("id,waste_type,created_at").eq("waste_type", "infectious");
+        await syncInfectiousWasteAggregateToWasteLogs({
+          supabaseClient: supabase,
+          collectionDate: new Date(collectionDateStr + "T00:00:00"),
+          totalKg,
+          departmentId: null,
+          userId: user?.id || "",
+          createdAt: new Date(collectionDateStr + "T08:00:00").toISOString(),
+          existingLogs: existingLogsForDay || [],
+        });
+      }
     },
-    onSuccess: () => { toast.success("แก้ไขสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["infectious-waste"] }); setEditItem(null); },
+    onSuccess: () => { toast.success("แก้ไขสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["infectious-waste"] }); queryClient.invalidateQueries({ queryKey: ["waste-logs"] }); setEditItem(null); },
     onError: (e: any) => toast.error(e.message),
   });
 
