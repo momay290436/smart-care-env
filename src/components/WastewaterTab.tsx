@@ -407,6 +407,14 @@ export default function WastewaterTab() {
                 {filtered.map((l: any, i: number) => {
                   const cl = l.chlorine_residual != null ? Number(l.chlorine_residual) : null;
                   const warn = cl !== null && (cl < 0.5 || cl > 1.0);
+                  const sedimentVal = l.sediment_volume != null ? Number(l.sediment_volume) : null;
+                  const sedimentClass = sedimentVal !== null
+                    ? sedimentVal < 100
+                      ? "bg-red-100 text-red-700 font-bold"
+                      : sedimentVal < 200
+                        ? "bg-amber-100 text-amber-700 font-bold"
+                        : ""
+                    : "";
                   const doVal = l.do_value != null ? Number(l.do_value) : null;
                   const doWarn = doVal !== null && doVal < 2;
                   return (
@@ -417,7 +425,7 @@ export default function WastewaterTab() {
                       <td className={`px-2 py-2 text-center text-xs ${warn ? "text-red-600 font-bold" : ""}`}>{cl ?? "-"}</td>
                       <td className="px-2 py-2 text-center text-xs">{l.ph_value ?? "-"}</td>
                       <td className="px-2 py-2 text-center text-xs">{l.water_appearance || "-"}</td>
-                      <td className="px-2 py-2 text-center text-xs">{l.sediment_volume || "-"}</td>
+                      <td className={`px-2 py-2 text-center text-xs ${sedimentClass}`}>{l.sediment_volume || "-"}</td>
                       <td className={`px-2 py-2 text-center text-xs ${doWarn ? "bg-red-100 text-red-700 font-bold" : ""}`}>{doVal ?? "-"}</td>
                       <td className="px-2 py-2 text-center text-xs">{l.sedimentation_char || "-"}</td>
                       <td className="px-2 py-2 text-center text-xs">{l.electricity_meter || "-"}</td>
