@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp, AlertCircle, Search } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
+import { filterElectricityHistoryLogs, getElectricityHistoryRoomOptions } from '@/lib/electricityHistory';
 
 declare global { interface Window { Html5Qrcode: any; } }
 
@@ -70,9 +71,10 @@ export default function Electricity() {
   const [customPrevValue, setCustomPrevValue] = useState('');
   const [customPrevWaterValue, setCustomPrevWaterValue] = useState('');
 
-  // States สำหรับระบบคัดกรองปฏิทิน
+  // States สำหรับระบบคัดกรองปฏิทินและห้อง
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [roomFilter, setRoomFilter] = useState('');
 
   // States สำหรับการลงทะเบียนเครื่องมิเตอร์ใหม่
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
@@ -108,7 +110,8 @@ export default function Electricity() {
           previous_water_value,
           created_at,
           electricity_meters (
-            meter_name
+            meter_name,
+            location_code
           )
         `)
         .order('created_at', { ascending: false });
@@ -116,15 +119,13 @@ export default function Electricity() {
     }
   });
 
-  // ระบบคัดกรองข้อมูลประวัติด้วยวันที่
-  const filteredLogs = logs.filter((log: any) => {
-    if (!startDate && !endDate) return true;
-    const logDate = new Date(log.created_at).toISOString().split('T')[0];
-    
-    if (startDate && logDate < startDate) return false;
-    if (endDate && logDate > endDate) return false;
-    return true;
-  });
+  const roomOptions = React.useMemo(() => getElectricityHistoryRoomOptions(logs), [logs]);
+
+  // ระบบคัดกรองข้อมูลประวัติด้วยวันที่และห้อง
+  const filteredLogs = React.useMemo(
+    () => filterElectricityHistoryLogs(logs, roomFilter, startDate, endDate),
+    [logs, roomFilter, startDate, endDate],
+  );
 
   // คำนวณสรุปหน่วยประจำเดือนล่าสุด (รองรับปฏิทิน พ.ศ. / ค.ศ.)
   const currentMonthStats = React.useMemo(() => {
@@ -679,8 +680,23 @@ export default function Electricity() {
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 text-xs bg-slate-50/50" />
             <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 text-xs bg-slate-50/50" />
           </div>
-          {(startDate || endDate) && (
-            <Button size="sm" variant="ghost" onClick={() => { setStartDate(''); setEndDate(''); }} className="h-6 text-[11px] text-rose-500 hover:text-rose-600 p-0 self-end">ล้างตัวกรอง</Button>
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-500">กรองตามห้อง/สถานที่</label>
+            <Input
+              value={roomFilter}
+              onChange={(e) => setRoomFilter(e.target.value)}
+              placeholder="พิมพ์บางส่วนเพื่อค้นหา"
+              list="electricity-room-options"
+              className="h-8 text-xs bg-slate-50/50"
+            />
+            <datalist id="electricity-room-options">
+              {roomOptions.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
+          </div>
+          {(startDate || endDate || roomFilter) && (
+            <Button size="sm" variant="ghost" onClick={() => { setStartDate(''); setEndDate(''); setRoomFilter(''); }} className="h-6 text-[11px] text-rose-500 hover:text-rose-600 p-0 self-end">ล้างตัวกรอง</Button>
           )}
         </Card>
       </div>
