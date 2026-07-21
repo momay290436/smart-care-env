@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp, AlertCircle, Search } from 'lucide-react';
+import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp, AlertCircle, Search, Pencil, Trash2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
 import { filterElectricityHistoryLogs, getElectricityHistoryRoomOptions } from '@/lib/electricityHistory';
@@ -80,6 +80,15 @@ export default function Electricity() {
   const [newMeter, setNewMeter] = useState({ name: '', code: '', serial: '', qr_url: '' });
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
 
+  // States สำหรับแก้ไขประวัติย้อนหลัง
+  const [editingLog, setEditingLog] = useState<any | null>(null);
+  const [editLogDate, setEditLogDate] = useState('');
+  const [editLogTime, setEditLogTime] = useState('');
+  const [editPrevValue, setEditPrevValue] = useState('');
+  const [editCurrValue, setEditCurrValue] = useState('');
+  const [editPrevWaterValue, setEditPrevWaterValue] = useState('');
+  const [editCurrWaterValue, setEditCurrWaterValue] = useState('');
+
   // ตัวแปรเช็กกลุ่มร้านค้า
   const isShop = meterDisplayName.includes('(ร้านค้า)');
 
@@ -93,6 +102,77 @@ export default function Electricity() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const openEditLogDialog = (log: any) => {
+    const createdAt = new Date(log.created_at);
+    const offset = createdAt.getTimezoneOffset();
+    const localCreatedAt = new Date(createdAt.getTime() - offset * 60 * 1000);
+
+    setEditingLog(log);
+    setEditLogDate(localCreatedAt.toISOString().split('T')[0]);
+    setEditLogTime(localCreatedAt.toTimeString().split(' ')[0].slice(0, 5));
+    setEditPrevValue(log.previous_value ?? '');
+    setEditCurrValue(log.current_value ?? '');
+    setEditPrevWaterValue(log.previous_water_value ?? '');
+    setEditCurrWaterValue(log.current_water_value ?? '');
+  };
+
+  const resetEditLogDialog = () => {
+    setEditingLog(null);
+    setEditLogDate('');
+    setEditLogTime('');
+    setEditPrevValue('');
+    setEditCurrValue('');
+    setEditPrevWaterValue('');
+    setEditCurrWaterValue('');
+  };
+
+  const handleUpdateLog = async () => {
+    if (!editingLog) return;
+
+    const parsedCurrent = parseFloat(editCurrValue);
+    if (Number.isNaN(parsedCurrent)) {
+      toast({ variant: 'destructive', title: 'กรุณาระบุเลขมิเตอร์ไฟล่าสุดก่อนบันทึก' });
+      return;
+    }
+
+    try {
+      const finalDateTime = new Date(`${editLogDate}T${editLogTime}`).toISOString();
+      const payload: any = {
+        current_value: parsedCurrent,
+        previous_value: editPrevValue === '' ? null : parseFloat(editPrevValue),
+        created_at: finalDateTime,
+      };
+
+      if (editCurrWaterValue !== '' || editPrevWaterValue !== '') {
+        payload.current_water_value = editCurrWaterValue === '' ? null : parseFloat(editCurrWaterValue);
+        payload.previous_water_value = editPrevWaterValue === '' ? null : parseFloat(editPrevWaterValue);
+      }
+
+      const { error } = await supabase.from('electricity_logs').update(payload).eq('id', editingLog.id);
+      if (error) throw error;
+
+      toast({ title: 'แก้ไขข้อมูลสำเร็จ' });
+      resetEditLogDialog();
+      queryClient.invalidateQueries({ queryKey: ['logs'] });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'แก้ไขข้อมูลไม่สำเร็จ', description: err.message });
+    }
+  };
+
+  const handleDeleteLog = async (logId: string) => {
+    if (!window.confirm('ยืนยันการลบประวัตินี้หรือไม่?')) return;
+
+    try {
+      const { error } = await supabase.from('electricity_logs').delete().eq('id', logId);
+      if (error) throw error;
+
+      toast({ title: 'ลบข้อมูลสำเร็จ' });
+      queryClient.invalidateQueries({ queryKey: ['logs'] });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'ลบข้อมูลไม่สำเร็จ', description: err.message });
+    }
+  };
 
   // ดึงประวัติรายการทั้งหมดจาก Supabase
   const { data: logs = [] } = useQuery({ 
@@ -829,7 +909,19 @@ export default function Electricity() {
                       {new Date(log.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
                     </TableCell>
                     <TableCell className="text-xs font-semibold text-slate-800 py-2.5 whitespace-nowrap">
-                      {log.electricity_meters?.meter_name || 'ไม่ทราบสถานที่'}
+                      <div className="flex items-center justify-between gap-2">
+                        <span>{log.electricity_meters?.meter_name || 'ไม่ทราบสถานที่'}</span>
+                        {isAdmin && (
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg" onClick={() => openEditLogDialog(log)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg" onClick={() => handleDeleteLog(log.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-xs text-right text-slate-500 py-2.5">{log.previous_value}</TableCell>
                     <TableCell className="text-xs text-right font-medium text-slate-700 py-2.5">{log.current_value}</TableCell>
@@ -848,6 +940,50 @@ export default function Electricity() {
           </Table>
         </div>
       </Card>
+
+      <Dialog open={!!editingLog} onOpenChange={(open) => { if (!open) resetEditLogDialog(); }}>
+        <DialogContent className="sm:max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>แก้ไขประวัติการบันทึก</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">วันที่บันทึก</label>
+                <Input type="date" value={editLogDate} onChange={(e) => setEditLogDate(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">เวลาบันทึก</label>
+                <Input type="time" value={editLogTime} onChange={(e) => setEditLogTime(e.target.value)} className="h-10" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">เลขไฟงวดก่อน</label>
+                <Input type="number" value={editPrevValue} onChange={(e) => setEditPrevValue(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">เลขไฟล่าสุด</label>
+                <Input type="number" value={editCurrValue} onChange={(e) => setEditCurrValue(e.target.value)} className="h-10" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">เลขน้ำงวดก่อน</label>
+                <Input type="number" value={editPrevWaterValue} onChange={(e) => setEditPrevWaterValue(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">เลขน้ำล่าสุด</label>
+                <Input type="number" value={editCurrWaterValue} onChange={(e) => setEditCurrWaterValue(e.target.value)} className="h-10" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={resetEditLogDialog}>ยกเลิก</Button>
+              <Button onClick={handleUpdateLog} className="bg-emerald-600 hover:bg-emerald-700 text-white">บันทึกการแก้ไข</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
