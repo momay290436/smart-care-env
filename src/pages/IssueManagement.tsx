@@ -47,6 +47,7 @@ export default function IssueManagement() {
   const [selected, setSelected] = useState<any>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [addForm, setAddForm] = useState<any>({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "", photo_url: "", occurred_at: undefined as Date | undefined, resolved_at: undefined as Date | undefined });
   const [editDates, setEditDates] = useState<{ occurred_at?: Date; resolved_at?: Date }>({});
 
@@ -139,8 +140,6 @@ export default function IssueManagement() {
         description: addForm.description || null,
         severity: addForm.severity,
         status: addForm.status,
-        source_module: "manual",
-        created_by: user?.id || null,
         resolution_notes: addForm.resolution_notes || null,
         department_name: addForm.department_name || null,
         photo_url: addForm.photo_url?.trim() || null,
@@ -152,14 +151,25 @@ export default function IssueManagement() {
       } else if (addForm.status === "resolved") {
         payload.resolved_at = new Date().toISOString();
         payload.resolved_by = user?.id || null;
+      } else {
+        payload.resolved_at = null;
       }
-      const { error } = await supabase.from("issues").insert(payload);
-      if (error) throw error;
+      if (editingId) {
+        payload.updated_at = new Date().toISOString();
+        const { error } = await supabase.from("issues").update(payload).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        payload.source_module = "manual";
+        payload.created_by = user?.id || null;
+        const { error } = await supabase.from("issues").insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("เพิ่มปัญหาสำเร็จ");
+      toast.success(editingId ? "แก้ไขปัญหาสำเร็จ" : "เพิ่มปัญหาสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       setShowAddDialog(false);
+      setEditingId(null);
       setAddForm({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "", photo_url: "", occurred_at: undefined, resolved_at: undefined });
     },
     onError: (e: any) => toast.error(e.message),
@@ -205,7 +215,7 @@ export default function IssueManagement() {
   return (
     <div className="space-y-5 pb-6">
       <PageHeader title="จัดการปัญหา" subtitle="Issue Management — รวบรวมปัญหาจากทุกระบบ">
-        <Button className="rounded-2xl h-10 gap-1.5 bg-slate-900 hover:bg-slate-800" onClick={() => setShowAddDialog(true)}>
+        <Button className="rounded-2xl h-10 gap-1.5 bg-slate-900 hover:bg-slate-800" onClick={() => { setEditingId(null); setAddForm({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "", photo_url: "", occurred_at: undefined, resolved_at: undefined }); setShowAddDialog(true); }}>
           <Plus className="h-4 w-4" /> เพิ่มปัญหา
         </Button>
       </PageHeader>
@@ -301,6 +311,7 @@ export default function IssueManagement() {
                         className="h-9 rounded-xl"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setEditingId(issue.id);
                           setAddForm({
                             title: issue.title || "",
                             description: issue.description || "",
@@ -358,24 +369,52 @@ export default function IssueManagement() {
 
       {/* Detail Dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="rounded-3xl w-full max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-y-auto p-6">
-          <DialogHeader><DialogTitle className="text-2xl md:text-3xl">รายละเอียดปัญหา</DialogTitle></DialogHeader>
+        <DialogContent className="rounded-3xl w-full max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
           {selected && (
-            <div className="space-y-5">
-              <div className="rounded-2xl p-5 bg-slate-50 border border-slate-200">
-                <p className="text-lg md:text-xl font-bold">{selected.title}</p>
-                <p className="text-sm md:text-base text-muted-foreground mt-2">{selected.description || "-"}</p>
-                <div className="flex gap-2 mt-3 flex-wrap">
+            <div>
+              {/* Header */}
+              <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-200 space-y-3 text-left">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className={`text-xs rounded-full px-3 py-1 ${STATUS_CONFIG[selected.status]?.color}`}>{STATUS_CONFIG[selected.status]?.label}</Badge>
+                  <Badge variant="outline" className={`text-xs rounded-full px-3 py-1 ${SEVERITY_CONFIG[selected.severity]?.color}`}>ความรุนแรง: {SEVERITY_CONFIG[selected.severity]?.label}</Badge>
                   {getModuleLabel(selected.source_module) && (
-                    <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{getModuleLabel(selected.source_module)}</Badge>
+                    <Badge variant="outline" className="text-xs rounded-full px-3 py-1">{getModuleLabel(selected.source_module)}</Badge>
                   )}
-                  <Badge variant="outline" className={`text-sm rounded-full px-3 py-1 ${SEVERITY_CONFIG[selected.severity]?.color}`}>ความรุนแรง: {SEVERITY_CONFIG[selected.severity]?.label}</Badge>
-                  {selected.department_name && <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{selected.department_name}</Badge>}
                 </div>
-              <p className="text-sm md:text-base text-muted-foreground mt-3">{format(new Date(selected.created_at), "d MMMM yyyy HH:mm น.", { locale: th })}</p>
-              </div>
+                <DialogTitle className="text-xl md:text-2xl font-bold leading-snug">{selected.title}</DialogTitle>
+              </DialogHeader>
 
-              {selected.photo_url && (
+              <div className="p-6 space-y-5">
+                {/* Meta grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { l: "แผนก / พื้นที่", v: selected.department_name || "-" },
+                    { l: "วันที่บันทึก", v: format(new Date(selected.created_at), "d MMM yyyy HH:mm", { locale: th }) },
+                    { l: "วันที่พบปัญหา", v: selected.occurred_at ? format(new Date(selected.occurred_at), "d MMM yyyy", { locale: th }) : "-" },
+                    { l: "วันที่แก้ไขเสร็จ", v: selected.resolved_at ? format(new Date(selected.resolved_at), "d MMM yyyy", { locale: th }) : "-" },
+                  ].map((f) => (
+                    <div key={f.l} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{f.l}</p>
+                      <p className="text-sm font-semibold text-slate-800 mt-1 break-words">{f.v}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Description */}
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">รายละเอียดปัญหาที่พบ</p>
+                  <p className="text-sm md:text-base leading-relaxed text-slate-800 whitespace-pre-wrap break-words">{selected.description || "-"}</p>
+                </div>
+
+                {/* Existing resolution */}
+                {selected.resolution_notes && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-emerald-700 mb-2">วิธีการจัดการ / แก้ไขที่บันทึกไว้</p>
+                    <p className="text-sm md:text-base leading-relaxed text-slate-800 whitespace-pre-wrap break-words">{selected.resolution_notes}</p>
+                  </div>
+                )}
+
+                {selected.photo_url && (
                 <div>
                   <p className="text-sm font-semibold mb-2">รูปภาพประกอบ</p>
                   <a href={selected.photo_url} target="_blank" rel="noreferrer" className="block">
@@ -383,7 +422,7 @@ export default function IssueManagement() {
                     <p className="text-xs text-blue-600 mt-1 truncate underline">{selected.photo_url}</p>
                   </a>
                 </div>
-              )}
+                )}
 
               {isAdmin && (
                 <div className="grid grid-cols-2 gap-2 border rounded-2xl p-3 bg-slate-50">
@@ -416,19 +455,19 @@ export default function IssueManagement() {
               )}
 
               <div>
-                <Label className="text-sm font-semibold">วิธีการจัดการ/แก้ไขปัญหา</Label>
+                <Label className="text-sm font-semibold">อัพเดตวิธีการจัดการ/แก้ไขปัญหา</Label>
                 <Textarea
                   value={resolutionNotes || selected.resolution_notes || ""}
                   onChange={(e) => setResolutionNotes(e.target.value)}
                   placeholder="ระบุวิธีการแก้ไขปัญหา..."
-                  rows={3}
+                  rows={5}
                   className="rounded-2xl mt-1"
                 />
               </div>
 
               <div>
                 <p className="text-sm font-semibold mb-2">อัพเดตสถานะ</p>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {(["pending", "in_progress", "resolved"] as const).map((s) => {
                     const cfg = STATUS_CONFIG[s];
                     const isCurrent = selected.status === s;
@@ -436,7 +475,7 @@ export default function IssueManagement() {
                       <Button
                         key={s}
                         variant={isCurrent ? "default" : "outline"}
-                        className={`h-12 rounded-2xl text-sm font-bold ${isCurrent ? cfg.color : ""}`}
+                        className={`h-12 rounded-2xl text-xs sm:text-sm font-bold ${isCurrent ? cfg.color : ""}`}
                         disabled={isCurrent}
                         onClick={() => handleStatusChange(selected, s)}
                       >
@@ -447,15 +486,16 @@ export default function IssueManagement() {
                   })}
                 </div>
               </div>
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
       {/* Add Issue Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <Dialog open={showAddDialog} onOpenChange={(o) => { setShowAddDialog(o); if (!o) setEditingId(null); }}>
         <DialogContent className="rounded-3xl w-full max-w-2xl md:max-w-3xl max-h-[90vh] overflow-y-auto p-6">
-          <DialogHeader><DialogTitle className="text-2xl md:text-3xl">เพิ่มปัญหาที่พบ</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-2xl md:text-3xl">{editingId ? "แก้ไขข้อมูลปัญหา" : "เพิ่มปัญหาที่พบ"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <Label className="text-sm font-semibold">หัวข้อปัญหา *</Label>
@@ -534,7 +574,7 @@ export default function IssueManagement() {
               </div>
             </div>
             <Button className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-base font-bold" disabled={createIssue.isPending} onClick={() => createIssue.mutate()}>
-              {createIssue.isPending ? "กำลังบันทึก..." : "บันทึกปัญหา"}
+              {createIssue.isPending ? "กำลังบันทึก..." : editingId ? "บันทึกการแก้ไข" : "บันทึกปัญหา"}
             </Button>
           </div>
         </DialogContent>

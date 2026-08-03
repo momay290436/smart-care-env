@@ -191,7 +191,8 @@ export default function Electricity() {
           created_at,
           electricity_meters (
             meter_name,
-            location_code
+            location_code,
+            residents
           )
         `)
         .order('created_at', { ascending: false });
@@ -473,6 +474,31 @@ export default function Electricity() {
       'จำนวนหน่วยน้ำที่ใช้ประจำงวด (หน่วย)': log.current_water_value && log.previous_water_value ? (log.current_water_value >= log.previous_water_value ? log.current_water_value - log.previous_water_value : (10000 - log.previous_water_value) + log.current_water_value) : '-'
     });
 
+    // รูปแบบสำหรับบ้านพัก / แฟลต : มีชื่อผู้พัก + ยูนิตลดหย่อน + หน่วยที่คิดเงิน
+    const formatResidenceItem = (log: any) => {
+      const residents = Array.isArray(log.electricity_meters?.residents) ? log.electricity_meters.residents : [];
+      const residentText = residents
+        .filter((r: any) => r?.name)
+        .map((r: any) => `${r.name}(${Number(r.units) || 0})`)
+        .join(', ');
+      const deduction = residents.reduce((sum: number, r: any) => sum + (Number(r?.units) || 0), 0);
+      const used = Number(log.units_used) || 0;
+      return {
+        'วัน-เวลาที่จด': new Date(log.created_at).toLocaleString('th-TH'),
+        'สถานที่ติดตั้ง': log.electricity_meters?.meter_name || 'ไม่พบข้อมูล',
+        'ชื่อ-สกุลผู้พัก (ยูนิตลดหย่อน)': residentText || '-',
+        'เลขมิเตอร์ไฟครั้งก่อน': log.previous_value,
+        'เลขมิเตอร์ไฟล่าสุด': log.current_value,
+        'จำนวนหน่วยที่ใช้ (หน่วย)': used,
+        'ยูนิตที่ได้รับการลดหย่อนรวม': deduction,
+        'จำนวนหน่วยที่คิดเงิน': Math.max(0, Number((used - deduction).toFixed(2))),
+        'จำนวนเงิน': '',
+        'หมายเหตุ': '',
+      };
+    };
+
+    const RESIDENCE_KEYS = ['บ้านพัก', 'แฟลต1', 'แฟลต2', 'แฟลต3', 'แฟลต4'];
+
     const categories = [
       { key: 'ร้านค้า', label: 'ร้านค้า' },
       { key: 'บ้านพัก', label: 'บ้านพัก' },
@@ -494,7 +520,8 @@ export default function Electricity() {
         return name.includes(`(${category.key})`);
       });
 
-      const filteredRecords = filtered.map(formatLogItem);
+      const isResidence = RESIDENCE_KEYS.includes(category.key);
+      const filteredRecords: any[] = filtered.map((log: any) => (isResidence ? formatResidenceItem(log) : formatLogItem(log)));
       const wsFiltered = XLSX.utils.json_to_sheet(filteredRecords);
       XLSX.utils.book_append_sheet(wb, wsFiltered, category.label);
     });
