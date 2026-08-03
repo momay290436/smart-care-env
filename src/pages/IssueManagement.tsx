@@ -574,7 +574,7 @@ export default function IssueManagement() {
               </div>
             </div>
             <Button className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-base font-bold" disabled={createIssue.isPending} onClick={() => createIssue.mutate()}>
-              {createIssue.isPending ? "กำลังบันทึก..." : "บันทึกปัญหา"}
+              {createIssue.isPending ? "กำลังบันทึก..." : editingId ? "บันทึกการแก้ไข" : "บันทึกปัญหา"}
             </Button>
           </div>
         </DialogContent>
