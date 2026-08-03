@@ -521,7 +521,7 @@ export default function Electricity() {
       });
 
       const isResidence = RESIDENCE_KEYS.includes(category.key);
-      const filteredRecords = filtered.map(isResidence ? formatResidenceItem : formatLogItem);
+      const filteredRecords: any[] = filtered.map((log: any) => (isResidence ? formatResidenceItem(log) : formatLogItem(log)));
       const wsFiltered = XLSX.utils.json_to_sheet(filteredRecords);
       XLSX.utils.book_append_sheet(wb, wsFiltered, category.label);
     });
