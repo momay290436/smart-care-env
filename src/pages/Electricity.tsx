@@ -191,7 +191,8 @@ export default function Electricity() {
           created_at,
           electricity_meters (
             meter_name,
-            location_code
+            location_code,
+            residents
           )
         `)
         .order('created_at', { ascending: false });
