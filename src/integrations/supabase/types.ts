@@ -333,7 +333,9 @@ export type Database = {
           id: string
           location_code: string
           meter_name: string
+          notes: string | null
           qr_url: string | null
+          residents: Json
           serial_number: string | null
         }
         Insert: {
@@ -341,7 +343,9 @@ export type Database = {
           id?: string
           location_code: string
           meter_name: string
+          notes?: string | null
           qr_url?: string | null
+          residents?: Json
           serial_number?: string | null
         }
         Update: {
@@ -349,7 +353,9 @@ export type Database = {
           id?: string
           location_code?: string
           meter_name?: string
+          notes?: string | null
           qr_url?: string | null
+          residents?: Json
           serial_number?: string | null
         }
         Relationships: []
