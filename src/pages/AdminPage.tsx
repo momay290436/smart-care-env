@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
 import PagePermissionsTab from "@/components/PagePermissionsTab";
+import ElectricityMetersTab from "@/components/ElectricityMetersTab";
 import DeptQrPointsSection from "@/components/DeptQrPointsSection";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import FireQrPrintDialog from "@/components/FireQrPrintDialog";
