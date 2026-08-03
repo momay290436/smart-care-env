@@ -343,12 +343,15 @@ export default function Dashboard() {
   const wasteForecast = useMemo(() => {
     const history = wasteHistory || [];
     const typeMap: Record<string, number> = {};
+    const dayMap: Record<string, Set<string>> = {};
 
     history.forEach((r: any) => {
       if (normalizeWasteType(r.waste_type) !== selectedForecastType) return;
       const date = new Date(r.created_at);
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       typeMap[key] = (typeMap[key] || 0) + Number(r.weight);
+      if (!dayMap[key]) dayMap[key] = new Set();
+      dayMap[key].add(String(date.getDate()));
     });
 
     const months = Object.keys(typeMap).sort();
@@ -366,31 +369,50 @@ export default function Dashboard() {
       return { month: label, monthKey, actual: Number((typeMap[monthKey] || 0).toFixed(2)), forecast: undefined };
     });
 
-    // ใช้ค่าเฉลี่ยของเดือนที่มีข้อมูลจริงเป็น baseline (แยกต่อประเภทขยะ)
-    const activeMonths = actual.filter(a => a.actual > 0);
-    const avgActive = activeMonths.length > 0
-      ? activeMonths.reduce((sum, c) => sum + c.actual, 0) / activeMonths.length
-      : 0;
-    // แนวโน้มการเปลี่ยนแปลง (linear trend) จากเดือนที่มีข้อมูล
-    const changes: number[] = [];
-    for (let i = 1; i < activeMonths.length; i += 1) {
-      changes.push(activeMonths[i].actual - activeMonths[i - 1].actual);
-    }
-    const avgDelta = changes.length > 0 ? changes.reduce((sum, v) => sum + v, 0) / changes.length : 0;
-    let baseline = avgActive;
-
     const lastMonthKey = actual.length > 0 ? actual[actual.length - 1].monthKey : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
     const [lastYear, lastMonth] = lastMonthKey.split("-").map(Number);
     const lastDate = new Date(lastYear, lastMonth - 1, 1);
 
+    // --- คำนวณ baseline อย่างถูกต้อง ---
+    // 1) ไม่นำเดือนปัจจุบันที่ยังบันทึกไม่ครบเดือนมาถ่วงค่าเฉลี่ย
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const completeMonths = actual.filter((a) => a.actual > 0 && a.monthKey !== currentKey);
+
+    // 2) ถ้ามีเดือนที่สมบูรณ์ตั้งแต่ 2 เดือนขึ้นไป ใช้ linear regression (least squares)
+    //    ถ้ามีเดือนเดียว ใช้ค่าเดือนนั้น  ถ้าไม่มีเลย ใช้อัตราเฉลี่ยต่อวันของเดือนปัจจุบัน x 30 วัน
+    const fitMonths = completeMonths.slice(-6);
+    let baseValue = 0;
+    let slope = 0;
+    if (fitMonths.length >= 2) {
+      const n = fitMonths.length;
+      const meanX = (n - 1) / 2;
+      const meanY = fitMonths.reduce((s, r) => s + r.actual, 0) / n;
+      let num = 0; let den = 0;
+      fitMonths.forEach((r, i) => { num += (i - meanX) * (r.actual - meanY); den += (i - meanX) ** 2; });
+      slope = den > 0 ? num / den : 0;
+      // จำกัดความชันไม่ให้เกิน 20% ของค่าเฉลี่ยต่อเดือน เพื่อกันการพยากรณ์เพี้ยน
+      const cap = meanY * 0.2;
+      slope = Math.max(-cap, Math.min(cap, slope));
+      baseValue = Math.max(0, meanY + slope * (n - 1 - meanX));
+    } else if (fitMonths.length === 1) {
+      baseValue = fitMonths[0].actual;
+    } else {
+      const daysRecorded = dayMap[currentKey]?.size || 0;
+      const currentTotal = typeMap[currentKey] || 0;
+      baseValue = daysRecorded > 0 ? (currentTotal / daysRecorded) * 30 : 0;
+    }
+
     const forecast: any[] = [];
+    let baseline = baseValue;
     for (let i = 1; i <= forecastHorizon; i += 1) {
       const nextDate = addMonths(lastDate, i);
-      baseline = Math.max(0, baseline + avgDelta);
+      baseline = Math.max(0, baseValue + slope * i);
       const mKey = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}`;
       forecast.push({ month: format(nextDate, "MMM yy", { locale: th }), monthKey: mKey, forecast: Number(baseline.toFixed(2)) });
     }
     const forecastTotal = forecast.reduce((sum, item) => sum + item.forecast, 0);
+    const forecastAvg = forecast.length > 0 ? forecastTotal / forecast.length : 0;
     const costPerKg = wasteRates[normalizeWasteType(selectedForecastType)] ?? wasteRates.other;
     const forecastCost = Number((forecastTotal * costPerKg).toFixed(2));
     const chart = [
@@ -398,7 +420,7 @@ export default function Dashboard() {
       ...forecast.map((item) => ({ month: item.month, actual: undefined, forecast: item.forecast })),
     ];
 
-    return { chart, total: Number(forecastTotal.toFixed(2)), cost: forecastCost, type: selectedForecastType };
+    return { chart, total: Number(forecastTotal.toFixed(2)), avg: Number(forecastAvg.toFixed(2)), cost: forecastCost, type: selectedForecastType };
   }, [wasteHistory, selectedForecastType, forecastHorizon, wasteRates]);
 
   const waterKpi = useMemo(() => {
