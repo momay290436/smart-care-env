@@ -13,7 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ALL_PAGES = [
+  { key: "/", label: "หน้าแรก", icon: "🏠" },
   { key: "/dashboard", label: "Dashboard", icon: "📊" },
+  { key: "/issues", label: "จัดการปัญหา", icon: "🧩" },
   { key: "/maintenance-hub", label: "ระบบแจ้งซ่อม", icon: "🔧" },
   { key: "/maintenance", label: "แจ้งซ่อม", icon: "📝" },
   { key: "/repair-status", label: "สถานะซ่อม", icon: "📋" },
@@ -34,6 +36,7 @@ const ALL_PAGES = [
   { key: "/map-aligner", label: "จัดแผนที่", icon: "📐" },
   { key: "/water", label: "ระบบจัดการน้ำประปา", icon: "💧" },
   { key: "/water-meter", label: "บันทึกมิเตอร์น้ำ", icon: "🔢" },
+  { key: "/electricity", label: "ระบบจัดการไฟฟ้า", icon: "⚡" },
   { key: "/admin", label: "จัดการระบบ", icon: "🔑" },
 ];
 
@@ -48,14 +51,33 @@ const ACTION_GROUPS: { group: string; items: { key: string; label: string; icon:
       { key: "action:water-quality-record", label: "บันทึกผลตรวจคุณภาพน้ำ", icon: "💧" },
       { key: "action:water-disinfectant-record", label: "บันทึกสารเคมีกำจัดเชื้อโรค", icon: "🧪" },
       { key: "action:water-pathogen-record", label: "บันทึกผลตรวจเชื้อจุลินทรีย์", icon: "🦠" },
+      { key: "action:wastewater-daily-record", label: "ตรวจระบบบำบัดน้ำเสียประจำวัน", icon: "♻️" },
+      { key: "action:wastewater-stats-record", label: "บันทึกสถิติระบบบำบัดน้ำเสีย", icon: "📈" },
     ],
   },
   {
     group: "งานสิ่งแวดล้อม / 5ส.",
     items: [
       { key: "action:waste-record", label: "บันทึกข้อมูลขยะ", icon: "🗑️" },
+      { key: "action:infectious-waste-record", label: "บันทึกขยะติดเชื้อ", icon: "☣️" },
       { key: "action:5s-audit-create", label: "บันทึกตรวจ 5ส.", icon: "✅" },
       { key: "action:env-round-create", label: "บันทึกตรวจ ENV Round", icon: "🌿" },
+    ],
+  },
+  {
+    group: "ระบบไฟฟ้า / มิเตอร์",
+    items: [
+      { key: "action:electricity-record", label: "บันทึกเลขมิเตอร์ไฟฟ้า", icon: "⚡" },
+      { key: "action:electricity-meter-manage", label: "เพิ่ม/จัดการสถานที่ติดตั้งมิเตอร์", icon: "🏢" },
+      { key: "action:electricity-pending-check", label: "ตรวจสถานที่ค้างลงมิเตอร์", icon: "🔍" },
+      { key: "action:electricity-export", label: "ส่งออกรายงานค่าไฟ", icon: "📄" },
+    ],
+  },
+  {
+    group: "จัดการปัญหา",
+    items: [
+      { key: "action:issue-create", label: "เพิ่มปัญหาที่พบ", icon: "➕" },
+      { key: "action:issue-manage", label: "จัดการ/อัพเดตสถานะปัญหา", icon: "🛠️" },
     ],
   },
   {
