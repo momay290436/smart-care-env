@@ -603,7 +603,7 @@ export default function Dashboard() {
                 <div className="grid gap-4 lg:grid-cols-3 mt-4">
                   <div className="space-y-3">
                     <div className="bg-white p-4 rounded-xl border"><p className="text-xs text-slate-500">ประเภท</p><p className="text-base font-bold">{getWasteTypeLabel(wasteForecast.type)}</p></div>
-                    <div className="bg-white p-4 rounded-xl border"><p className="text-xs text-slate-500">ปริมาณพยากรณ์รวม</p><p className="text-xl font-bold">{wasteForecast.total} กก.</p></div>
+                    <div className="bg-white p-4 rounded-xl border"><p className="text-xs text-slate-500">ปริมาณพยากรณ์รวม {forecastHorizon} เดือน</p><p className="text-xl font-bold">{wasteForecast.total} กก.</p><p className="text-[11px] text-slate-400 mt-0.5">เฉลี่ย {wasteForecast.avg} กก./เดือน</p></div>
                     <div className="bg-white p-4 rounded-xl border"><p className="text-xs text-slate-500">คาดการณ์ค่าใช้จ่าย</p><p className="text-xl font-bold text-emerald-600">{wasteForecast.cost} ฿</p></div>
                   </div>
                   <div className="lg:col-span-2 bg-white p-4 rounded-xl border">
