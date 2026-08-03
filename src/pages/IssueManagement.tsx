@@ -47,6 +47,7 @@ export default function IssueManagement() {
   const [selected, setSelected] = useState<any>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [addForm, setAddForm] = useState<any>({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "", photo_url: "", occurred_at: undefined as Date | undefined, resolved_at: undefined as Date | undefined });
   const [editDates, setEditDates] = useState<{ occurred_at?: Date; resolved_at?: Date }>({});
 
@@ -139,8 +140,6 @@ export default function IssueManagement() {
         description: addForm.description || null,
         severity: addForm.severity,
         status: addForm.status,
-        source_module: "manual",
-        created_by: user?.id || null,
         resolution_notes: addForm.resolution_notes || null,
         department_name: addForm.department_name || null,
         photo_url: addForm.photo_url?.trim() || null,
@@ -152,14 +151,25 @@ export default function IssueManagement() {
       } else if (addForm.status === "resolved") {
         payload.resolved_at = new Date().toISOString();
         payload.resolved_by = user?.id || null;
+      } else {
+        payload.resolved_at = null;
       }
-      const { error } = await supabase.from("issues").insert(payload);
-      if (error) throw error;
+      if (editingId) {
+        payload.updated_at = new Date().toISOString();
+        const { error } = await supabase.from("issues").update(payload).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        payload.source_module = "manual";
+        payload.created_by = user?.id || null;
+        const { error } = await supabase.from("issues").insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("เพิ่มปัญหาสำเร็จ");
+      toast.success(editingId ? "แก้ไขปัญหาสำเร็จ" : "เพิ่มปัญหาสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       setShowAddDialog(false);
+      setEditingId(null);
       setAddForm({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "", photo_url: "", occurred_at: undefined, resolved_at: undefined });
     },
     onError: (e: any) => toast.error(e.message),
@@ -205,7 +215,7 @@ export default function IssueManagement() {
   return (
     <div className="space-y-5 pb-6">
       <PageHeader title="จัดการปัญหา" subtitle="Issue Management — รวบรวมปัญหาจากทุกระบบ">
-        <Button className="rounded-2xl h-10 gap-1.5 bg-slate-900 hover:bg-slate-800" onClick={() => setShowAddDialog(true)}>
+        <Button className="rounded-2xl h-10 gap-1.5 bg-slate-900 hover:bg-slate-800" onClick={() => { setEditingId(null); setAddForm({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "", photo_url: "", occurred_at: undefined, resolved_at: undefined }); setShowAddDialog(true); }}>
           <Plus className="h-4 w-4" /> เพิ่มปัญหา
         </Button>
       </PageHeader>
@@ -301,6 +311,7 @@ export default function IssueManagement() {
                         className="h-9 rounded-xl"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setEditingId(issue.id);
                           setAddForm({
                             title: issue.title || "",
                             description: issue.description || "",
