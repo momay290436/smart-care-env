@@ -19,7 +19,20 @@ declare global { interface Window { Html5Qrcode: any; } }
 export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+
+  const { data: myActionPermissions = [] } = useQuery({
+    queryKey: ['electricity-action-permissions', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data } = await supabase.from('page_permissions').select('page_key').eq('user_id', user.id);
+      return (data || []).map((item: any) => item.page_key);
+    },
+    enabled: !!user?.id,
+  });
+
+  const canManageElectricitySettings = isAdmin || myActionPermissions.includes('action:electricity-settings') || myActionPermissions.includes('action:electricity-meter-manage');
+  const canCheckPendingMeters = isAdmin || myActionPermissions.includes('action:electricity-pending-check');
 
   // ระบบตรวจสอบสถานที่ที่ยังไม่ได้ลงมิเตอร์ในเดือนที่เลือก (สำหรับแอดมิน)
   const [pendingOpen, setPendingOpen] = useState(false);
@@ -554,7 +567,7 @@ export default function Electricity() {
           <Button onClick={exportExcel} variant="outline" className="w-full sm:w-auto text-xs sm:text-sm h-10 border-slate-200 text-slate-700 font-medium order-2 sm:order-1">
             <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600"/> Export รายงาน
           </Button>
-          {isAdmin && (
+          {canManageElectricitySettings && (
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-slate-200 text-slate-700 bg-white shadow-sm" title="ตั้งค่าเมตริกมิเตอร์ไฟฟ้า">
@@ -569,7 +582,7 @@ export default function Electricity() {
               </DialogContent>
             </Dialog>
           )}
-          {isAdmin && (
+          {canCheckPendingMeters && (
             <Button
               onClick={() => { setPendingOpen(true); setPendingResult(null); }}
               variant="outline"

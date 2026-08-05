@@ -68,6 +68,7 @@ const ACTION_GROUPS: { group: string; items: { key: string; label: string; icon:
     group: "ระบบไฟฟ้า / มิเตอร์",
     items: [
       { key: "action:electricity-record", label: "บันทึกเลขมิเตอร์ไฟฟ้า", icon: "⚡" },
+      { key: "action:electricity-settings", label: "ตั้งค่าระบบไฟฟ้า (จัดการมิเตอร์/สถานที่ติดตั้ง)", icon: "⚙️" },
       { key: "action:electricity-meter-manage", label: "เพิ่ม/จัดการสถานที่ติดตั้งมิเตอร์", icon: "🏢" },
       { key: "action:electricity-pending-check", label: "ตรวจสถานที่ค้างลงมิเตอร์", icon: "🔍" },
       { key: "action:electricity-export", label: "ส่งออกรายงานค่าไฟ", icon: "📄" },
