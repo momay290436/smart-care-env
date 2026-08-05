@@ -738,6 +738,8 @@ function SettingsTabInner() {
   const [testRecipient, setTestRecipient] = useState("");
   const [profileRecipients, setProfileRecipients] = useState<any[]>([]);
   const [settingsError, setSettingsError] = useState("");
+  const [waterAlertPreview, setWaterAlertPreview] = useState<string>("");
+  const [testingDailyAlert, setTestingDailyAlert] = useState(false);
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -922,6 +924,30 @@ function SettingsTabInner() {
     }
   };
 
+  const testDailyWaterAlert = async () => {
+    setTestingDailyAlert(true);
+    setWaterAlertPreview("");
+    try {
+      const { data, error } = await supabase.functions.invoke("water-alert-daily");
+      if (error) throw error;
+
+      if (data?.sent) {
+        toast.success(`ส่งแจ้งเตือนน้ำประปาเรียบร้อยแล้ว (${data.count || 0} รายการ)`);
+        setWaterAlertPreview(data.message || "");
+      } else if (data?.reason === "no_anomaly") {
+        toast.info("วันนี้ไม่มีข้อมูลผิดปกติ จึงไม่ส่งข้อความแจ้งเตือน");
+        setWaterAlertPreview("วันนี้ไม่มีข้อมูลผิดปกติ จึงไม่ส่งข้อความแจ้งเตือน");
+      } else {
+        toast.warning("ระบบตรวจพบความผิดปกติแต่ไม่สามารถส่งได้ตรวจสอบการตั้งค่า LINE อีกครั้ง");
+        setWaterAlertPreview(data?.message || JSON.stringify(data || {}));
+      }
+    } catch (e: any) {
+      toast.error("ทดสอบการส่งไม่สำเร็จ: " + e.message);
+    } finally {
+      setTestingDailyAlert(false);
+    }
+  };
+
   if (fetching) {
     return (
       <div className="space-y-4">
@@ -963,7 +989,7 @@ function SettingsTabInner() {
                 <p className="text-xs text-muted-foreground">ข้อความต่อไปนี้จะถูกส่งโดยตรง เพื่อยืนยันความพร้อมก่อนใช้งานจริง</p>
               </div>
             </div>
-            <div className="rounded-xl bg-white px-3 py-2 text-sm text-muted-foreground border border-border">
+            <div className="rounded-xl bg-white px-3 py-2 text-sm text-muted-foreground border border-border whitespace-pre-wrap">
               🔔 ทดสอบระบบแจ้งเตือน Smart ENV & 5S\nข้อความนี้เป็นตัวอย่างเพื่อยืนยันการส่ง LINE ให้ผู้รับที่เลือกไว้
             </div>
             <div className="grid gap-3 md:grid-cols-2">
@@ -984,6 +1010,23 @@ function SettingsTabInner() {
                 <Button variant="outline" className="h-11 rounded-2xl flex-1" onClick={testNotify}>ทดสอบการส่ง LINE</Button>
               </div>
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="font-semibold text-sm text-amber-800">ทดสอบแจ้งเตือนน้ำประปาอัตโนมัติ (water-alert-daily)</p>
+                <p className="text-xs text-amber-700">ระบบจะเรียก Edge Function จริง และแสดงข้อความที่พร้อมส่งไปยัง LINE หากวันนี้มีข้อมูลผิดปกติ</p>
+              </div>
+              <Button onClick={testDailyWaterAlert} disabled={testingDailyAlert} className="h-11 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white">
+                {testingDailyAlert ? "กำลังทดสอบ..." : "ทดสอบส่งแจ้งเตือนวันนี้"}
+              </Button>
+            </div>
+            {waterAlertPreview && (
+              <div className="rounded-xl bg-white px-3 py-3 text-sm text-slate-700 border border-amber-200 whitespace-pre-wrap">
+                {waterAlertPreview}
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <Button onClick={saveTokens} disabled={loading} className="flex-1 h-12 rounded-2xl">
@@ -1113,13 +1156,14 @@ export default function AdminPage() {
     <div className="w-full space-y-5">
       <PageHeader title="จัดการระบบ" subtitle="Admin Panel" />
       <Tabs defaultValue="departments" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-6 h-auto rounded-2xl bg-muted/60 shadow-sm p-1 gap-1">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-7 h-auto rounded-2xl bg-muted/60 shadow-sm p-1 gap-1">
           <TabsTrigger value="departments" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">แผนก</TabsTrigger>
           <TabsTrigger value="locations" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ถังดับเพลิง</TabsTrigger>
           <TabsTrigger value="users" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ผู้ใช้</TabsTrigger>
           <TabsTrigger value="permissions" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">สิทธิ์</TabsTrigger>
           <TabsTrigger value="tickets" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">แจ้งซ่อม</TabsTrigger>
           <TabsTrigger value="issue-areas" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">พื้นที่ปัญหา</TabsTrigger>
+          <TabsTrigger value="settings" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ตั้งค่า</TabsTrigger>
         </TabsList>
         <TabsContent value="departments"><DepartmentsTab /></TabsContent>
         <TabsContent value="locations"><FireLocationsTab /></TabsContent>
@@ -1127,6 +1171,7 @@ export default function AdminPage() {
         <TabsContent value="permissions"><PagePermissionsTab /></TabsContent>
         <TabsContent value="tickets"><MaintenanceTab /></TabsContent>
         <TabsContent value="issue-areas"><IssueAreasTab /></TabsContent>
+        <TabsContent value="settings"><SettingsTab /></TabsContent>
       </Tabs>
     </div>
   );
