@@ -207,7 +207,11 @@ export default function EnvRound() {
       } catch {}
       try {
         await supabase.functions.invoke("line-notify", {
-          body: { message: `สรุป ENV Round\nแผนก: ${deptName}\nผู้ตรวจ: ${profile?.full_name}\nปกติ: ${normalCount} จุด\nผิดปกติ: ${abnormalItems.length} จุด${highRisk > 0 ? `\nระดับสูง: ${highRisk} จุด` : ""}` },
+          body: {
+            message: `สรุป ENV Round\nแผนก: ${deptName}\nผู้ตรวจ: ${profile?.full_name}\nปกติ: ${normalCount} จุด\nผิดปกติ: ${abnormalItems.length} จุด${highRisk > 0 ? `\nระดับสูง: ${highRisk} จุด` : ""}`,
+            department_id: selectedDept || profile?.department_id || null,
+            role,
+          },
         });
       } catch {}
     },

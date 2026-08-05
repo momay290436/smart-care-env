@@ -137,7 +137,11 @@ export default function FireSafety() {
     try {
       await supabase.from("evacuation_events").insert({ building: sosBuilding, floor: sosFloor || null, reported_by: user!.id });
       await supabase.functions.invoke("line-notify", {
-        body: { message: `🚨 แจ้งเหตุเพลิงไหม้!\nอาคาร: ${sosBuilding}\nชั้น: ${sosFloor || "ไม่ระบุ"}\nเวลา: ${new Date().toLocaleTimeString("th-TH")}` },
+        body: {
+          message: `🚨 แจ้งเหตุเพลิงไหม้!\nอาคาร: ${sosBuilding}\nชั้น: ${sosFloor || "ไม่ระบุ"}\nเวลา: ${new Date().toLocaleTimeString("th-TH")}`,
+          department_id: profile?.department_id || null,
+          role,
+        },
       }).catch(() => {});
       toast.success(`ส่งแจ้งเหตุสำเร็จ: อาคาร ${sosBuilding} ${sosFloor}`);
       setShowSOS(false);

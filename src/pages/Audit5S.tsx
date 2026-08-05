@@ -125,7 +125,11 @@ export default function Audit5S() {
       } catch {}
       try {
         await supabase.functions.invoke("line-notify", {
-          body: { message: `📋 ผลตรวจ 5ส\nผู้ตรวจ: ${profile?.full_name}\nแผนก: ${dept?.name}\nคะแนนรวม: ${totalScore}%\nเกรด: ${getGrade(totalScore).label}` },
+          body: {
+            message: `📋 ผลตรวจ 5ส\nผู้ตรวจ: ${profile?.full_name}\nแผนก: ${dept?.name}\nคะแนนรวม: ${totalScore}%\nเกรด: ${getGrade(totalScore).label}`,
+            department_id: deptId || profile?.department_id || null,
+            role,
+          },
         });
       } catch {}
     },

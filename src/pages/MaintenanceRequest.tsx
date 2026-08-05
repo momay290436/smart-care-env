@@ -151,6 +151,8 @@ export default function MaintenanceRequest() {
         await supabase.functions.invoke("line-notify", {
           body: {
             message: `🔧 แจ้งซ่อมใหม่\nอุปกรณ์: ${equipment.name} (${equipment.code})\nอาการ: ${description}\nความเร่งด่วน: ${priority === "critical" ? "🔴 ด่วนมาก" : priority === "urgent" ? "🟡 ด่วน" : "🟢 ปกติ"}\nผู้แจ้ง: ${profile?.full_name}`,
+            department_id: equipment.department_id || profile?.department_id || null,
+            role,
           },
         });
       } catch {}

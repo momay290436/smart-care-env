@@ -720,33 +720,139 @@ function IssueAreasTab() {
   );
 }
 
+type LineRouteSetting = {
+  id: string;
+  scopeType: "department" | "role" | "all";
+  scopeValue: string;
+  provider: "line_notify_token" | "line_channel_token";
+  token: string;
+  recipients: string;
+};
+
 // --- Settings Tab Inner ---
 function SettingsTabInner() {
-  const [lineToken, setLineToken] = useState("");
+  const [notifyToken, setNotifyToken] = useState("");
+  const [channelToken, setChannelToken] = useState("");
+  const [lineRoutes, setLineRoutes] = useState<LineRouteSetting[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => { const { data } = await supabase.from("departments").select("*").order("name"); return data || []; },
+  });
+
+  const roleOptions = [
+    { value: "admin", label: "Admin" },
+    { value: "manager", label: "Manager" },
+    { value: "technician", label: "Technician" },
+    { value: "user", label: "User" },
+  ];
+
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data } = await supabase.from("app_settings").select("value").eq("key", "line_notify_token").maybeSingle();
-      if (data) setLineToken(data.value);
+      const [notifyRes, channelRes, routesRes] = await Promise.all([
+        supabase.from("app_settings").select("value").eq("key", "line_notify_token").maybeSingle(),
+        supabase.from("app_settings").select("value").eq("key", "line_channel_token").maybeSingle(),
+        supabase.from("app_settings").select("value").eq("key", "line_notification_routes").maybeSingle(),
+      ]);
+
+      if (notifyRes.data) setNotifyToken(notifyRes.data.value || "");
+      if (channelRes.data) setChannelToken(channelRes.data.value || "");
+
+      let parsedRoutes: LineRouteSetting[] = [];
+      if (routesRes.data?.value) {
+        try {
+          const parsed = JSON.parse(routesRes.data.value);
+          if (Array.isArray(parsed)) parsedRoutes = parsed.filter(Boolean);
+        } catch {}
+      }
+
+      if (parsedRoutes.length === 0) {
+        parsedRoutes = [{ id: `route-${Date.now()}`, scopeType: "department", scopeValue: departments[0]?.id || "", provider: "line_notify_token", token: "", recipients: "" }];
+      }
+
+      setLineRoutes(parsedRoutes);
       setFetching(false);
     };
-    fetchSettings();
-  }, []);
 
-  const saveToken = async () => {
+    fetchSettings();
+  }, [departments]);
+
+  const addRoute = () => {
+    setLineRoutes((current) => [
+      ...current,
+      {
+        id: `route-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        scopeType: "department",
+        scopeValue: departments[0]?.id || "",
+        provider: "line_notify_token",
+        token: "",
+        recipients: "",
+      },
+    ]);
+  };
+
+  const updateRoute = <K extends keyof LineRouteSetting>(routeId: string, field: K, value: LineRouteSetting[K]) => {
+    setLineRoutes((current) => current.map((route) => route.id === routeId ? { ...route, [field]: value } : route));
+  };
+
+  const removeRoute = (routeId: string) => {
+    setLineRoutes((current) => current.filter((route) => route.id !== routeId));
+  };
+
+  const saveTokens = async () => {
     setLoading(true);
     try {
-      const { data: existing } = await supabase.from("app_settings").select("id").eq("key", "line_notify_token").maybeSingle();
-      if (existing) {
-        await supabase.from("app_settings").update({ value: lineToken }).eq("key", "line_notify_token");
+      const notifyExisting = await supabase.from("app_settings").select("id").eq("key", "line_notify_token").maybeSingle();
+      if (notifyExisting.data) {
+        await supabase.from("app_settings").update({ value: notifyToken }).eq("key", "line_notify_token");
       } else {
-        await supabase.from("app_settings").insert({ key: "line_notify_token", value: lineToken });
+        await supabase.from("app_settings").insert({ key: "line_notify_token", value: notifyToken });
       }
-      toast.success("บันทึก Line Notify Token สำเร็จ");
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
+
+      const channelExisting = await supabase.from("app_settings").select("id").eq("key", "line_channel_token").maybeSingle();
+      if (channelExisting.data) {
+        await supabase.from("app_settings").update({ value: channelToken }).eq("key", "line_channel_token");
+      } else {
+        await supabase.from("app_settings").insert({ key: "line_channel_token", value: channelToken });
+      }
+
+      toast.success("บันทึก Line Token สำเร็จ");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveRoutes = async () => {
+    setLoading(true);
+    try {
+      const filteredRoutes = lineRoutes
+        .filter((route) => route.scopeValue || route.scopeType === "all")
+        .map((route) => ({
+          ...route,
+          recipients: route.recipients
+            .split(/[\n,]/)
+            .map((item) => item.trim())
+            .filter(Boolean)
+            .join(","),
+        }));
+
+      const { data: existing } = await supabase.from("app_settings").select("id").eq("key", "line_notification_routes").maybeSingle();
+      const value = JSON.stringify(filteredRoutes);
+      if (existing) {
+        await supabase.from("app_settings").update({ value }).eq("key", "line_notification_routes");
+      } else {
+        await supabase.from("app_settings").insert({ key: "line_notification_routes", value });
+      }
+      toast.success("บันทึกการกำหนดผู้รับ LINE ตามแผนก/บทบาทสำเร็จ");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const testNotify = async () => {
@@ -756,28 +862,117 @@ function SettingsTabInner() {
       });
       if (error) throw error;
       toast.success("ส่งข้อความทดสอบสำเร็จ");
-    } catch (e: any) { toast.error("ส่งไม่สำเร็จ: " + e.message); }
+    } catch (e: any) {
+      toast.error("ส่งไม่สำเร็จ: " + e.message);
+    }
   };
 
   return (
     <div className="space-y-4">
       <Card className="shadow-card border-0 rounded-2xl">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Line Notify</CardTitle>
+          <CardTitle className="text-lg">Line Token (Global)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-sm">Token</Label>
-            <Input type="password" value={lineToken} onChange={(e) => setLineToken(e.target.value)} placeholder="กรอก Line Notify Token" disabled={fetching} className="h-12 rounded-2xl text-base" />
-            <p className="text-sm text-muted-foreground">
-              รับ Token ได้ที่ <a href="https://notify-bot.line.me/" target="_blank" rel="noreferrer" className="text-primary underline">notify-bot.line.me</a>
-            </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-sm">Line Notify Token</Label>
+              <Input type="password" value={notifyToken} onChange={(e) => setNotifyToken(e.target.value)} placeholder="กรอก Line Notify Token" disabled={fetching} className="h-12 rounded-2xl text-base" />
+              <p className="text-sm text-muted-foreground">รับ Token ได้ที่ <a href="https://notify-bot.line.me/" target="_blank" rel="noreferrer" className="text-primary underline">notify-bot.line.me</a></p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Line Channel Token</Label>
+              <Input type="password" value={channelToken} onChange={(e) => setChannelToken(e.target.value)} placeholder="กรอก Line Channel Token" disabled={fetching} className="h-12 rounded-2xl text-base" />
+              <p className="text-sm text-muted-foreground">สำหรับส่งไปยังผู้รับตาม LINE User ID หรือ Broadcast</p>
+            </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={saveToken} disabled={loading} className="flex-1 h-12 rounded-2xl">
-              {loading ? "กำลังบันทึก..." : "บันทึก"}
+            <Button onClick={saveTokens} disabled={loading} className="flex-1 h-12 rounded-2xl">
+              {loading ? "กำลังบันทึก..." : "บันทึก Token"}
             </Button>
             <Button variant="outline" className="h-12 rounded-2xl" onClick={testNotify}>ทดสอบ</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-card border-0 rounded-2xl">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">กำหนดผู้รับ LINE ตามแผนก/บทบาท</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {lineRoutes.map((route, index) => (
+            <div key={route.id} className="rounded-2xl border border-border bg-muted/30 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">Rule #{index + 1}</span>
+                <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => removeRoute(route.id)} disabled={lineRoutes.length === 1}>ลบ</Button>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm">เลือกกลุ่มเป้าหมาย</Label>
+                  <Select value={route.scopeType} onValueChange={(value) => updateRoute(route.id, "scopeType", value as LineRouteSetting["scopeType"])}>
+                    <SelectTrigger className="h-11 rounded-2xl"><SelectValue placeholder="เลือกกลุ่ม" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="department">แผนก</SelectItem>
+                      <SelectItem value="role">บทบาทผู้ใช้</SelectItem>
+                      <SelectItem value="all">ทุกคน</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm">ค่าเป้าหมาย</Label>
+                  {route.scopeType === "department" ? (
+                    <Select value={route.scopeValue} onValueChange={(value) => updateRoute(route.id, "scopeValue", value)}>
+                      <SelectTrigger className="h-11 rounded-2xl"><SelectValue placeholder="เลือกแผนก" /></SelectTrigger>
+                      <SelectContent>
+                        {departments.map((dept: any) => (
+                          <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : route.scopeType === "role" ? (
+                    <Select value={route.scopeValue} onValueChange={(value) => updateRoute(route.id, "scopeValue", value)}>
+                      <SelectTrigger className="h-11 rounded-2xl"><SelectValue placeholder="เลือกบทบาท" /></SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((role) => (<SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input value={route.scopeValue} onChange={(e) => updateRoute(route.id, "scopeValue", e.target.value)} placeholder="ทุกคน" className="h-11 rounded-2xl" />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm">ช่องทาง LINE</Label>
+                  <Select value={route.provider} onValueChange={(value) => updateRoute(route.id, "provider", value as LineRouteSetting["provider"])}>
+                    <SelectTrigger className="h-11 rounded-2xl"><SelectValue placeholder="เลือกช่องทาง" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="line_notify_token">LINE Notify Token</SelectItem>
+                      <SelectItem value="line_channel_token">LINE Channel Token</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm">Token</Label>
+                  <Input type="password" value={route.token} onChange={(e) => updateRoute(route.id, "token", e.target.value)} placeholder="กรอก Token ของช่องทางนี้" className="h-11 rounded-2xl" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm">LINE User ID / ผู้รับ</Label>
+                <Input value={route.recipients} onChange={(e) => updateRoute(route.id, "recipients", e.target.value)} placeholder="คั่นด้วยเครื่องหมาย , หรือเว้นบรรทัด" className="h-11 rounded-2xl" />
+                <p className="text-xs text-muted-foreground">สำหรับ LINE Channel Token ให้ใส่ LINE User ID ของผู้รับที่ต้องการ ส่งได้หลายคนโดยคั่นด้วยเครื่องหมาย ,</p>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="h-11 rounded-2xl" onClick={addRoute}>+ เพิ่ม Rule</Button>
+            <Button onClick={saveRoutes} disabled={loading} className="h-11 rounded-2xl">บันทึก Rule</Button>
           </div>
         </CardContent>
       </Card>
