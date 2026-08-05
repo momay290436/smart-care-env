@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { Download, Plus, Trash2, BarChart3, Pencil } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -37,8 +37,8 @@ export function WastewaterStatsDialog({ open, onOpenChange }: DialogProps) {
     water_usage: "",
     wastewater_volume: "",
     discharge_method: "ระบาย",
-    chemical_substances: "",
-    chemical_amount: "",
+    chemical_substances: "คลอรีน",
+    chemical_amount: "10",
     treatment_system_status: "normal",
     water_pump_status: "normal",
     aerator_status: "normal",
@@ -52,6 +52,57 @@ export function WastewaterStatsDialog({ open, onOpenChange }: DialogProps) {
     notes: "",
     recorder_name: "",
   });
+  const [autoLoading, setAutoLoading] = useState(false);
+
+  // Auto-fill (once per open): electricity = today's meter − yesterday's meter (daily wastewater inspection log),
+  // water usage = today's water meter daily total, wastewater in = 80% of that.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      setAutoLoading(true);
+      try {
+        const today = format(new Date(), "yyyy-MM-dd");
+        const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
+
+        const [{ data: insp }, { data: meters }] = await Promise.all([
+          (supabase as any).from("wastewater_inspection_logs")
+            .select("check_date, electricity_meter")
+            .in("check_date", [today, yesterday])
+            .order("created_at", { ascending: false }),
+          (supabase as any).from("water_meter_records")
+            .select("record_date, daily_total, usage_amount")
+            .eq("record_date", today),
+        ]);
+
+        const meterOf = (d: string) => {
+          const row = (insp || []).find((r: any) => r.check_date === d && r.electricity_meter);
+          const n = row ? Number(String(row.electricity_meter).replace(/,/g, "")) : NaN;
+          return Number.isFinite(n) ? n : null;
+        };
+        const todayMeter = meterOf(today);
+        const prevMeter = meterOf(yesterday);
+        const electricity = todayMeter !== null && prevMeter !== null ? Math.max(0, todayMeter - prevMeter) : null;
+
+        const rows = (meters || []) as any[];
+        const dailyTotal = rows.reduce((max, r) => {
+          const v = r.daily_total != null ? Number(r.daily_total) : null;
+          return v != null && v > max ? v : max;
+        }, 0) || rows.reduce((s, r) => s + Number(r.usage_amount || 0), 0);
+
+        if (cancelled) return;
+        setForm((f: any) => ({
+          ...f,
+          electricity_usage: electricity != null ? String(electricity) : f.electricity_usage,
+          water_usage: dailyTotal ? String(dailyTotal) : f.water_usage,
+          wastewater_volume: dailyTotal ? String(Math.round(dailyTotal * 0.8 * 100) / 100) : f.wastewater_volume,
+        }));
+      } finally {
+        if (!cancelled) setAutoLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
 
   const insert = useMutation({
     mutationFn: async () => {
@@ -109,6 +160,9 @@ export function WastewaterStatsDialog({ open, onOpenChange }: DialogProps) {
         <div className="space-y-3">
           <div className="rounded-2xl bg-orange-50 p-3 text-sm">
             <p><span className="font-semibold">ผู้บันทึก:</span> {profile?.full_name || "ผู้ใช้งาน"}</p>
+            <p className="text-xs text-orange-700 mt-1">
+              {autoLoading ? "กำลังดึงค่าอัตโนมัติ..." : "ระบบดึงค่าไฟฟ้า/น้ำใช้/น้ำเสียเข้าระบบให้อัตโนมัติ (แก้ไขได้)"}
+            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>

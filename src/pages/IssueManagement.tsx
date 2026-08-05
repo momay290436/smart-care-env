@@ -213,7 +213,7 @@ export default function IssueManagement() {
   };
 
   return (
-    <div className="space-y-5 pb-6">
+    <div className="space-y-5 pb-6 w-full max-w-full overflow-x-hidden">
       <PageHeader title="จัดการปัญหา" subtitle="Issue Management — รวบรวมปัญหาจากทุกระบบ">
         <Button className="rounded-2xl h-10 gap-1.5 bg-slate-900 hover:bg-slate-800" onClick={() => { setEditingId(null); setAddForm({ title: "", description: "", severity: "medium", status: "pending", resolution_notes: "", department_name: "", photo_url: "", occurred_at: undefined, resolved_at: undefined }); setShowAddDialog(true); }}>
           <Plus className="h-4 w-4" /> เพิ่มปัญหา
@@ -243,9 +243,9 @@ export default function IssueManagement() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="h-12 w-44 rounded-2xl text-base"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-12 w-full sm:w-44 rounded-2xl text-sm sm:text-base"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">ทุกสถานะ</SelectItem>
             <SelectItem value="pending">รอการจัดการ</SelectItem>
@@ -254,7 +254,7 @@ export default function IssueManagement() {
           </SelectContent>
         </Select>
         <Select value={filterSeverity} onValueChange={setFilterSeverity}>
-          <SelectTrigger className="h-12 w-40 rounded-2xl text-base"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-12 w-full sm:w-40 rounded-2xl text-sm sm:text-base"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">ทุกระดับ</SelectItem>
             <SelectItem value="high">สูง</SelectItem>
@@ -263,14 +263,14 @@ export default function IssueManagement() {
           </SelectContent>
         </Select>
         <Select value={filterDept} onValueChange={setFilterDept}>
-          <SelectTrigger className="h-12 w-48 rounded-2xl text-base"><SelectValue placeholder="ทุกแผนก" /></SelectTrigger>
+          <SelectTrigger className="h-12 w-full sm:w-48 rounded-2xl text-sm sm:text-base"><SelectValue placeholder="ทุกแผนก" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">ทุกแผนก</SelectItem>
             {deptList.map((d: any) => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Badge variant="secondary" className="h-12 px-5 flex items-center rounded-2xl text-base">{allIssues.length} รายการ</Badge>
-        <Button variant="outline" className="h-12 rounded-2xl gap-1.5" onClick={handleExport}>
+        <Badge variant="secondary" className="h-12 px-4 flex items-center justify-center rounded-2xl text-sm sm:text-base">{allIssues.length} รายการ</Badge>
+        <Button variant="outline" className="h-12 col-span-2 sm:col-auto rounded-2xl gap-1.5" onClick={handleExport}>
           <Download className="h-4 w-4" /> Export Excel
         </Button>
       </div>
@@ -286,25 +286,25 @@ export default function IssueManagement() {
               className={`bg-slate-50 rounded-2xl border border-slate-200 shadow-md hover:shadow-lg transition-all cursor-pointer`}
               onClick={() => { setSelected(issue); setResolutionNotes(issue.resolution_notes || ""); }}
             >
-              <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xl font-bold ${issue.severity === "high" ? "bg-red-100 text-red-600" : issue.severity === "medium" ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"}`}>
+              <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xl font-bold ${issue.severity === "high" ? "bg-red-100 text-red-600" : issue.severity === "medium" ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"}`}>
                   {issue.severity === "high" ? "!" : issue.severity === "medium" ? "·" : "—"}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-base md:text-lg font-semibold">{issue.title}</p>
-                  {issue.description && <p className="text-sm text-muted-foreground mt-2 max-h-16 overflow-hidden">{issue.description}</p>}
+                <div className="flex-1 min-w-0 w-full">
+                  <p className="text-base md:text-lg font-semibold break-words">{issue.title}</p>
+                  {issue.description && <p className="text-sm text-muted-foreground mt-2 line-clamp-2 break-words">{issue.description}</p>}
                   <div className="flex flex-wrap items-center gap-2 mt-3">
                     {getModuleLabel(issue.source_module) && (
                       <Badge variant="outline" className="text-sm rounded-full px-3 py-1">{getModuleLabel(issue.source_module)}</Badge>
                     )}
                     <Badge className={`text-sm rounded-full px-3 py-1 ${stat.color}`}>{stat.label}</Badge>
                     <Badge variant="outline" className={`text-sm rounded-full px-3 py-1 ${sev.color}`}>ความรุนแรง: {sev.label}</Badge>
-                    <p className="text-sm text-muted-foreground mt-2 ml-1">{format(new Date(issue.created_at), "d MMM yy HH:mm", { locale: th })}{issue.department_name ? ` · ${issue.department_name}` : ""}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground w-full sm:w-auto sm:mt-2 sm:ml-1 break-words">{format(new Date(issue.created_at), "d MMM yy HH:mm", { locale: th })}{issue.department_name ? ` · ${issue.department_name}` : ""}</p>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-2 ml-2">
+                <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2 sm:ml-2">
                   {isAdmin && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         size="sm"
                         variant="outline"
@@ -369,11 +369,11 @@ export default function IssueManagement() {
 
       {/* Detail Dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="rounded-3xl w-full max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+        <DialogContent className="rounded-3xl w-[95vw] max-w-[95vw] sm:w-full sm:max-w-3xl lg:max-w-4xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-0 gap-0">
           {selected && (
             <div>
               {/* Header */}
-              <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-200 space-y-3 text-left">
+              <DialogHeader className="px-4 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-slate-200 space-y-3 text-left">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge className={`text-xs rounded-full px-3 py-1 ${STATUS_CONFIG[selected.status]?.color}`}>{STATUS_CONFIG[selected.status]?.label}</Badge>
                   <Badge variant="outline" className={`text-xs rounded-full px-3 py-1 ${SEVERITY_CONFIG[selected.severity]?.color}`}>ความรุนแรง: {SEVERITY_CONFIG[selected.severity]?.label}</Badge>
@@ -381,12 +381,12 @@ export default function IssueManagement() {
                     <Badge variant="outline" className="text-xs rounded-full px-3 py-1">{getModuleLabel(selected.source_module)}</Badge>
                   )}
                 </div>
-                <DialogTitle className="text-xl md:text-2xl font-bold leading-snug">{selected.title}</DialogTitle>
+                <DialogTitle className="text-lg sm:text-xl md:text-2xl font-bold leading-snug break-words pr-6">{selected.title}</DialogTitle>
               </DialogHeader>
 
-              <div className="p-6 space-y-5">
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                 {/* Meta grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
                   {[
                     { l: "แผนก / พื้นที่", v: selected.department_name || "-" },
                     { l: "วันที่บันทึก", v: format(new Date(selected.created_at), "d MMM yyyy HH:mm", { locale: th }) },
@@ -401,7 +401,7 @@ export default function IssueManagement() {
                 </div>
 
                 {/* Description */}
-                <div className="rounded-2xl border border-slate-200 p-4">
+                <div className="rounded-2xl border border-slate-200 p-3 sm:p-4">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">รายละเอียดปัญหาที่พบ</p>
                   <p className="text-sm md:text-base leading-relaxed text-slate-800 whitespace-pre-wrap break-words">{selected.description || "-"}</p>
                 </div>
@@ -425,7 +425,7 @@ export default function IssueManagement() {
                 )}
 
               {isAdmin && (
-                <div className="grid grid-cols-2 gap-2 border rounded-2xl p-3 bg-slate-50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border rounded-2xl p-3 bg-slate-50">
                   <div>
                     <Label className="text-xs font-semibold">วันที่พบปัญหา</Label>
                     <Popover>
@@ -450,7 +450,7 @@ export default function IssueManagement() {
                       <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={editDates.resolved_at || (selected.resolved_at ? new Date(selected.resolved_at) : undefined)} onSelect={(d) => setEditDates((p) => ({ ...p, resolved_at: d }))} className="pointer-events-auto p-3" /></PopoverContent>
                     </Popover>
                   </div>
-                  <Button size="sm" variant="secondary" className="col-span-2 rounded-xl h-9" onClick={() => saveDatesOnly.mutate()} disabled={saveDatesOnly.isPending}>บันทึกวันที่</Button>
+                  <Button size="sm" variant="secondary" className="sm:col-span-2 rounded-xl h-9" onClick={() => saveDatesOnly.mutate()} disabled={saveDatesOnly.isPending}>บันทึกวันที่</Button>
                 </div>
               )}
 
@@ -494,8 +494,8 @@ export default function IssueManagement() {
 
       {/* Add Issue Dialog */}
       <Dialog open={showAddDialog} onOpenChange={(o) => { setShowAddDialog(o); if (!o) setEditingId(null); }}>
-        <DialogContent className="rounded-3xl w-full max-w-2xl md:max-w-3xl max-h-[90vh] overflow-y-auto p-6">
-          <DialogHeader><DialogTitle className="text-2xl md:text-3xl">{editingId ? "แก้ไขข้อมูลปัญหา" : "เพิ่มปัญหาที่พบ"}</DialogTitle></DialogHeader>
+        <DialogContent className="rounded-3xl w-[95vw] max-w-[95vw] sm:w-full sm:max-w-2xl md:max-w-3xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+          <DialogHeader><DialogTitle className="text-xl sm:text-2xl md:text-3xl pr-6">{editingId ? "แก้ไขข้อมูลปัญหา" : "เพิ่มปัญหาที่พบ"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <Label className="text-sm font-semibold">หัวข้อปัญหา *</Label>
@@ -519,7 +519,7 @@ export default function IssueManagement() {
               <Label className="text-sm font-semibold">URL รูปภาพ (Google Drive / ลิงก์)</Label>
               <Input value={addForm.photo_url} onChange={(e) => setAddForm({ ...addForm, photo_url: e.target.value })} placeholder="https://drive.google.com/..." className="h-11 rounded-2xl mt-1" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-sm font-semibold">วันที่พบปัญหา</Label>
                 <Popover>
@@ -549,7 +549,7 @@ export default function IssueManagement() {
               <Label className="text-sm font-semibold">แนวทางจัดการ</Label>
               <Textarea rows={2} value={addForm.resolution_notes} onChange={(e) => setAddForm({ ...addForm, resolution_notes: e.target.value })} placeholder="ระบุแนวทางแก้ไข..." className="rounded-2xl mt-1" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-sm font-semibold">ความรุนแรง</Label>
                 <Select value={addForm.severity} onValueChange={(v) => setAddForm({ ...addForm, severity: v })}>
