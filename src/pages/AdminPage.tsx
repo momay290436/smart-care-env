@@ -797,7 +797,18 @@ function SettingsTabInner() {
         if (routesData?.value) {
           try {
             const parsed = JSON.parse(routesData.value);
-            if (Array.isArray(parsed)) parsedRoutes = parsed.filter(Boolean);
+            if (Array.isArray(parsed)) {
+              parsedRoutes = parsed
+                .filter(Boolean)
+                .map((route: any) => ({
+                  ...route,
+                  recipients: Array.isArray(route?.recipients)
+                    ? route.recipients.join(",")
+                    : typeof route?.recipients === "string"
+                      ? route.recipients
+                      : "",
+                }));
+            }
           } catch {}
         }
 
@@ -902,7 +913,10 @@ function SettingsTabInner() {
 
     setLineRoutes((current) => current.map((route) => {
       if (route.id !== routeId) return route;
-      const existingRecipients = route.recipients.split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
+      const rawRecipients = Array.isArray(route.recipients)
+        ? route.recipients
+        : String(route.recipients ?? "").split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
+      const existingRecipients = rawRecipients.map((item: any) => String(item).trim()).filter(Boolean);
       const nextRecipients = existingRecipients.includes(lineUserId) ? existingRecipients : [...existingRecipients, lineUserId];
       return { ...route, recipients: nextRecipients.join(",") };
     }));
