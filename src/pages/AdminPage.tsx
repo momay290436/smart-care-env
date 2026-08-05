@@ -738,6 +738,7 @@ function SettingsTabInner() {
   const [fetching, setFetching] = useState(true);
   const [testRecipient, setTestRecipient] = useState("");
   const [profileRecipients, setProfileRecipients] = useState<any[]>([]);
+  const [settingsError, setSettingsError] = useState("");
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -753,51 +754,68 @@ function SettingsTabInner() {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const [notifyRes, channelRes, routesRes, profilesRes, roleRes] = await Promise.all([
-        supabase.from("app_settings").select("value").eq("key", "line_notify_token").maybeSingle(),
-        supabase.from("app_settings").select("value").eq("key", "line_channel_token").maybeSingle(),
-        supabase.from("app_settings").select("value").eq("key", "line_notification_routes").maybeSingle(),
-        supabase.from("profiles").select("id, auth_id, full_name, department_id, departments(name)").order("full_name"),
-        supabase.from("user_roles").select("user_id, role"),
-      ]);
+      try {
+        setSettingsError("");
+        const [notifyRes, channelRes, routesRes, profilesRes, roleRes] = await Promise.allSettled([
+          supabase.from("app_settings").select("value").eq("key", "line_notify_token").maybeSingle(),
+          supabase.from("app_settings").select("value").eq("key", "line_channel_token").maybeSingle(),
+          supabase.from("app_settings").select("value").eq("key", "line_notification_routes").maybeSingle(),
+          supabase.from("profiles").select("id, auth_id, full_name, department_id, departments(name)").order("full_name"),
+          supabase.from("user_roles").select("user_id, role"),
+        ]);
 
-      if (notifyRes.data) setNotifyToken(notifyRes.data.value || "");
-      if (channelRes.data) setChannelToken(channelRes.data.value || "");
+        const notifyData = notifyRes.status === "fulfilled" ? notifyRes.value.data : null;
+        const channelData = channelRes.status === "fulfilled" ? channelRes.value.data : null;
+        const routesData = routesRes.status === "fulfilled" ? routesRes.value.data : null;
+        const profilesData = profilesRes.status === "fulfilled" ? profilesRes.value.data : null;
+        const roleData = roleRes.status === "fulfilled" ? roleRes.value.data : null;
 
-      const profiles = (profilesRes.data || []).map((profile: any) => ({
-        ...profile,
-        departments: profile.departments?.name || "-",
-        role: (roleRes.data || []).find((r: any) => r.user_id === profile.auth_id)?.role || "user",
-      }));
+        if (notifyData) setNotifyToken(notifyData.value || "");
+        if (channelData) setChannelToken(channelData.value || "");
 
-      const technicianIds = await Promise.all(profiles.map(async (profile: any) => {
-        const { data: tech } = await supabase
-          .from("technicians")
-          .select("line_user_id")
-          .eq("user_id", profile.auth_id)
-          .maybeSingle();
-        return { ...profile, line_user_id: tech?.line_user_id || "" };
-      }));
-      setProfileRecipients(technicianIds);
+        const profiles = (profilesData || []).map((profile: any) => ({
+          ...profile,
+          departments: profile.departments?.name || "-",
+          role: (roleData || []).find((r: any) => r.user_id === profile.auth_id)?.role || "user",
+        }));
 
-      let parsedRoutes: LineRouteSetting[] = [];
-      if (routesRes.data?.value) {
-        try {
-          const parsed = JSON.parse(routesRes.data.value);
-          if (Array.isArray(parsed)) parsedRoutes = parsed.filter(Boolean);
-        } catch {}
+        const resolvedRecipients = await Promise.allSettled(profiles.map(async (profile: any) => {
+          const { data: tech } = await supabase
+            .from("technicians")
+            .select("line_user_id")
+            .eq("user_id", profile.auth_id)
+            .maybeSingle();
+          return { ...profile, line_user_id: tech?.line_user_id || "" };
+        }));
+
+        setProfileRecipients(resolvedRecipients
+          .filter((result) => result.status === "fulfilled")
+          .map((result) => result.value));
+
+        let parsedRoutes: LineRouteSetting[] = [];
+        if (routesData?.value) {
+          try {
+            const parsed = JSON.parse(routesData.value);
+            if (Array.isArray(parsed)) parsedRoutes = parsed.filter(Boolean);
+          } catch {}
+        }
+
+        if (parsedRoutes.length === 0) {
+          const fallbackScope = departments[0]?.id || "";
+          parsedRoutes = [{ id: `route-${Date.now()}`, scopeType: "department", scopeValue: fallbackScope, provider: "line_notify_token", token: "", recipients: "" }];
+        }
+
+        setLineRoutes(parsedRoutes);
+      } catch (error: any) {
+        console.error("Failed to load settings", error);
+        setSettingsError(error?.message || "ไม่สามารถโหลดข้อมูลการตั้งค่าได้");
+      } finally {
+        setFetching(false);
       }
-
-      if (parsedRoutes.length === 0) {
-        parsedRoutes = [{ id: `route-${Date.now()}`, scopeType: "department", scopeValue: departments[0]?.id || "", provider: "line_notify_token", token: "", recipients: "" }];
-      }
-
-      setLineRoutes(parsedRoutes);
-      setFetching(false);
     };
 
     fetchSettings();
-  }, [departments]);
+  }, []);
 
   const addRoute = () => {
     setLineRoutes((current) => [
@@ -905,8 +923,23 @@ function SettingsTabInner() {
     }
   };
 
+  if (fetching) {
+    return (
+      <div className="space-y-4">
+        <Card className="shadow-card border-0 rounded-2xl">
+          <CardContent className="p-6 text-sm text-muted-foreground">กำลังโหลดการตั้งค่า LINE...</CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {settingsError && (
+        <Card className="shadow-card border-0 rounded-2xl border-destructive/40">
+          <CardContent className="p-4 text-sm text-destructive">{settingsError}</CardContent>
+        </Card>
+      )}
       <Card className="shadow-card border-0 rounded-2xl">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Line Token (Global)</CardTitle>
