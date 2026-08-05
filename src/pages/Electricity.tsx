@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp, AlertCircle, Search, Pencil, Trash2 } from 'lucide-react';
+import ElectricityMetersTab from '@/components/ElectricityMetersTab';
+import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp, AlertCircle, Search, Pencil, Trash2, Settings2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
 import { filterElectricityHistoryLogs, getElectricityHistoryRoomOptions } from '@/lib/electricityHistory';
@@ -549,10 +550,25 @@ export default function Electricity() {
           <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">ระบบบริหารจัดการมิเตอร์</h1>
           <p className="text-xs text-slate-500 mt-0.5">บันทึก ติดตาม และคัดแยกรายงานสถิติการใช้งานไฟฟ้าและน้ำประปา</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2 items-center">
           <Button onClick={exportExcel} variant="outline" className="w-full sm:w-auto text-xs sm:text-sm h-10 border-slate-200 text-slate-700 font-medium order-2 sm:order-1">
             <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600"/> Export รายงาน
           </Button>
+          {isAdmin && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-slate-200 text-slate-700 bg-white shadow-sm" title="ตั้งค่าเมตริกมิเตอร์ไฟฟ้า">
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl">
+                <DialogHeader>
+                  <DialogTitle className="text-base sm:text-lg">ตั้งค่าเมตริกมิเตอร์ไฟฟ้า</DialogTitle>
+                </DialogHeader>
+                <ElectricityMetersTab />
+              </DialogContent>
+            </Dialog>
+          )}
           {isAdmin && (
             <Button
               onClick={() => { setPendingOpen(true); setPendingResult(null); }}
