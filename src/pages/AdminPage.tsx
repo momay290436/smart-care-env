@@ -736,6 +736,8 @@ function SettingsTabInner() {
   const [lineRoutes, setLineRoutes] = useState<LineRouteSetting[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [testRecipient, setTestRecipient] = useState("");
+  const [profileRecipients, setProfileRecipients] = useState<any[]>([]);
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -751,14 +753,32 @@ function SettingsTabInner() {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const [notifyRes, channelRes, routesRes] = await Promise.all([
+      const [notifyRes, channelRes, routesRes, profilesRes, roleRes] = await Promise.all([
         supabase.from("app_settings").select("value").eq("key", "line_notify_token").maybeSingle(),
         supabase.from("app_settings").select("value").eq("key", "line_channel_token").maybeSingle(),
         supabase.from("app_settings").select("value").eq("key", "line_notification_routes").maybeSingle(),
+        supabase.from("profiles").select("id, auth_id, full_name, department_id, departments(name)").order("full_name"),
+        supabase.from("user_roles").select("user_id, role"),
       ]);
 
       if (notifyRes.data) setNotifyToken(notifyRes.data.value || "");
       if (channelRes.data) setChannelToken(channelRes.data.value || "");
+
+      const profiles = (profilesRes.data || []).map((profile: any) => ({
+        ...profile,
+        departments: profile.departments?.name || "-",
+        role: (roleRes.data || []).find((r: any) => r.user_id === profile.auth_id)?.role || "user",
+      }));
+
+      const technicianIds = await Promise.all(profiles.map(async (profile: any) => {
+        const { data: tech } = await supabase
+          .from("technicians")
+          .select("line_user_id")
+          .eq("user_id", profile.auth_id)
+          .maybeSingle();
+        return { ...profile, line_user_id: tech?.line_user_id || "" };
+      }));
+      setProfileRecipients(technicianIds);
 
       let parsedRoutes: LineRouteSetting[] = [];
       if (routesRes.data?.value) {
@@ -855,10 +875,28 @@ function SettingsTabInner() {
     }
   };
 
+  const appendRecipient = (routeId: string, profileLabel: string, lineUserId: string) => {
+    if (!lineUserId) {
+      toast.info(`${profileLabel} ยังไม่มี LINE User ID`);
+      return;
+    }
+
+    setLineRoutes((current) => current.map((route) => {
+      if (route.id !== routeId) return route;
+      const existingRecipients = route.recipients.split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
+      const nextRecipients = existingRecipients.includes(lineUserId) ? existingRecipients : [...existingRecipients, lineUserId];
+      return { ...route, recipients: nextRecipients.join(",") };
+    }));
+  };
+
   const testNotify = async () => {
     try {
+      const recipientIds = testRecipient ? [testRecipient] : [];
       const { error } = await supabase.functions.invoke("line-notify", {
-        body: { message: "ทดสอบระบบแจ้งเตือน Smart ENV & 5S" },
+        body: {
+          message: "🔔 ทดสอบระบบแจ้งเตือน Smart ENV & 5S\nข้อความนี้เป็นตัวอย่างเพื่อยืนยันการส่ง LINE ให้ผู้รับที่เลือกไว้",
+          recipient_ids: recipientIds,
+        },
       });
       if (error) throw error;
       toast.success("ส่งข้อความทดสอบสำเร็จ");
@@ -886,11 +924,39 @@ function SettingsTabInner() {
               <p className="text-sm text-muted-foreground">สำหรับส่งไปยังผู้รับตาม LINE User ID หรือ Broadcast</p>
             </div>
           </div>
+          <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="font-semibold text-sm">ตัวอย่างการทดสอบส่ง LINE</p>
+                <p className="text-xs text-muted-foreground">ข้อความต่อไปนี้จะถูกส่งโดยตรง เพื่อยืนยันความพร้อมก่อนใช้งานจริง</p>
+              </div>
+            </div>
+            <div className="rounded-xl bg-white px-3 py-2 text-sm text-muted-foreground border border-border">
+              🔔 ทดสอบระบบแจ้งเตือน Smart ENV & 5S\nข้อความนี้เป็นตัวอย่างเพื่อยืนยันการส่ง LINE ให้ผู้รับที่เลือกไว้
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-sm">เลือกผู้รับจากโปรไฟล์ผู้ใช้</Label>
+                <Select value={testRecipient} onValueChange={setTestRecipient}>
+                  <SelectTrigger className="h-11 rounded-2xl"><SelectValue placeholder="เลือกผู้รับทดสอบ" /></SelectTrigger>
+                  <SelectContent>
+                    {profileRecipients.map((profile: any) => (
+                      <SelectItem key={profile.auth_id} value={profile.line_user_id || ""} disabled={!profile.line_user_id}>
+                        {profile.full_name} — {profile.departments} — {profile.role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end gap-2">
+                <Button variant="outline" className="h-11 rounded-2xl flex-1" onClick={testNotify}>ทดสอบการส่ง LINE</Button>
+              </div>
+            </div>
+          </div>
           <div className="flex gap-2">
             <Button onClick={saveTokens} disabled={loading} className="flex-1 h-12 rounded-2xl">
               {loading ? "กำลังบันทึก..." : "บันทึก Token"}
             </Button>
-            <Button variant="outline" className="h-12 rounded-2xl" onClick={testNotify}>ทดสอบ</Button>
           </div>
         </CardContent>
       </Card>
@@ -964,8 +1030,25 @@ function SettingsTabInner() {
 
               <div className="space-y-2">
                 <Label className="text-sm">LINE User ID / ผู้รับ</Label>
-                <Input value={route.recipients} onChange={(e) => updateRoute(route.id, "recipients", e.target.value)} placeholder="คั่นด้วยเครื่องหมาย , หรือเว้นบรรทัด" className="h-11 rounded-2xl" />
-                <p className="text-xs text-muted-foreground">สำหรับ LINE Channel Token ให้ใส่ LINE User ID ของผู้รับที่ต้องการ ส่งได้หลายคนโดยคั่นด้วยเครื่องหมาย ,</p>
+                <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                  <Input value={route.recipients} onChange={(e) => updateRoute(route.id, "recipients", e.target.value)} placeholder="คั่นด้วยเครื่องหมาย , หรือเว้นบรรทัด" className="h-11 rounded-2xl" />
+                  <Select onValueChange={(value) => {
+                    const selected = profileRecipients.find((profile: any) => profile.auth_id === value);
+                    if (selected?.line_user_id) {
+                      appendRecipient(route.id, selected.full_name, selected.line_user_id);
+                    }
+                  }}>
+                    <SelectTrigger className="h-11 rounded-2xl md:w-[260px]"><SelectValue placeholder="เลือกจาก user profile" /></SelectTrigger>
+                    <SelectContent>
+                      {profileRecipients.map((profile: any) => (
+                        <SelectItem key={profile.auth_id} value={profile.auth_id} disabled={!profile.line_user_id}>
+                          {profile.full_name} — {profile.departments} — {profile.role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground">เลือกจาก user profile เพื่อเติม LINE User ID ให้เร็วขึ้น สำหรับ LINE Channel Token ให้ใส่ LINE User ID ของผู้รับที่ต้องการ ส่งได้หลายคนโดยคั่นด้วยเครื่องหมาย ,</p>
               </div>
             </div>
           ))}
