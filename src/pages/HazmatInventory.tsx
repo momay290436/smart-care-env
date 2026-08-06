@@ -234,8 +234,8 @@ export default function HazmatInventory() {
           await supabase.functions.invoke("line-notify", {
             body: {
               message: `⚠️ คลัง HAZMAT: ${chem.name_th} เหลือ ${newStock} ${chem.unit} (ต่ำกว่าเกณฑ์ ${chem.min_stock})`,
-              department_id: chem.department_id || profile?.department_id || null,
-              role,
+              department_id: chem.department_id || null,
+              topic: "hazmat",
             },
           });
         } catch {}

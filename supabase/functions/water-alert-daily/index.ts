@@ -7,77 +7,29 @@ const corsHeaders = {
 
 type Alert = { level: "warn" | "bad"; text: string };
 
-type RouteSetting = {
-  id?: string;
-  scopeType?: "department" | "role" | "all";
-  scopeValue?: string;
-  provider?: "line_notify_token" | "line_channel_token";
-  token?: string;
-  recipients?: string | string[];
-};
-
 const num = (v: unknown) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
 
-const parseRecipientList = (recipients: unknown) => {
-  if (Array.isArray(recipients)) return recipients.map((item) => String(item).trim()).filter(Boolean);
-  if (typeof recipients === "string") {
-    return recipients.split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
-  }
-  return [];
-};
-
-const normalizeRoutes = (value: unknown): RouteSetting[] => {
-  if (!value || typeof value !== "string") return [];
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
-  } catch {
-    return [];
-  }
-};
-
-const getSetting = (settings: { key: string; value: string }[] | null, key: string) =>
-  (settings || []).find((item) => item.key === key)?.value || "";
-
-const sendNotify = async (token: string, text: string) => {
-  const res = await fetch("https://notify-api.line.me/api/notify", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Bearer ${token}`,
-    },
-    body: `message=${encodeURIComponent("\n" + text)}`,
-  });
-
-  const result = await res.json();
-  if (!res.ok) throw new Error(JSON.stringify(result));
-  return result;
-};
-
-const sendChannelPush = async (token: string, recipients: string[], text: string) => {
-  if (recipients.length === 0) {
-    const res = await fetch("https://api.line.me/v2/bot/message/broadcast", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ messages: [{ type: "text", text }] }),
-    });
-    const result = await res.text();
-    if (!res.ok) throw new Error(result);
-    return { broadcast: true, result };
-  }
-
-  const res = await fetch("https://api.line.me/v2/bot/message/multicast", {
+const pushLine = async (token: string, recipients: string[], text: string) => {
+  const url = recipients.length > 0
+    ? "https://api.line.me/v2/bot/message/multicast"
+    : "https://api.line.me/v2/bot/message/broadcast";
+  const body = recipients.length > 0
+    ? { to: recipients.slice(0, 500), messages: [{ type: "text", text }] }
+    : { messages: [{ type: "text", text }] };
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ to: recipients.slice(0, 500), messages: [{ type: "text", text }] }),
+    body: JSON.stringify(body),
   });
-
-  const result = await res.text();
-  if (!res.ok) throw new Error(result);
-  return { multicast: true, result };
+  const responseBody = await res.text();
+  if (!res.ok) {
+    console.error(`LINE push failed [${res.status}]: ${responseBody}`);
+    throw new Error(`[${res.status}] ${responseBody}`);
+  }
+  return { status: res.status, body: responseBody };
 };
 
 Deno.serve(async (req) => {
@@ -85,14 +37,10 @@ Deno.serve(async (req) => {
 
   try {
     let body: any = {};
-    const contentType = req.headers.get("content-type") || "";
-    if (req.method !== "GET" && contentType.includes("application/json")) {
-      try {
-        body = await req.json();
-      } catch {
-        body = {};
-      }
+    if (req.method !== "GET") {
+      try { body = await req.json(); } catch { body = {}; }
     }
+    const dryRun = body?.dryRun === true;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -102,62 +50,76 @@ Deno.serve(async (req) => {
     const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
     const alerts: Alert[] = [];
 
+    // 1) สารเคมีกำจัดเชื้อโรค / คุณภาพน้ำประปา
+    const { data: wq } = await supabase
+      .from("water_quality_logs")
+      .select("check_point, check_date, status, ph_value, chlorine_value, turbidity_value")
+      .eq("check_date", today);
+
+    for (const r of wq || []) {
+      const point = r.check_point === "สารเคมีกำจัดเชื้อโรค" ? "สารเคมีกำจัดเชื้อโรค (ประปา)" : `คุณภาพน้ำ ${r.check_point}`;
+      const cl = num(r.chlorine_value);
+      if (cl !== null && (cl < 0.2 || cl > 0.5)) {
+        alerts.push({ level: cl < 0.1 || cl > 1 ? "bad" : "warn", text: `${point} พบค่าคลอรีนผิดปกติ (${cl} mg/L | เกณฑ์ 0.2–0.5)` });
+      }
+      const ph = num(r.ph_value);
+      if (ph !== null && (ph < 6.5 || ph > 8.5)) {
+        alerts.push({ level: ph < 6 || ph > 9 ? "bad" : "warn", text: `${point} พบค่า pH ผิดปกติ (${ph} | เกณฑ์ 6.5–8.5)` });
+      }
+      const tb = num(r.turbidity_value);
+      if (tb !== null && tb > 5) {
+        alerts.push({ level: tb > 10 ? "bad" : "warn", text: `${point} พบค่าความขุ่นผิดปกติ (${tb} NTU | เกณฑ์ ≤ 5)` });
+      }
+    }
+
+    // 2) ระบบบำบัดน้ำเสีย
     const { data: insp } = await supabase
       .from("wastewater_inspection_logs")
-      .select("check_date, chlorine_residual, ph_value, do_value, water_appearance, treatment_odor")
+      .select("check_date, chlorine_residual, ph_value, do_value, sediment_volume, treatment_odor, aerator_status, sludge_pump_status")
       .eq("check_date", today);
 
     for (const r of insp || []) {
       const cl = num(r.chlorine_residual);
       if (cl !== null && (cl < 0.2 || cl > 0.5)) {
-        alerts.push({ level: cl < 0.1 || cl > 1 ? "bad" : "warn", text: `บำบัดน้ำเสีย: คลอรีน ${cl} mg/L (เกณฑ์ 0.2–0.5)` });
+        alerts.push({ level: cl < 0.1 || cl > 1 ? "bad" : "warn", text: `ระบบบำบัดน้ำเสีย พบค่าคลอรีนผิดปกติ (${cl} mg/L | เกณฑ์ 0.2–0.5)` });
       }
       const ph = num(r.ph_value);
       if (ph !== null && (ph < 6.5 || ph > 8.5)) {
-        alerts.push({ level: ph < 6 || ph > 9 ? "bad" : "warn", text: `บำบัดน้ำเสีย: pH ${ph} (เกณฑ์ 6.5–8.5)` });
+        alerts.push({ level: ph < 6 || ph > 9 ? "bad" : "warn", text: `ระบบบำบัดน้ำเสีย พบค่า pH ผิดปกติ (${ph} | เกณฑ์ 6.5–8.5)` });
       }
       const dov = num(r.do_value);
       if (dov !== null && dov < 2) {
-        alerts.push({ level: dov < 1 ? "bad" : "warn", text: `บำบัดน้ำเสีย: DO ${dov} mg/L (ต่ำกว่า 2)` });
+        alerts.push({ level: dov < 1 ? "bad" : "warn", text: `ระบบบำบัดน้ำเสีย พบค่า DO ต่ำผิดปกติ (${dov} mg/L | เกณฑ์ ≥ 2)` });
+      }
+      const sed = num(r.sediment_volume);
+      if (sed !== null && sed > 500) {
+        alerts.push({ level: sed > 700 ? "bad" : "warn", text: `ระบบบำบัดน้ำเสีย พบค่าตะกอนผิดปกติ (${sed} ml/L | เกณฑ์ ≤ 500)` });
       }
       if (r.treatment_odor) {
-        alerts.push({ level: "warn", text: "บำบัดน้ำเสีย: พบกลิ่นผิดปกติ" });
+        alerts.push({ level: "warn", text: "ระบบบำบัดน้ำเสีย พบกลิ่นผิดปกติ" });
       }
     }
 
+    // 3) ผลตรวจเชื้อจุลินทรีย์
     const { data: patho } = await supabase
       .from("water_pathogen_logs")
       .select("sample_point, check_date, status, total_coliform, e_coli, chlorine_value")
       .eq("check_date", today);
 
     for (const r of patho || []) {
-      const found = r.total_coliform === "found" || r.e_coli === "found";
-      if (found) {
-        alerts.push({ level: "bad", text: `ตรวจเชื้อ ${r.sample_point}: พบ${r.e_coli === "found" ? " E.coli" : ""}${r.total_coliform === "found" ? " Coliform" : ""}` });
-      } else if (r.status !== "pass") {
+      if (r.total_coliform === "found" || r.e_coli === "found") {
+        const found = [r.e_coli === "found" ? "E.coli" : null, r.total_coliform === "found" ? "Coliform" : null].filter(Boolean).join(" / ");
+        alerts.push({ level: "bad", text: `ตรวจเชื้อ ${r.sample_point} พบเชื้อ ${found}` });
+      } else if (r.status && r.status !== "pass") {
         const cl = num(r.chlorine_value);
-        alerts.push({ level: "warn", text: `ตรวจเชื้อ ${r.sample_point}: ไม่ผ่านเกณฑ์${cl !== null ? ` (คลอรีน ${cl})` : ""}` });
+        alerts.push({ level: "warn", text: `ตรวจเชื้อ ${r.sample_point} ไม่ผ่านเกณฑ์${cl !== null ? ` (คลอรีน ${cl} mg/L)` : ""}` });
       }
     }
 
-    const { data: wq } = await supabase
-      .from("water_quality_logs")
-      .select("check_point, check_date, status, ph_value, chlorine_value")
-      .eq("check_date", today);
-
-    for (const r of wq || []) {
-      if (r.status && r.status !== "pass" && r.status !== "normal") {
-        alerts.push({ level: r.status === "fail" ? "bad" : "warn", text: `คุณภาพน้ำ ${r.check_point}: ${r.status === "fail" ? "ผิดปกติ" : "ควรเฝ้าระวัง"}` });
-      }
-    }
-
-    const deduped = alerts.filter((alert, index, all) => {
-      const key = `${alert.level}:${alert.text}`;
-      return all.findIndex((item) => `${item.level}:${item.text}` === key) === index;
-    });
+    const deduped = alerts.filter((a, i, all) => all.findIndex((x) => x.level === a.level && x.text === a.text) === i);
 
     if (deduped.length === 0) {
-      return new Response(JSON.stringify({ sent: false, reason: "no_anomaly", date: today }), {
+      return new Response(JSON.stringify({ sent: false, reason: "no_anomaly", date: today, message: "" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -168,87 +130,57 @@ Deno.serve(async (req) => {
 
     const lines: string[] = [`🚱 แจ้งเตือนคุณภาพน้ำ ${dateTh}`];
     if (bad.length) {
-      lines.push(`🔴 ผิดปกติ (${bad.length})`);
-      lines.push(...bad.slice(0, 8).map((a) => `• ${a.text}`));
+      lines.push("", `🔴 ผิดปกติ (${bad.length})`);
+      lines.push(...bad.slice(0, 10).map((a) => `• ${a.text}`));
     }
     if (warn.length) {
-      lines.push(`🟡 เฝ้าระวัง (${warn.length})`);
-      lines.push(...warn.slice(0, 8).map((a) => `• ${a.text}`));
+      lines.push("", `🟡 เฝ้าระวัง (${warn.length})`);
+      lines.push(...warn.slice(0, 10).map((a) => `• ${a.text}`));
     }
-    lines.push("โปรดตรวจสอบและบันทึกการแก้ไขในระบบ");
+    lines.push("", "โปรดตรวจสอบและบันทึกการแก้ไขในระบบ");
     const message = lines.join("\n");
 
-    const { data: settings } = await supabase
-      .from("app_settings")
-      .select("key, value")
-      .in("key", ["line_channel_token", "line_notify_token", "line_notification_routes"]);
-
-    const routeSettings = normalizeRoutes(getSetting(settings || [], "line_notification_routes"));
-    const routeCandidates = routeSettings.filter((route) => !route.scopeType || route.scopeType === "all");
-
-    const routeResults: any[] = [];
-    for (const route of routeCandidates) {
-      const token = route.token?.trim();
-      if (!token) continue;
-      const recipients = parseRecipientList(route.recipients);
-      if (route.provider === "line_channel_token") {
-        const result = await sendChannelPush(token, recipients, message);
-        routeResults.push({ provider: "line_channel_token", routeId: route.id || route.scopeValue || "route", result });
-      } else {
-        const result = await sendNotify(token, message);
-        routeResults.push({ provider: "line_notify_token", routeId: route.id || route.scopeValue || "route", result });
-      }
-    }
-
-    if (routeResults.length > 0) {
-      return new Response(JSON.stringify({ sent: true, count: deduped.length, routes: routeResults.length, message }), {
+    if (dryRun) {
+      return new Response(JSON.stringify({ sent: false, reason: "dry_run", count: deduped.length, message }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const channelToken = getSetting(settings || [], "line_channel_token");
-    const notifyToken = getSetting(settings || [], "line_notify_token");
+    const { data: settings } = await supabase.from("app_settings").select("key, value").eq("key", "line_channel_token");
+    const channelToken = (settings || [])[0]?.value?.trim() || Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") || "";
 
-    let providerStatus = 0;
-    let providerBody = "";
-
-    if (channelToken) {
-      const res = await fetch("https://api.line.me/v2/bot/message/broadcast", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${channelToken}` },
-        body: JSON.stringify({ messages: [{ type: "text", text: message }] }),
-      });
-      providerStatus = res.status;
-      providerBody = await res.text();
-    } else if (notifyToken) {
-      const res = await fetch("https://notify-api.line.me/api/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: `Bearer ${notifyToken}` },
-        body: `message=${encodeURIComponent("\n" + message)}`,
-      });
-      providerStatus = res.status;
-      providerBody = await res.text();
-    } else {
-      return new Response(JSON.stringify({ sent: false, reason: "no_line_token", message }), {
+    if (!channelToken) {
+      return new Response(JSON.stringify({ sent: false, reason: "no_channel_token", message }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (providerStatus >= 400) {
-      console.error(`LINE send failed [${providerStatus}]: ${providerBody}`);
-      return new Response(JSON.stringify({ sent: false, status: providerStatus, details: providerBody }), {
-        status: providerStatus,
+    const { data: rows } = await supabase
+      .from("notification_recipients")
+      .select("line_user_id, topics, is_active");
+
+    const recipients = Array.from(new Set(
+      (rows || [])
+        .filter((r: any) => r.is_active !== false)
+        .filter((r: any) => !Array.isArray(r.topics) || r.topics.length === 0 || r.topics.includes("water_alert"))
+        .map((r: any) => String(r.line_user_id || "").trim())
+        .filter(Boolean),
+    ));
+
+    if (recipients.length === 0) {
+      return new Response(JSON.stringify({ sent: false, reason: "no_recipients", message }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ sent: true, count: deduped.length, message }), {
+    const result = await pushLine(channelToken, recipients, message);
+    return new Response(JSON.stringify({ sent: true, count: deduped.length, recipients: recipients.length, message, result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("water-alert-daily error:", error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
+    return new Response(JSON.stringify({ sent: false, error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

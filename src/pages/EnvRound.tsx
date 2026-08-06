@@ -210,7 +210,7 @@ export default function EnvRound() {
           body: {
             message: `สรุป ENV Round\nแผนก: ${deptName}\nผู้ตรวจ: ${profile?.full_name}\nปกติ: ${normalCount} จุด\nผิดปกติ: ${abnormalItems.length} จุด${highRisk > 0 ? `\nระดับสูง: ${highRisk} จุด` : ""}`,
             department_id: selectedDept || profile?.department_id || null,
-            role,
+            topic: "env_round",
           },
         });
       } catch {}

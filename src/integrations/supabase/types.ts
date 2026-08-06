@@ -929,6 +929,36 @@ export type Database = {
           },
         ]
       }
+      notification_recipients: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          line_user_id: string
+          topics: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          line_user_id: string
+          topics?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          line_user_id?: string
+          topics?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       page_permissions: {
         Row: {
           created_at: string
@@ -1097,6 +1127,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sewage_trash_logs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          items: string[]
+          notes: string | null
+          other_item: string | null
+          record_date: string
+          record_time: string
+          recorder_name: string | null
+          round: string
+          updated_at: string
+          weight_kg: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          items?: string[]
+          notes?: string | null
+          other_item?: string | null
+          record_date?: string
+          record_time?: string
+          recorder_name?: string | null
+          round?: string
+          updated_at?: string
+          weight_kg?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          items?: string[]
+          notes?: string | null
+          other_item?: string | null
+          record_date?: string
+          record_time?: string
+          recorder_name?: string | null
+          round?: string
+          updated_at?: string
+          weight_kg?: number
+        }
+        Relationships: []
+      }
+      sewage_trash_options: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       technicians: {
         Row: {
