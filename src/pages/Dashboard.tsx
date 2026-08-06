@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -17,6 +17,7 @@ import { exportMultiSheet } from "@/lib/exportExcel";
 import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
 import { Wrench, CheckCircle, Flame, Trash2, Search, FlaskConical, AlertTriangle } from "lucide-react";
+import { mergeInfectiousWasteRecordsWithLogs, subscribeToWasteDataChanges } from "@/lib/infectiousWasteSync";
 
 type WasteFilter = "day" | "week" | "month" | "custom";
 
@@ -115,6 +116,7 @@ function MetricPanel({ label, value, sub, note, icon: Icon, onClick, accent = "s
 export default function Dashboard() {
   useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [wasteFilter, setWasteFilter] = useState<WasteFilter>("month");
   const [customFrom, setCustomFrom] = useState<Date | undefined>(undefined);
@@ -122,6 +124,15 @@ export default function Dashboard() {
   const [drilldown, setDrilldown] = useState<string | null>(null);
   const [forecastType, setForecastType] = useState<string>("general");
   const [forecastHorizon, setForecastHorizon] = useState<3 | 6 | 12>(3);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToWasteDataChanges({
+      supabaseClient: supabase,
+      queryClient,
+      channelName: "waste-updates-dashboard",
+    });
+    return unsubscribe;
+  }, [queryClient]);
 
   const wasteRange = useMemo(() => {
     const now = new Date();
@@ -145,23 +156,10 @@ export default function Dashboard() {
         .from("infectious_waste_records")
         .select("collection_date, sharp_waste_kg, non_sharp_waste_kg, created_at");
 
-      // รวมข้อมูลขยะติดเชื้อ (สำคัญสำหรับระบบพยากรณ์รายประเภท)
-      const existingInfKeys = new Set(
-        (wasteLogsData || [])
-          .filter((l: any) => normalizeWasteType(l.waste_type) === "infectious")
-          .map((l: any) => `${(l.created_at || "").substring(0, 10)}|${Number(l.weight)}`)
-      );
-      const extraInf = (infRecs || [])
-        .map((r: any) => {
-          const w = Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0);
-          const day = r.collection_date || (r.created_at || "").substring(0, 10);
-          if (!day || w <= 0) return null;
-          const key = `${day}|${w}`;
-          if (existingInfKeys.has(key)) return null;
-          return { waste_type: "infectious", weight: w, created_at: `${day}T08:00:00` };
-        })
-        .filter(Boolean) as any[];
-      return [...(wasteLogsData || []), ...extraInf];
+      return mergeInfectiousWasteRecordsWithLogs({
+        wasteLogsData: wasteLogsData || [],
+        infectiousRecords: infRecs || [],
+      });
     },
   });
 
@@ -299,21 +297,10 @@ export default function Dashboard() {
         .select("collection_date, sharp_waste_kg, non_sharp_waste_kg, created_at")
         .gte("collection_date", wasteRange.from.substring(0, 10))
         .lte("collection_date", wasteRange.to.substring(0, 10));
-      const existingInfKeys = new Set(
-        (wasteLogsData || [])
-          .filter((l: any) => (l.waste_type || "").toString().toLowerCase().includes("infect") || l.waste_type === "infectious")
-          .map((l: any) => `${(l.created_at || "").substring(0, 10)}|${Number(l.weight)}`)
-      );
-      const extraInf = (infRecs || [])
-        .map((r: any) => {
-          const w = Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0);
-          const day = r.collection_date || (r.created_at || "").substring(0, 10);
-          const key = `${day}|${w}`;
-          if (existingInfKeys.has(key)) return null;
-          return { waste_type: "infectious", weight: w, created_at: `${day}T08:00:00` };
-        })
-        .filter(Boolean) as any[];
-      const combinedData = [...(wasteLogsData || []), ...extraInf];
+      const combinedData = mergeInfectiousWasteRecordsWithLogs({
+        wasteLogsData: wasteLogsData || [],
+        infectiousRecords: infRecs || [],
+      });
       if (combinedData.length === 0) return { byType: [], byDay: [], total: 0, allTypes: [] };
       
       const typeMap: Record<string, number> = {}; let total = 0;

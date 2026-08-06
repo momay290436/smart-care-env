@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildInfectiousWasteAggregateSyncPlan } from "./infectiousWasteSync";
+import { buildInfectiousWasteAggregateSyncPlan, mergeInfectiousWasteRecordsWithLogs } from "./infectiousWasteSync";
 
 describe("buildInfectiousWasteAggregateSyncPlan", () => {
   it("marks existing infectious summary rows for the same collection day for replacement", () => {
@@ -25,5 +25,17 @@ describe("buildInfectiousWasteAggregateSyncPlan", () => {
       recorded_by: "user-1",
       created_at: "2026-07-15T08:00:00.000Z",
     });
+  });
+});
+
+describe("mergeInfectiousWasteRecordsWithLogs", () => {
+  it("does not add a duplicate infectious entry when the same day already has a summary row", () => {
+    const merged = mergeInfectiousWasteRecordsWithLogs({
+      wasteLogsData: [{ waste_type: "infectious", weight: 7.5, created_at: "2026-07-15T08:00:00.000Z" }],
+      infectiousRecords: [{ collection_date: "2026-07-15", sharp_waste_kg: 3, non_sharp_waste_kg: 4.5 }],
+    });
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ waste_type: "infectious", weight: 7.5, created_at: "2026-07-15T08:00:00.000Z" });
   });
 });

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { Plus, Trash2, CalendarIcon, Download, Pencil } from "lucide-react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import * as XLSX from "xlsx";
-import { syncInfectiousWasteAggregateToWasteLogs } from "@/lib/infectiousWasteSync";
+import { subscribeToWasteDataChanges, syncInfectiousWasteAggregateToWasteLogs } from "@/lib/infectiousWasteSync";
 
 const HEALTH_CENTERS = [
   "รพ.สต.โป่งปูเฟือง", "รพ.สต.โป่งกลางน้ำ", "รพ.สต.ทุ่งพร้าว", "รพ.สต.ห้วยไคร้",
@@ -45,6 +45,15 @@ export default function InfectiousWasteTab() {
   const [editItem, setEditItem] = useState<any>(null);
   const [filterMonth, setFilterMonth] = useState(format(new Date(), "yyyy-MM"));
   const [showAllRecords, setShowAllRecords] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToWasteDataChanges({
+      supabaseClient: supabase,
+      queryClient,
+      channelName: "waste-updates-infectious-tab",
+    });
+    return unsubscribe;
+  }, [queryClient]);
 
   const { data: records = [] } = useQuery({
     queryKey: ["infectious-waste"],
@@ -129,6 +138,9 @@ export default function InfectiousWasteTab() {
     onSuccess: () => {
       toast.success("บันทึกข้อมูลขยะติดเชื้อสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-filtered"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-history"] });
       setShowForm(false);
       setRows([{ health_center_name: "", sharp_waste_kg: "", non_sharp_waste_kg: "", delivered_by: "", source_type: "", bottle_count: "" }]);
     },
@@ -160,7 +172,7 @@ export default function InfectiousWasteTab() {
         });
       }
     },
-    onSuccess: () => { toast.success("ลบสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["infectious-waste"] }); queryClient.invalidateQueries({ queryKey: ["waste-logs"] }); },
+    onSuccess: () => { toast.success("ลบสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["infectious-waste"] }); queryClient.invalidateQueries({ queryKey: ["waste-logs"] }); queryClient.invalidateQueries({ queryKey: ["waste-filtered"] }); queryClient.invalidateQueries({ queryKey: ["waste-history"] }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -197,7 +209,7 @@ export default function InfectiousWasteTab() {
         });
       }
     },
-    onSuccess: () => { toast.success("แก้ไขสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["infectious-waste"] }); queryClient.invalidateQueries({ queryKey: ["waste-logs"] }); setEditItem(null); },
+    onSuccess: () => { toast.success("แก้ไขสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["infectious-waste"] }); queryClient.invalidateQueries({ queryKey: ["waste-logs"] }); queryClient.invalidateQueries({ queryKey: ["waste-filtered"] }); queryClient.invalidateQueries({ queryKey: ["waste-history"] }); setEditItem(null); },
     onError: (e: any) => toast.error(e.message),
   });
 

@@ -9,6 +9,35 @@ export interface InfectiousWasteAggregateSyncPlan {
   };
 }
 
+export interface MergeInfectiousWasteRecordsWithLogsParams {
+  wasteLogsData: Array<{ waste_type?: string | null; weight?: number | string | null; created_at?: string | null }>;
+  infectiousRecords: Array<{ collection_date?: string | null; sharp_waste_kg?: number | string | null; non_sharp_waste_kg?: number | string | null; created_at?: string | null }>;
+}
+
+export function mergeInfectiousWasteRecordsWithLogs({
+  wasteLogsData,
+  infectiousRecords,
+}: MergeInfectiousWasteRecordsWithLogsParams) {
+  const existingInfKeys = new Set(
+    (wasteLogsData || [])
+      .filter((l) => (l.waste_type || "").toString().toLowerCase().includes("infect") || l.waste_type === "infectious")
+      .map((l) => `${(l.created_at || "").substring(0, 10)}|${Number(l.weight || 0)}`)
+  );
+
+  const extraInf = (infectiousRecords || [])
+    .map((r) => {
+      const w = Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0);
+      const day = r.collection_date || (r.created_at || "").substring(0, 10);
+      if (!day || w <= 0) return null;
+      const key = `${day}|${w}`;
+      if (existingInfKeys.has(key)) return null;
+      return { waste_type: "infectious", weight: w, created_at: `${day}T08:00:00` };
+    })
+    .filter(Boolean) as Array<{ waste_type: string; weight: number; created_at: string }>;
+
+  return [...(wasteLogsData || []), ...extraInf];
+}
+
 function formatCollectionDay(collectionDate: Date) {
   const year = collectionDate.getFullYear();
   const month = String(collectionDate.getMonth() + 1).padStart(2, "0");
@@ -48,6 +77,39 @@ export function buildInfectiousWasteAggregateSyncPlan({
       recorded_by: userId,
       created_at: createdAt,
     },
+  };
+}
+
+export function subscribeToWasteDataChanges({
+  supabaseClient,
+  queryClient,
+  channelName,
+}: {
+  supabaseClient: any;
+  queryClient: any;
+  channelName: string;
+}) {
+  const channel = supabaseClient.channel(channelName);
+
+  const invalidateWasteQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+    queryClient.invalidateQueries({ queryKey: ["waste-filtered"] });
+    queryClient.invalidateQueries({ queryKey: ["waste-history"] });
+    queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
+  };
+
+  channel.on("postgres_changes", { event: "*", schema: "public", table: "waste_logs" }, () => {
+    invalidateWasteQueries();
+  });
+
+  channel.on("postgres_changes", { event: "*", schema: "public", table: "infectious_waste_records" }, () => {
+    invalidateWasteQueries();
+  });
+
+  channel.subscribe();
+
+  return () => {
+    supabaseClient.removeChannel(channel);
   };
 }
 

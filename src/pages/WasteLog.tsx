@@ -20,7 +20,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, 
 import PageHeader from "@/components/PageHeader";
 import { Plus, Download, Pencil, Trash2, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
-import { syncInfectiousWasteAggregateToWasteLogs } from "@/lib/infectiousWasteSync";
+import { mergeInfectiousWasteRecordsWithLogs, subscribeToWasteDataChanges, syncInfectiousWasteAggregateToWasteLogs } from "@/lib/infectiousWasteSync";
 
 const DEFAULT_WASTE_TYPES: Record<string, { label: string; color: string; chartColor: string }> = {
   general: { label: "ขยะทั่วไป", color: "bg-blue-100 text-blue-900 border-blue-200", chartColor: "#3b82f6" },
@@ -88,6 +88,15 @@ export default function WasteLog() {
   const [infCollectionDate, setInfCollectionDate] = useState<Date | undefined>(new Date());
   const [infTransferDate, setInfTransferDate] = useState<Date | undefined>();
   const [infRows, setInfRows] = useState<any[]>([emptyInfRow()]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToWasteDataChanges({
+      supabaseClient: supabase,
+      queryClient,
+      channelName: "waste-updates-waste-log",
+    });
+    return unsubscribe;
+  }, [queryClient]);
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -214,6 +223,9 @@ export default function WasteLog() {
       toast.success(editingLogId ? "แก้ไขข้อมูลสำเร็จ" : "บันทึกน้ำหนักขยะสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
       queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-filtered"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-history"] });
       setShowForm(false);
       setWeight("");
       setCustomDateTime("");
@@ -249,6 +261,8 @@ export default function WasteLog() {
       toast.success("ลบสำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
       queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-filtered"] });
+      queryClient.invalidateQueries({ queryKey: ["waste-history"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -1011,6 +1025,8 @@ export default function WasteLog() {
                                     toast.success("ลบสำเร็จ");
                                     queryClient.invalidateQueries({ queryKey: ["infectious-waste"] });
                                     queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+                                    queryClient.invalidateQueries({ queryKey: ["waste-filtered"] });
+                                    queryClient.invalidateQueries({ queryKey: ["waste-history"] });
                                   }}
                                 >
                                   <Trash2 className="h-4 w-4" />
