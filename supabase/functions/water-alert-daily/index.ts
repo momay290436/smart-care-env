@@ -108,28 +108,27 @@ Deno.serve(async (req) => {
       }
     }
 
-    const deduped = alerts.filter((a, i, all) => all.findIndex((x) => x.level === a.level && x.text === a.text) === i);
-
-    if (deduped.length === 0) {
+    if (alerts.length === 0) {
       return new Response(JSON.stringify({ sent: false, reason: "no_anomaly", date: today, message: "" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const bad = deduped.filter((a) => a.level === "bad");
-    const warn = deduped.filter((a) => a.level === "warn");
+    const bad = alerts.filter((a) => a.level === "bad");
+    const warn = alerts.filter((a) => a.level === "warn");
     const dateTh = new Date(today).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
 
-    const lines: string[] = [`🚱 แจ้งเตือนคุณภาพน้ำ ${dateTh}`];
+    const lines: string[] = [`🚱 แจ้งเตือนคุณภาพน้ำ ${dateTh}`, ""];
     if (bad.length) {
-      lines.push("", `🔴 !!!วิกฤติแก้ไขทันที!!!`);
+      lines.push(`🔴 !!!วิกฤติแก้ไขทันที!!!`);
       lines.push(...bad.map((a) => `• ${a.text}`));
     }
     if (warn.length) {
-      lines.push("", `🟡 เฝ้าระวัง`);
+      if (bad.length) lines.push("", "🟡 เฝ้าระวัง");
+      else lines.push(`🟡 เฝ้าระวัง`);
       lines.push(...warn.map((a) => `• ${a.text}`));
     }
-    lines.push("", "ทำการตรวจสอบและแก้ไขด้วยจ้า");
+    lines.push("", "โปรดตรวจสอบและแก้ไขโดยด่วน");
     const message = lines.join("\n");
 
     if (dryRun) {

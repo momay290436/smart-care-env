@@ -14,7 +14,7 @@ export const getWaterAlertLevel = (chlorine: number | null, ph: number | null, t
     alerts.push({ level: "bad", text: `ค่าคลอรีนเกินค่าปกติ (${chlorine} mg/L | ค่าปกติ 0.2–0.5)` });
   }
   if (ph !== null && (ph < 6.5 || ph > 8.5)) {
-    alerts.push({ level: "warn", text: `ค่า pH ผิดปกติ (${ph} | ค่าปกติ 6.5–8.5)` });
+    alerts.push({ level: "bad", text: `ค่า pH ผิดปกติ (${ph} | ค่าปกติ 6.5–8.5)` });
   }
   if (turbidity !== null && turbidity > 5) {
     alerts.push({ level: "warn", text: `ค่าความขุ่นเกินค่าปกติ (${turbidity} NTU | ค่าปกติ ≤ 5)` });
@@ -31,7 +31,7 @@ export const getWastewaterAlertLevel = (chlorine: number | null, ph: number | nu
     alerts.push({ level: "bad", text: `ค่าคลอรีนเกินค่าปกติ (${chlorine} mg/L | ค่าปกติ 0.5–1.0)` });
   }
   if (ph !== null && (ph < 6.5 || ph > 8.5)) {
-    alerts.push({ level: "warn", text: `ค่า pH ผิดปกติ (${ph} | ค่าปกติ 6.5–8.5)` });
+    alerts.push({ level: "bad", text: `ค่า pH ผิดปกติ (${ph} | ค่าปกติ 6.5–8.5)` });
   }
   if (doValue !== null && doValue < 2) {
     alerts.push({ level: "warn", text: `ค่า DO ต่ำกว่าค่าปกติ (${doValue} mg/L | ค่าปกติ ≥ 2)` });
