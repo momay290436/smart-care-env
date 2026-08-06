@@ -139,8 +139,7 @@ export default function FireSafety() {
       await supabase.functions.invoke("line-notify", {
         body: {
           message: `🚨 แจ้งเหตุเพลิงไหม้!\nอาคาร: ${sosBuilding}\nชั้น: ${sosFloor || "ไม่ระบุ"}\nเวลา: ${new Date().toLocaleTimeString("th-TH")}`,
-          department_id: profile?.department_id || null,
-          role,
+          topic: "fire_safety",
         },
       }).catch(() => {});
       toast.success(`ส่งแจ้งเหตุสำเร็จ: อาคาร ${sosBuilding} ${sosFloor}`);
