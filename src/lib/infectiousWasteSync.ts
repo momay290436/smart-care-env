@@ -18,22 +18,24 @@ export function mergeInfectiousWasteRecordsWithLogs({
   wasteLogsData,
   infectiousRecords,
 }: MergeInfectiousWasteRecordsWithLogsParams) {
-  const existingInfKeys = new Set(
+  const existingInfectiousDays = new Set(
     (wasteLogsData || [])
       .filter((l) => (l.waste_type || "").toString().toLowerCase().includes("infect") || l.waste_type === "infectious")
-      .map((l) => `${(l.created_at || "").substring(0, 10)}|${Number(l.weight || 0)}`)
+      .map((l) => (l.created_at || "").substring(0, 10))
+      .filter(Boolean)
   );
 
-  const extraInf = (infectiousRecords || [])
-    .map((r) => {
-      const w = Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0);
-      const day = r.collection_date || (r.created_at || "").substring(0, 10);
-      if (!day || w <= 0) return null;
-      const key = `${day}|${w}`;
-      if (existingInfKeys.has(key)) return null;
-      return { waste_type: "infectious", weight: w, created_at: `${day}T08:00:00` };
-    })
-    .filter(Boolean) as Array<{ waste_type: string; weight: number; created_at: string }>;
+  const aggregatedByDay: Record<string, number> = {};
+  (infectiousRecords || []).forEach((r) => {
+    const weight = Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0);
+    const day = r.collection_date || (r.created_at || "").substring(0, 10);
+    if (!day || weight <= 0) return;
+    aggregatedByDay[day] = (aggregatedByDay[day] || 0) + weight;
+  });
+
+  const extraInf = Object.entries(aggregatedByDay)
+    .filter(([day]) => !existingInfectiousDays.has(day))
+    .map(([day, weight]) => ({ waste_type: "infectious", weight: Number(weight.toFixed(2)), created_at: `${day}T08:00:00` }));
 
   return [...(wasteLogsData || []), ...extraInf];
 }

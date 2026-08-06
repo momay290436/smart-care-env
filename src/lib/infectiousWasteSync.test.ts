@@ -38,4 +38,17 @@ describe("mergeInfectiousWasteRecordsWithLogs", () => {
     expect(merged).toHaveLength(1);
     expect(merged[0]).toMatchObject({ waste_type: "infectious", weight: 7.5, created_at: "2026-07-15T08:00:00.000Z" });
   });
+
+  it("aggregates multiple infectious records for the same day into one entry", () => {
+    const merged = mergeInfectiousWasteRecordsWithLogs({
+      wasteLogsData: [],
+      infectiousRecords: [
+        { collection_date: "2026-07-15", sharp_waste_kg: 2, non_sharp_waste_kg: 3 },
+        { collection_date: "2026-07-15", sharp_waste_kg: 1.5, non_sharp_waste_kg: 2 },
+      ],
+    });
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ waste_type: "infectious", weight: 8.5, created_at: "2026-07-15T08:00:00" });
+  });
 });
