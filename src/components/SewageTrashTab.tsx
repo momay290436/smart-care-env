@@ -13,7 +13,7 @@ import { exportToExcel } from "@/lib/exportExcel";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
-import { Plus, Pencil, Trash2, Download, Settings2, X } from "lucide-react";
+import { Pencil, Trash2, Download, Settings2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const bkkNow = () => new Date(Date.now() + 7 * 3600 * 1000);
@@ -433,4 +433,3 @@ export function SewageTrashHistory() {
   );
 }
 
-export { Plus };
