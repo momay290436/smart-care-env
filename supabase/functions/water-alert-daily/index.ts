@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getWaterAlertLevel, getWastewaterAlertLevel, getSedimentAlertLevel } from "./rules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,16 +60,11 @@ Deno.serve(async (req) => {
     for (const r of wq || []) {
       const point = r.check_point === "สารเคมีกำจัดเชื้อโรค" ? "สารเคมีกำจัดเชื้อโรค (ประปา)" : `คุณภาพน้ำ ${r.check_point}`;
       const cl = num(r.chlorine_value);
-      if (cl !== null && (cl < 0.2 || cl > 0.5)) {
-        alerts.push({ level: cl < 0.1 || cl > 1 ? "bad" : "warn", text: `${point} พบค่าคลอรีนผิดปกติ (${cl} mg/L | เกณฑ์ 0.2–0.5)` });
-      }
       const ph = num(r.ph_value);
-      if (ph !== null && (ph < 6.5 || ph > 8.5)) {
-        alerts.push({ level: ph < 6 || ph > 9 ? "bad" : "warn", text: `${point} พบค่า pH ผิดปกติ (${ph} | เกณฑ์ 6.5–8.5)` });
-      }
       const tb = num(r.turbidity_value);
-      if (tb !== null && tb > 5) {
-        alerts.push({ level: tb > 10 ? "bad" : "warn", text: `${point} พบค่าความขุ่นผิดปกติ (${tb} NTU | เกณฑ์ ≤ 5)` });
+      const alert = getWaterAlertLevel(cl, ph, tb);
+      if (alert) {
+        alerts.push({ level: alert.level, text: `${point} ${alert.text}` });
       }
     }
 
@@ -80,20 +76,16 @@ Deno.serve(async (req) => {
 
     for (const r of insp || []) {
       const cl = num(r.chlorine_residual);
-      if (cl !== null && (cl < 0.2 || cl > 0.5)) {
-        alerts.push({ level: cl < 0.1 || cl > 1 ? "bad" : "warn", text: `ระบบบำบัดน้ำเสีย พบค่าคลอรีนผิดปกติ (${cl} mg/L | เกณฑ์ 0.2–0.5)` });
-      }
       const ph = num(r.ph_value);
-      if (ph !== null && (ph < 6.5 || ph > 8.5)) {
-        alerts.push({ level: ph < 6 || ph > 9 ? "bad" : "warn", text: `ระบบบำบัดน้ำเสีย พบค่า pH ผิดปกติ (${ph} | เกณฑ์ 6.5–8.5)` });
-      }
       const dov = num(r.do_value);
-      if (dov !== null && dov < 2) {
-        alerts.push({ level: dov < 1 ? "bad" : "warn", text: `ระบบบำบัดน้ำเสีย พบค่า DO ต่ำผิดปกติ (${dov} mg/L | เกณฑ์ ≥ 2)` });
-      }
       const sed = num(r.sediment_volume);
-      if (sed !== null && sed > 500) {
-        alerts.push({ level: sed > 700 ? "bad" : "warn", text: `ระบบบำบัดน้ำเสีย พบค่าตะกอนผิดปกติ (${sed} ml/L | เกณฑ์ ≤ 500)` });
+      const chlorineAlert = getWastewaterAlertLevel(cl, ph, dov);
+      if (chlorineAlert) {
+        alerts.push({ level: chlorineAlert.level, text: `ระบบบำบัดน้ำเสีย ${chlorineAlert.text}` });
+      }
+      const sedimentAlert = getSedimentAlertLevel(sed);
+      if (sedimentAlert) {
+        alerts.push({ level: sedimentAlert.level, text: `ระบบบำบัดน้ำเสีย ${sedimentAlert.text}` });
       }
       if (r.treatment_odor) {
         alerts.push({ level: "warn", text: "ระบบบำบัดน้ำเสีย พบกลิ่นผิดปกติ" });
