@@ -6,10 +6,18 @@ describe("water alert rules", () => {
     expect(getSedimentAlertLevel(120)).toEqual({ level: "warn", text: "ค่าตะกอนต่ำกว่าค่าปกติ (120 | ค่าปกติ 250–450)" });
   });
 
+  it("marks high sludge above 350 as a warning", () => {
+    expect(getSedimentAlertLevel(360)).toEqual({ level: "warn", text: "ค่าตะกอนเกินค่าปกติ (360 | ค่าปกติ 250–450)" });
+  });
+
   it("marks very low potable chlorine as a warning", () => {
     expect(getWaterAlertLevel(0.1, null, null)).toEqual([
       { level: "warn", text: "ค่าคลอรีนต่ำกว่าค่าปกติ (0.1 mg/L | ค่าปกติ 0.2–0.5)" },
     ]);
+  });
+
+  it("does not warn on wastewater chlorine 0.69 mg/L", () => {
+    expect(getWastewaterAlertLevel(0.69, null, null)).toEqual([]);
   });
 
   it("marks high wastewater chlorine as a bad alert", () => {
