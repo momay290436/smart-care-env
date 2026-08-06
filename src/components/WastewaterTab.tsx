@@ -327,7 +327,7 @@ export default function WastewaterTab() {
 
   const handleExport = () => {
     if (filtered.length === 0) { toast.info("ไม่มีข้อมูลให้ส่งออก"); return; }
-    const headers = ["ลำดับ", "วันที่", "เวลา", "คลอรีนตกค้าง (mg/l)", "ค่า PH", "ลักษณะน้ำทิ้ง", "ปริมาณตะกอน (SV30)", "DO (mg/L)", "ลักษณะการตกตะกอน", "มิเตอร์ไฟฟ้า", "สีของน้ำบำบัด", "กลิ่นที่บ่อบำบัด", "เครื่องเติมอากาศ", "เครื่องสูบตะกอน", "หมายเหตุ", "ผู้จดบันทึก"];
+    const headers = ["ลำดับ", "วันที่", "เวลา", "คลอรีนตกค้าง (mg/l)", "ค่า PH", "ลักษณะน้ำทิ้ง", "ปริมาณตะกอน (SV30)", "DO (mg/L)", "ลักษณะการตกตะกอน", "มิเตอร์ไฟฟ้า", "สีของน้ำบำบัด", "กลิ่นที่บ่อบำบัด", "เครื่องเติมอากาศ", "เครื่องสูบตะกอน", "ผู้บันทึก", "หมายเหตุ"];
     const rows = [...(filtered as any[])]
       .sort((a, b) => (a.check_date || "").localeCompare(b.check_date || "") || (a.check_time || "").localeCompare(b.check_time || ""))
       .map((l: any, i: number) => [
@@ -345,8 +345,8 @@ export default function WastewaterTab() {
         l.treatment_odor === true ? "มี" : l.treatment_odor === false ? "ไม่มี" : "-",
         l.aerator_status === "normal" ? "ปกติ" : "ไม่ปกติ",
         l.sludge_pump_status === "normal" ? "ปกติ" : "ไม่ปกติ",
-        l.notes || "-",
         l.recorder_name || "-",
+        l.notes || "-",
       ]);
     const title = "รายงานการตรวจระบบบำบัดน้ำเสีย";
     const ws = XLSX.utils.aoa_to_sheet([[title], [], headers, ...rows]);
@@ -400,6 +400,7 @@ export default function WastewaterTab() {
                   <th className="px-2 py-2 text-center text-xs font-bold">เครื่องเติมอากาศ</th>
                   <th className="px-2 py-2 text-center text-xs font-bold">สูบตะกอน</th>
                   <th className="px-2 py-2 text-left text-xs font-bold">ผู้บันทึก</th>
+                  <th className="px-2 py-2 text-left text-xs font-bold">หมายเหตุ</th>
                   {isAdmin && <th className="px-2 py-2 text-center text-xs font-bold">จัดการ</th>}
                 </tr>
               </thead>
@@ -441,8 +442,8 @@ export default function WastewaterTab() {
                           {l.sludge_pump_status === "normal" ? "ปกติ" : "ไม่ปกติ"}
                         </Badge>
                       </td>
-                      <td className="px-2 py-2 text-xs">{l.notes || "-"}</td>
                       <td className="px-2 py-2 text-xs">{l.recorder_name || "-"}</td>
+                      <td className="px-2 py-2 text-xs">{l.notes || "-"}</td>
                       {isAdmin && (
                         <td className="px-2 py-2 text-center">
                           <div className="flex gap-1 justify-center">
