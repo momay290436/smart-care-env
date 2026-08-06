@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 import { createAutoIssue, getIssueSeverity, hasWaterQualityAnomaly } from "@/lib/createAutoIssue";
 import PageHeader from "@/components/PageHeader";
+import { SewageTrashDialog, SewageTrashHistory } from "@/components/SewageTrashTab";
 import WaterMaintenanceTab from "@/components/WaterMaintenanceTab";
 import WaterSystemTab from "@/components/WaterSystemTab";
 import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
@@ -61,6 +62,7 @@ export default function WaterManagement() {
   const [showDisinfectantDialog, setShowDisinfectantDialog] = useState(false);
   const [showWastewaterDialog, setShowWastewaterDialog] = useState(false);
   const [showWastewaterStatsDialog, setShowWastewaterStatsDialog] = useState(false);
+  const [showSewageTrashDialog, setShowSewageTrashDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showEditMeterDialog, setShowEditMeterDialog] = useState(false);
   const [showEditDisinfectantDialog, setShowEditDisinfectantDialog] = useState(false);
@@ -124,7 +126,7 @@ export default function WaterManagement() {
   const [disinfectantCustomRecorder, setDisinfectantCustomRecorder] = useState("");
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
-  const [meterContentTab, setMeterContentTab] = useState<"meter" | "disinfectant" | "wastewater" | "wwstats">("meter");
+  const [meterContentTab, setMeterContentTab] = useState<"meter" | "disinfectant" | "wastewater" | "wwstats" | "sewagetrash">("meter");
 
   const { data: qualityLogs = [] } = useQuery({
     queryKey: ["water-quality-logs"],
@@ -597,49 +599,77 @@ export default function WaterManagement() {
         </Button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-blue-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-blue-300/50" onClick={() => setShowMeterDialog(true)}>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
-              <Plus className="h-7 w-7 text-white font-bold" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+        <Card className="rounded-3xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg">
+          <CardContent className="p-4 md:p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-2xl bg-blue-600 flex items-center justify-center shadow">
+                <Droplets className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-base font-black text-blue-900">ระบบน้ำประปา</p>
+                <p className="text-[11px] text-blue-700/70">Water Supply</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-base md:text-lg font-black text-white drop-shadow-md">📝 บันทึกมิเตอร์น้ำออก</p>
-              <p className="text-xs text-white/90 truncate">บันทึกค่ามิเตอร์</p>
-            </div>
+            <button onClick={() => setShowMeterDialog(true)} className="w-full text-left rounded-2xl bg-white border border-blue-200 p-3 flex items-center gap-3 shadow-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-95">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow">
+                <Gauge className="h-6 w-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-slate-900 text-sm md:text-base">บันทึกมิเตอร์น้ำออก</p>
+                <p className="text-[11px] text-slate-500 truncate">บันทึกค่ามิเตอร์น้ำประจำวัน</p>
+              </div>
+            </button>
+            <button onClick={() => setShowDisinfectantDialog(true)} className="w-full text-left rounded-2xl bg-white border border-amber-200 p-3 flex items-center gap-3 shadow-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-95">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-400 flex items-center justify-center flex-shrink-0 shadow">
+                <FlaskConical className="h-6 w-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-slate-900 text-sm md:text-base">บันทึกสารเคมีกำจัดเชื้อโรค</p>
+                <p className="text-[11px] text-slate-500 truncate">สารฆ่าเชื้อในน้ำประปา (น้ำดี)</p>
+              </div>
+            </button>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-amber-600 via-amber-400 to-yellow-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-amber-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-amber-300/50" onClick={() => setShowDisinfectantDialog(true)}>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
-              <Plus className="h-7 w-7 text-white font-bold" />
+
+        <Card className="rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-lg">
+          <CardContent className="p-4 md:p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-2xl bg-emerald-600 flex items-center justify-center shadow">
+                <Leaf className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-base font-black text-emerald-900">ระบบน้ำเสีย</p>
+                <p className="text-[11px] text-emerald-700/70">Wastewater Treatment</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🧪 บันทึกสารเคมีกำจัดเชื้อโรค(น้ำดี)</p>
-              <p className="text-xs text-white/90 truncate">สารฆ่าเชื้อในน้ำประปา</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-emerald-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-emerald-300/50" onClick={() => setShowWastewaterDialog(true)}>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
-              <Plus className="h-7 w-7 text-white font-bold" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-base md:text-lg font-black text-white drop-shadow-md">🌿 ตรวจระบบบำบัดน้ำเสียประจำวัน</p>
-              <p className="text-xs text-white/90 truncate">บันทึกการตรวจประจำวัน</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 rounded-3xl shadow-xl border-0 border-b-4 border-b-orange-800 cursor-pointer hover:shadow-2xl transition-all active:scale-95 ring-2 ring-orange-300/50" onClick={() => setShowWastewaterStatsDialog(true)}>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-lg border border-white/40">
-              <BarChart3 className="h-7 w-7 text-white font-bold" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-base md:text-lg font-black text-white drop-shadow-md">📊 บันทึกสถิติบำบัดน้ำเสีย</p>
-              <p className="text-xs text-white/90 truncate">สถิติและข้อมูลผลการทำงานของระบบ</p>
-            </div>
+            <button onClick={() => setShowWastewaterDialog(true)} className="w-full text-left rounded-2xl bg-white border border-emerald-200 p-3 flex items-center gap-3 shadow-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-95">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center flex-shrink-0 shadow">
+                <ClipboardList className="h-6 w-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-slate-900 text-sm md:text-base">ตรวจระบบบำบัดน้ำเสียประจำวัน</p>
+                <p className="text-[11px] text-slate-500 truncate">บันทึกการตรวจประจำวัน</p>
+              </div>
+            </button>
+            <button onClick={() => setShowWastewaterStatsDialog(true)} className="w-full text-left rounded-2xl bg-white border border-orange-200 p-3 flex items-center gap-3 shadow-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-95">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center flex-shrink-0 shadow">
+                <BarChart3 className="h-6 w-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-slate-900 text-sm md:text-base">บันทึกสถิติบำบัดน้ำเสีย</p>
+                <p className="text-[11px] text-slate-500 truncate">สถิติและผลการทำงานของระบบ</p>
+              </div>
+            </button>
+            <button onClick={() => setShowSewageTrashDialog(true)} className="w-full text-left rounded-2xl bg-white border border-stone-300 p-3 flex items-center gap-3 shadow-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-95">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-stone-600 to-amber-700 flex items-center justify-center flex-shrink-0 shadow">
+                <Trash2 className="h-6 w-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-slate-900 text-sm md:text-base">บันทึกขยะตะแกรงดักบ่อสูบน้ำเสีย</p>
+                <p className="text-[11px] text-slate-500 truncate">ปริมาณขยะที่นำออกจากตะแกรงดัก</p>
+              </div>
+            </button>
           </CardContent>
         </Card>
       </div>
@@ -944,6 +974,9 @@ export default function WaterManagement() {
                     <Button size="sm" className="rounded-2xl bg-orange-600 hover:bg-orange-700 text-white" onClick={() => { setMeterContentTab("wwstats"); }}>
                       ประวัติสถิติบำบัดน้ำเสีย
                     </Button>
+                    <Button size="sm" className="rounded-2xl bg-stone-700 hover:bg-stone-800 text-white" onClick={() => { setMeterContentTab("sewagetrash"); }}>
+                      ประวัติขยะตะแกรงดัก
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -954,6 +987,14 @@ export default function WaterManagement() {
             )}
             {meterContentTab === "wwstats" && (
               <WastewaterStatsHistory />
+            )}
+            {meterContentTab === "sewagetrash" && (
+              <Card className="bg-white rounded-3xl shadow-elevated border border-slate-200">
+                <CardContent className="p-4 space-y-3">
+                  <p className="text-sm font-semibold text-slate-900">🗑️ ประวัติบันทึกขยะตะแกรงดักบ่อสูบน้ำเสีย</p>
+                  <SewageTrashHistory />
+                </CardContent>
+              </Card>
             )}
 
             {meterContentTab === "meter" && usageChart.length > 0 && (
@@ -1480,6 +1521,7 @@ export default function WaterManagement() {
       {/* Wastewater inspection insert dialog */}
       <WastewaterInsertDialog open={showWastewaterDialog} onOpenChange={setShowWastewaterDialog} />
       <WastewaterStatsDialog open={showWastewaterStatsDialog} onOpenChange={setShowWastewaterStatsDialog} />
+      <SewageTrashDialog open={showSewageTrashDialog} onOpenChange={setShowSewageTrashDialog} />
     </div>
   );
 }
