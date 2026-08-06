@@ -28,7 +28,7 @@ import WaterSystemTab from "@/components/WaterSystemTab";
 import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
 import WastewaterTab, { WastewaterInsertDialog } from "@/components/WastewaterTab";
 import WastewaterStatsHistory, { WastewaterStatsDialog } from "@/components/WastewaterStatsTab";
-import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon, Eye, Edit, Trash2, Check, X, FlaskConical } from "lucide-react";
+import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon, Eye, Edit, Trash2, Check, X, FlaskConical, Leaf, ClipboardList } from "lucide-react";
 import { BarChart3 } from "lucide-react";
 import * as XLSX from "xlsx";
 
