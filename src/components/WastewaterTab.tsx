@@ -441,6 +441,7 @@ export default function WastewaterTab() {
                           {l.sludge_pump_status === "normal" ? "ปกติ" : "ไม่ปกติ"}
                         </Badge>
                       </td>
+                      <td className="px-2 py-2 text-xs">{l.notes || "-"}</td>
                       <td className="px-2 py-2 text-xs">{l.recorder_name || "-"}</td>
                       {isAdmin && (
                         <td className="px-2 py-2 text-center">
@@ -475,7 +476,7 @@ export default function WastewaterTab() {
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={isAdmin ? 16 : 15} className="py-8 text-center text-muted-foreground">ยังไม่มีข้อมูล</td></tr>
+                  <tr><td colSpan={isAdmin ? 17 : 16} className="py-8 text-center text-muted-foreground">ยังไม่มีข้อมูล</td></tr>
                 )}
               </tbody>
             </table>
