@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getWaterAlertLevel, getWastewaterAlertLevel, getSedimentAlertLevel } from "./rules.ts";
+import { getWaterAlertLevel, getWastewaterAlertLevel, getSedimentAlertLevel, getDisinfectantAlertLevel } from "./rules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,7 +55,8 @@ Deno.serve(async (req) => {
     const { data: wq } = await supabase
       .from("water_quality_logs")
       .select("check_point, check_date, status, ph_value, chlorine_value, turbidity_value")
-      .eq("check_date", today);
+      .eq("check_date", today)
+      .is("disinfectant_name", null);
 
     for (const r of wq || []) {
       const point = r.check_point === "สารเคมีกำจัดเชื้อโรค" ? "สารเคมีกำจัดเชื้อโรค (ประปา)" : `คุณภาพน้ำ ${r.check_point}`;
@@ -65,6 +66,23 @@ Deno.serve(async (req) => {
       const entryAlerts = getWaterAlertLevel(cl, ph, tb);
       for (const alert of entryAlerts) {
         alerts.push({ level: alert.level, text: `${point} ${alert.text}` });
+      }
+    }
+
+    const { data: disinfectantLogs } = await supabase
+      .from("water_quality_logs")
+      .select("check_point, check_date, source_concentration, source_ph, outlet_concentration, outlet_ph")
+      .eq("check_date", today)
+      .not("disinfectant_name", "is", null);
+
+    for (const r of disinfectantLogs || []) {
+      const sourceCl = num(r.source_concentration);
+      const sourcePh = num(r.source_ph);
+      const outletCl = num(r.outlet_concentration);
+      const outletPh = num(r.outlet_ph);
+      const entryAlerts = getDisinfectantAlertLevel(sourceCl, sourcePh, outletCl, outletPh);
+      for (const alert of entryAlerts) {
+        alerts.push({ level: alert.level, text: `สารเคมีกำจัดเชื้อโรค ${alert.text}` });
       }
     }
 
@@ -132,7 +150,7 @@ Deno.serve(async (req) => {
     const message = lines.join("\n");
 
     if (dryRun) {
-      return new Response(JSON.stringify({ sent: false, reason: "dry_run", count: deduped.length, message }), {
+      return new Response(JSON.stringify({ sent: false, reason: "dry_run", count: alerts.length, message }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -166,7 +184,7 @@ Deno.serve(async (req) => {
     }
 
     const result = await pushLine(channelToken, recipients, message);
-    return new Response(JSON.stringify({ sent: true, count: deduped.length, recipients: recipients.length, message, result }), {
+    return new Response(JSON.stringify({ sent: true, count: alerts.length, recipients: recipients.length, message, result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
