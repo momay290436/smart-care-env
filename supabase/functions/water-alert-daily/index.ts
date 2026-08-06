@@ -62,8 +62,8 @@ Deno.serve(async (req) => {
       const cl = num(r.chlorine_value);
       const ph = num(r.ph_value);
       const tb = num(r.turbidity_value);
-      const alert = getWaterAlertLevel(cl, ph, tb);
-      if (alert) {
+      const entryAlerts = getWaterAlertLevel(cl, ph, tb);
+      for (const alert of entryAlerts) {
         alerts.push({ level: alert.level, text: `${point} ${alert.text}` });
       }
     }
@@ -79,9 +79,9 @@ Deno.serve(async (req) => {
       const ph = num(r.ph_value);
       const dov = num(r.do_value);
       const sed = num(r.sediment_volume);
-      const chlorineAlert = getWastewaterAlertLevel(cl, ph, dov);
-      if (chlorineAlert) {
-        alerts.push({ level: chlorineAlert.level, text: `ระบบบำบัดน้ำเสีย ${chlorineAlert.text}` });
+      const entryAlerts = getWastewaterAlertLevel(cl, ph, dov);
+      for (const alert of entryAlerts) {
+        alerts.push({ level: alert.level, text: `ระบบบำบัดน้ำเสีย ${alert.text}` });
       }
       const sedimentAlert = getSedimentAlertLevel(sed);
       if (sedimentAlert) {
@@ -122,14 +122,14 @@ Deno.serve(async (req) => {
 
     const lines: string[] = [`🚱 แจ้งเตือนคุณภาพน้ำ ${dateTh}`];
     if (bad.length) {
-      lines.push("", `🔴 ผิดปกติ (${bad.length})`);
-      lines.push(...bad.slice(0, 10).map((a) => `• ${a.text}`));
+      lines.push("", `🔴 !!!วิกฤติแก้ไขทันที!!!`);
+      lines.push(...bad.map((a) => `• ${a.text}`));
     }
     if (warn.length) {
-      lines.push("", `🟡 เฝ้าระวัง (${warn.length})`);
-      lines.push(...warn.slice(0, 10).map((a) => `• ${a.text}`));
+      lines.push("", `🟡 เฝ้าระวัง`);
+      lines.push(...warn.map((a) => `• ${a.text}`));
     }
-    lines.push("", "โปรดตรวจสอบและบันทึกการแก้ไขในระบบ");
+    lines.push("", "ทำการตรวจสอบและแก้ไขด้วยจ้า");
     const message = lines.join("\n");
 
     if (dryRun) {
