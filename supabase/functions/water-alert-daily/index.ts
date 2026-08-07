@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getWaterAlertLevel, getWastewaterAlertLevel, getSedimentAlertLevel, getDisinfectantAlertLevel } from "./rules.ts";
+import { getWaterAlertLevel, getWastewaterAlertLevel, getSedimentAlertLevel, getDisinfectantAlertLevel, mergeThresholds } from "./rules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +51,16 @@ Deno.serve(async (req) => {
     const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
     const alerts: Alert[] = [];
 
+    const { data: thresholdSetting } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "water_thresholds")
+      .maybeSingle();
+    let thresholds = mergeThresholds(null);
+    try {
+      if (thresholdSetting?.value) thresholds = mergeThresholds(JSON.parse(thresholdSetting.value));
+    } catch (_) { /* keep defaults */ }
+
     // 1) สารเคมีกำจัดเชื้อโรค / คุณภาพน้ำประปา
     const { data: wq } = await supabase
       .from("water_quality_logs")
@@ -63,7 +73,7 @@ Deno.serve(async (req) => {
       const cl = num(r.chlorine_value);
       const ph = num(r.ph_value);
       const tb = num(r.turbidity_value);
-      const entryAlerts = getWaterAlertLevel(cl, ph, tb);
+      const entryAlerts = getWaterAlertLevel(cl, ph, tb, thresholds);
       for (const alert of entryAlerts) {
         alerts.push({ level: alert.level, text: `${point} ${alert.text}` });
       }
@@ -80,9 +90,9 @@ Deno.serve(async (req) => {
       const sourcePh = num(r.source_ph);
       const outletCl = num(r.outlet_concentration);
       const outletPh = num(r.outlet_ph);
-      const entryAlerts = getDisinfectantAlertLevel(sourceCl, sourcePh, outletCl, outletPh);
+      const entryAlerts = getDisinfectantAlertLevel(sourceCl, sourcePh, outletCl, outletPh, thresholds);
       for (const alert of entryAlerts) {
-        alerts.push({ level: alert.level, text: `สารเคมีกำจัดเชื้อโรค ${alert.text}` });
+        alerts.push({ level: alert.level, text: `น้ำประปา (สารเคมีกำจัดเชื้อโรค) ${alert.text}` });
       }
     }
 
@@ -97,11 +107,11 @@ Deno.serve(async (req) => {
       const ph = num(r.ph_value);
       const dov = num(r.do_value);
       const sed = num(r.sediment_volume);
-      const entryAlerts = getWastewaterAlertLevel(cl, ph, dov);
+      const entryAlerts = getWastewaterAlertLevel(cl, ph, dov, thresholds);
       for (const alert of entryAlerts) {
         alerts.push({ level: alert.level, text: `ระบบบำบัดน้ำเสีย ${alert.text}` });
       }
-      const sedimentAlert = getSedimentAlertLevel(sed);
+      const sedimentAlert = getSedimentAlertLevel(sed, thresholds);
       if (sedimentAlert) {
         alerts.push({ level: sedimentAlert.level, text: `ระบบบำบัดน้ำเสีย ${sedimentAlert.text}` });
       }
@@ -138,12 +148,12 @@ Deno.serve(async (req) => {
 
     const lines: string[] = [`🚱 แจ้งเตือนคุณภาพน้ำ ${dateTh}`, ""];
     if (bad.length) {
-      lines.push(`🔴 !!!วิกฤติแก้ไขทันที!!!`);
+      lines.push(`🔴 วิกฤติ!!! แก้ไขทันที`);
       lines.push(...bad.map((a) => `• ${a.text}`));
     }
     if (warn.length) {
-      if (bad.length) lines.push("", "🟡 เฝ้าระวัง");
-      else lines.push(`🟡 เฝ้าระวัง`);
+      if (bad.length) lines.push("", "🟡 โปรดเฝ้าระวัง");
+      else lines.push(`🟡 โปรดเฝ้าระวัง`);
       lines.push(...warn.map((a) => `• ${a.text}`));
     }
     lines.push("", "โปรดตรวจสอบและแก้ไขโดยด่วน");
