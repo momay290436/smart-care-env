@@ -1,6 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getWaterAlertLevel, getWastewaterAlertLevel, getSedimentAlertLevel, getDisinfectantAlertLevel, mergeThresholds } from "./rules.ts";
 
+const DEFAULT_LINE_GROUP_ID = "Cb126126f5369ab6272ba2775e35c0641";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -180,11 +182,14 @@ Deno.serve(async (req) => {
       .select("line_user_id, topics, is_active");
 
     const recipients = Array.from(new Set(
-      (rows || [])
-        .filter((r: any) => r.is_active !== false)
-        .filter((r: any) => !Array.isArray(r.topics) || r.topics.length === 0 || r.topics.includes("water_alert"))
-        .map((r: any) => String(r.line_user_id || "").trim())
-        .filter(Boolean),
+      [
+        ...((rows || [])
+          .filter((r: any) => r.is_active !== false)
+          .filter((r: any) => !Array.isArray(r.topics) || r.topics.length === 0 || r.topics.includes("water_alert"))
+          .map((r: any) => String(r.line_user_id || "").trim())
+          .filter(Boolean)),
+        DEFAULT_LINE_GROUP_ID,
+      ],
     ));
 
     if (recipients.length === 0) {

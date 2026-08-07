@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const DEFAULT_LINE_GROUP_ID = "Cb126126f5369ab6272ba2775e35c0641";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -11,14 +13,19 @@ const parseRecipientList = (recipients: unknown) => {
   return [];
 };
 
-export const resolveRecipients = (rows: any[], topic: string) =>
-  Array.from(new Set(
+export const resolveRecipients = (rows: any[], topic: string) => {
+  const recipients = Array.from(new Set(
     (rows || [])
       .filter((r) => r.is_active !== false)
       .filter((r) => !topic || !Array.isArray(r.topics) || r.topics.length === 0 || r.topics.includes(topic))
       .map((r) => String(r.line_user_id || "").trim())
       .filter(Boolean),
   ));
+
+  return recipients.includes(DEFAULT_LINE_GROUP_ID)
+    ? recipients
+    : [...recipients, DEFAULT_LINE_GROUP_ID];
+};
 
 export const pushLine = async (token: string, recipients: string[], text: string) => {
   const url = recipients.length > 0
