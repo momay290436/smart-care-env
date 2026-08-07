@@ -124,7 +124,8 @@ export default function LineNotificationSettings() {
       if (data?.sent === false) throw new Error(data?.reason || "ส่งไม่สำเร็จ");
       toast.success(`ส่งข้อความทดสอบถึง ${r.display_name} สำเร็จ`);
     } catch (e: any) {
-      toast.error("ส่งไม่สำเร็จ: " + e.message);
+      const msg = e?.message || (typeof e === "string" ? e : JSON.stringify(e));
+      toast.error("ส่งไม่สำเร็จ: " + msg);
     } finally {
       setTestingId(null);
     }
@@ -141,7 +142,8 @@ export default function LineNotificationSettings() {
       else if (data?.sent) toast.success(`ส่งแจ้งเตือนสำเร็จ (${data.count || 0} รายการ)`);
       else toast.warning(data?.reason === "no_anomaly" ? "วันนี้ไม่พบความผิดปกติ" : `ไม่ได้ส่ง: ${data?.reason || "ตรวจสอบการตั้งค่า"}`);
     } catch (e: any) {
-      toast.error("ทดสอบไม่สำเร็จ: " + e.message);
+      const msg = e?.message || (typeof e === "string" ? e : JSON.stringify(e));
+      toast.error("ทดสอบไม่สำเร็จ: " + msg);
     } finally {
       setTestingAlert(false);
     }
