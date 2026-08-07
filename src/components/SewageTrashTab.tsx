@@ -15,6 +15,9 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { Pencil, Trash2, Download, Settings2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+
+const ITEM_COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#64748b"];
 
 const bkkNow = () => new Date(Date.now() + 7 * 3600 * 1000);
 const todayStr = () => bkkNow().toISOString().slice(0, 10);
@@ -323,6 +326,37 @@ export function SewageTrashHistory() {
     [logs, from, to],
   );
 
+  const chartData = useMemo(() => {
+    const map: Record<string, { date: string; morning: number; evening: number; total: number }> = {};
+    filtered.forEach((l: any) => {
+      const d = l.record_date;
+      if (!map[d]) map[d] = { date: d, morning: 0, evening: 0, total: 0 };
+      const w = Number(l.weight_kg || 0);
+      if (l.round === "evening") map[d].evening += w;
+      else map[d].morning += w;
+      map[d].total += w;
+    });
+    return Object.values(map)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((d) => ({ ...d, label: format(new Date(d.date), "d MMM", { locale: th }) }));
+  }, [filtered]);
+
+  const summary = useMemo(() => {
+    const total = filtered.reduce((s: number, l: any) => s + Number(l.weight_kg || 0), 0);
+    const morning = filtered.filter((l: any) => l.round !== "evening").reduce((s: number, l: any) => s + Number(l.weight_kg || 0), 0);
+    const evening = total - morning;
+    const days = new Set(filtered.map((l: any) => l.record_date)).size;
+    const counts: Record<string, number> = {};
+    filtered.forEach((l: any) => {
+      [...(l.items || []), l.other_item].filter(Boolean).forEach((it: string) => { counts[it] = (counts[it] || 0) + 1; });
+    });
+    const totalItemHits = Object.values(counts).reduce((s, n) => s + n, 0);
+    const items = Object.entries(counts)
+      .map(([name, count]) => ({ name, count, percent: totalItemHits ? (count / totalItemHits) * 100 : 0 }))
+      .sort((a, b) => b.count - a.count);
+    return { total, morning, evening, days, items, top: items[0] || null };
+  }, [filtered]);
+
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("sewage_trash_logs").delete().eq("id", id);
@@ -354,6 +388,84 @@ export function SewageTrashHistory() {
 
   return (
     <div className="space-y-3">
+      {filtered.length > 0 && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="rounded-2xl border border-border bg-emerald-50 dark:bg-emerald-950/30 p-3">
+              <p className="text-xs text-muted-foreground">ปริมาณรวมช่วงที่เลือก</p>
+              <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{summary.total.toFixed(2)} <span className="text-sm">กก.</span></p>
+              <p className="text-xs text-muted-foreground mt-0.5">{summary.days} วัน · เฉลี่ย {(summary.days ? summary.total / summary.days : 0).toFixed(2)} กก./วัน</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-amber-50 dark:bg-amber-950/30 p-3">
+              <p className="text-xs text-muted-foreground">รอบเช้า</p>
+              <p className="text-2xl font-black text-amber-700 dark:text-amber-400">{summary.morning.toFixed(2)} <span className="text-sm">กก.</span></p>
+              <p className="text-xs text-muted-foreground mt-0.5">{summary.total ? ((summary.morning / summary.total) * 100).toFixed(1) : 0}% ของทั้งหมด</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-sky-50 dark:bg-sky-950/30 p-3">
+              <p className="text-xs text-muted-foreground">รอบเย็น</p>
+              <p className="text-2xl font-black text-sky-700 dark:text-sky-400">{summary.evening.toFixed(2)} <span className="text-sm">กก.</span></p>
+              <p className="text-xs text-muted-foreground mt-0.5">{summary.total ? ((summary.evening / summary.total) * 100).toFixed(1) : 0}% ของทั้งหมด</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-rose-50 dark:bg-rose-950/30 p-3">
+              <p className="text-xs text-muted-foreground">ขยะที่พบบ่อยที่สุด</p>
+              <p className="text-xl font-black text-rose-700 dark:text-rose-400 truncate">{summary.top?.name || "-"}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {summary.top ? `พบ ${summary.top.count} ครั้ง (${summary.top.percent.toFixed(1)}%)` : "ไม่มีข้อมูล"}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="lg:col-span-2 rounded-2xl border border-border p-3">
+              <p className="font-bold text-sm mb-2">แนวโน้มปริมาณขยะตะแกรงดักรายวัน (แยกรอบเช้า-เย็น)</p>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} unit=" กก." width={60} />
+                    <Tooltip formatter={(v: any, n: any) => [`${Number(v).toFixed(2)} กก.`, n === "morning" ? "รอบเช้า" : "รอบเย็น"]} />
+                    <Legend formatter={(v) => (v === "morning" ? "รอบเช้า" : "รอบเย็น")} />
+                    <Bar dataKey="morning" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="evening" stackId="a" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border p-3">
+              <p className="font-bold text-sm mb-2">สัดส่วนชนิดขยะที่พบ</p>
+              {summary.items.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">ยังไม่มีข้อมูลชนิดขยะ</p>
+              ) : (
+                <>
+                  <div className="h-40">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={summary.items} dataKey="count" nameKey="name" innerRadius={35} outerRadius={65} paddingAngle={2}>
+                          {summary.items.map((_, i) => (
+                            <Cell key={i} fill={ITEM_COLORS[i % ITEM_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(v: any, n: any) => [`${v} ครั้ง`, n]} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-1 mt-2 max-h-32 overflow-y-auto">
+                    {summary.items.slice(0, 6).map((it, i) => (
+                      <div key={it.name} className="flex items-center gap-2 text-xs">
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: ITEM_COLORS[i % ITEM_COLORS.length] }} />
+                        <span className="flex-1 truncate">{it.name}</span>
+                        <span className="font-bold">{it.percent.toFixed(1)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
         <div className="grid grid-cols-2 gap-2 flex-1">
           <div>
