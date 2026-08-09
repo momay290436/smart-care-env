@@ -68,16 +68,16 @@ export const getWaterAlertLevel = (
   const p = thresholds.potable;
   const alerts: RuleAlert[] = [];
   if (chlorine !== null && chlorine < p.chlorineMin) {
-    alerts.push({ level: "bad", text: `ค่าคลอรีนต่ำกว่าค่าปกติ (${chlorine} mg/L | ${range(p.chlorineMin, p.chlorineMax)})` });
+    alerts.push({ level: "bad", text: `ค่าคลอรีนต่ำกว่าค่าปกติ (${chlorine} mg/L)` });
   }
   if (chlorine !== null && chlorine > p.chlorineMax) {
-    alerts.push({ level: "bad", text: `ค่าคลอรีนเกินค่าปกติ (${chlorine} mg/L | ${range(p.chlorineMin, p.chlorineMax)})` });
+    alerts.push({ level: "bad", text: `ค่าคลอรีนเกินค่าปกติ (${chlorine} mg/L)` });
   }
   if (ph !== null && (ph < p.phMin || ph > p.phMax)) {
-    alerts.push({ level: "bad", text: `ค่า pH ผิดปกติ (${ph} | ${range(p.phMin, p.phMax)})` });
+    alerts.push({ level: "bad", text: `ค่า pH ผิดปกติ (${ph})` });
   }
   if (turbidity !== null && turbidity > p.turbidityMax) {
-    alerts.push({ level: "warn", text: `ค่าความขุ่นเกินค่าปกติ (${turbidity} NTU | ค่าปกติ ≤ ${p.turbidityMax})` });
+    alerts.push({ level: "warn", text: `ค่าความขุ่นเกินค่าปกติ (${turbidity} NTU)` });
   }
   return alerts;
 };
@@ -94,22 +94,22 @@ export const getDisinfectantAlertLevel = (
   const clRange = range(p.chlorineMin, p.chlorineMax);
   const phRange = range(p.phMin, p.phMax);
   if (sourceConcentration !== null && sourceConcentration < p.chlorineMin) {
-    alerts.push({ level: "bad", text: `คลอรีนต้นทางต่ำกว่าค่าปกติ (${sourceConcentration} mg/L | ${clRange})` });
+    alerts.push({ level: "bad", text: `คลอรีนต้นทางต่ำกว่าค่าปกติ (${sourceConcentration} mg/L)` });
   }
   if (sourceConcentration !== null && sourceConcentration > p.chlorineMax) {
-    alerts.push({ level: "bad", text: `คลอรีนต้นทางเกินค่าปกติ (${sourceConcentration} mg/L | ${clRange})` });
+    alerts.push({ level: "bad", text: `คลอรีนต้นทางเกินค่าปกติ (${sourceConcentration} mg/L)` });
   }
   if (outletConcentration !== null && outletConcentration < p.chlorineMin) {
-    alerts.push({ level: "bad", text: `คลอรีนปลายทางต่ำกว่าค่าปกติ (${outletConcentration} mg/L | ${clRange})` });
+    alerts.push({ level: "bad", text: `คลอรีนปลายทางต่ำกว่าค่าปกติ (${outletConcentration} mg/L)` });
   }
   if (outletConcentration !== null && outletConcentration > p.chlorineMax) {
-    alerts.push({ level: "bad", text: `คลอรีนปลายทางเกินค่าปกติ (${outletConcentration} mg/L | ${clRange})` });
+    alerts.push({ level: "bad", text: `คลอรีนปลายทางเกินค่าปกติ (${outletConcentration} mg/L)` });
   }
   if (sourcePh !== null && (sourcePh < p.phMin || sourcePh > p.phMax)) {
-    alerts.push({ level: "bad", text: `pH ต้นทางผิดปกติ (${sourcePh} | ${phRange})` });
+    alerts.push({ level: "bad", text: `pH ต้นทางผิดปกติ (${sourcePh})` });
   }
   if (outletPh !== null && (outletPh < p.phMin || outletPh > p.phMax)) {
-    alerts.push({ level: "bad", text: `pH ปลายทางผิดปกติ (${outletPh} | ${phRange})` });
+    alerts.push({ level: "bad", text: `pH ปลายทางผิดปกติ (${outletPh})` });
   }
   return alerts;
 };
@@ -123,23 +123,23 @@ export const getWastewaterAlertLevel = (
   const w = thresholds.wastewater;
   const alerts: RuleAlert[] = [];
   if (chlorine !== null && chlorine < w.chlorineMin) {
-    alerts.push({ level: "warn", text: `ค่าคลอรีนต่ำกว่าค่าปกติ (${chlorine} mg/L | ${range(w.chlorineMin, w.chlorineMax)})` });
+    alerts.push({ level: "warn", text: `ค่าคลอรีนต่ำกว่าค่าปกติ (${chlorine} mg/L)` });
   }
   if (chlorine !== null && chlorine > w.chlorineMax) {
-    alerts.push({ level: "bad", text: `ค่าคลอรีนเกินค่าปกติ (${chlorine} mg/L | ${range(w.chlorineMin, w.chlorineMax)})` });
+    alerts.push({ level: "bad", text: `ค่าคลอรีนเกินค่าปกติ (${chlorine} mg/L)` });
   }
   if (ph !== null && (ph < w.phMin || ph > w.phMax)) {
-    alerts.push({ level: "bad", text: `ค่า pH ผิดปกติ (${ph} | ${range(w.phMin, w.phMax)})` });
+    alerts.push({ level: "bad", text: `ค่า pH ผิดปกติ (${ph})` });
   }
   if (doValue !== null) {
     const doRange = range(w.doMin, w.doMax);
     if (doValue < w.doWarnMin || doValue > w.doMax) {
       alerts.push({
         level: "bad",
-        text: `ค่า DO ${doValue > w.doMax ? "เกินค่าปกติ" : "ต่ำกว่าค่าปกติ"} (${doValue} mg/L | ${doRange})`,
+        text: `ค่า DO ${doValue > w.doMax ? "เกินค่าปกติ" : "ต่ำกว่าค่าปกติ"} (${doValue} mg/L)`,
       });
     } else if (doValue < w.doMin) {
-      alerts.push({ level: "warn", text: `ค่า DO ต่ำกว่าค่าปกติ (${doValue} mg/L | ${doRange})` });
+      alerts.push({ level: "warn", text: `ค่า DO ต่ำกว่าค่าปกติ (${doValue} mg/L)` });
     }
   }
   return alerts;
@@ -153,13 +153,13 @@ export const getSedimentAlertLevel = (
   const w = thresholds.wastewater;
   const sedRange = range(w.sedimentNormalMin, w.sedimentNormalMax);
   if (sediment < w.sedimentBadLow) {
-    return { level: "bad", text: `ค่าตะกอนต่ำกว่าค่าปกติ (${sediment} | ${sedRange})` };
+    return { level: "bad", text: `ค่าตะกอนต่ำกว่าค่าปกติ (${sediment})` };
   }
   if (sediment > w.sedimentBadHigh) {
-    return { level: "bad", text: `ค่าตะกอนเกินค่าปกติ (${sediment} | ${sedRange})` };
+    return { level: "bad", text: `ค่าตะกอนเกินค่าปกติ (${sediment})` };
   }
   if ((sediment > w.sedimentBadLow && sediment < w.sedimentWarnLow) || (sediment > w.sedimentWarnHigh && sediment <= w.sedimentBadHigh)) {
-    return { level: "warn", text: `ค่าตะกอนผิดปกติ (${sediment} | ${sedRange})` };
+    return { level: "warn", text: `ค่าตะกอนผิดปกติ (${sediment})` };
   }
   return null;
 };
