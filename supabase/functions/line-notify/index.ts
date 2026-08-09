@@ -28,24 +28,38 @@ export const resolveRecipients = (rows: any[], topic: string) => {
 };
 
 export const pushLine = async (token: string, recipients: string[], text: string) => {
-  const url = recipients.length > 0
-    ? "https://api.line.me/v2/bot/message/multicast"
-    : "https://api.line.me/v2/bot/message/broadcast";
-  const body = recipients.length > 0
-    ? { to: recipients.slice(0, 500), messages: [{ type: "text", text }] }
-    : { messages: [{ type: "text", text }] };
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  });
-  const responseBody = await res.text();
-  if (!res.ok) {
-    console.error(`LINE push failed [${res.status}]: ${responseBody}`);
-    throw new Error(`[${res.status}] ${responseBody}`);
+  if (recipients.length === 0) {
+    const res = await fetch("https://api.line.me/v2/bot/message/broadcast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ messages: [{ type: "text", text }] }),
+    });
+    const responseBody = await res.text();
+    if (!res.ok) {
+      console.error(`LINE broadcast failed [${res.status}]: ${responseBody}`);
+      throw new Error(`[${res.status}] ${responseBody}`);
+    }
+    return { status: res.status, body: responseBody };
   }
-  return { status: res.status, body: responseBody };
+
+  // /push accepts user, group and room ids (multicast only accepts user ids)
+  const results: { to: string; status: number; body: string }[] = [];
+  const errors: string[] = [];
+  for (const to of recipients.slice(0, 500)) {
+    const res = await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ to, messages: [{ type: "text", text }] }),
+    });
+    const responseBody = await res.text();
+    results.push({ to, status: res.status, body: responseBody });
+    if (!res.ok) {
+      console.error(`LINE push failed for ${to} [${res.status}]: ${responseBody}`);
+      errors.push(`${to}: [${res.status}] ${responseBody}`);
+    }
+  }
+  if (errors.length === results.length) throw new Error(errors.join(" | "));
+  return { status: 200, body: JSON.stringify(results), errors };
 };
 
 Deno.serve(async (req) => {

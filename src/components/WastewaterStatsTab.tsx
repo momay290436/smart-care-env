@@ -171,15 +171,18 @@ export function WastewaterStatsDialog({ open, onOpenChange }: DialogProps) {
             </div>
             <div>
               <Label className="text-xs font-semibold">ปริมาณใช้ไฟฟ้า (หน่วย)</Label>
-              <Input type="number" step="0.01" value={form.electricity_usage} onChange={(e) => setForm({ ...form, electricity_usage: e.target.value })} className="h-11 rounded-2xl" />
+              <Input type="number" step="0.01" value={form.electricity_usage} readOnly disabled className="h-11 rounded-2xl bg-muted text-muted-foreground cursor-not-allowed" />
+              <p className="text-[11px] text-muted-foreground mt-1">ระบบคำนวณอัตโนมัติ</p>
             </div>
             <div>
               <Label className="text-xs font-semibold">ปริมาณน้ำใช้ (ลบ.ม.)</Label>
-              <Input type="number" step="0.01" value={form.water_usage} onChange={(e) => setForm({ ...form, water_usage: e.target.value })} className="h-11 rounded-2xl" />
+              <Input type="number" step="0.01" value={form.water_usage} readOnly disabled className="h-11 rounded-2xl bg-muted text-muted-foreground cursor-not-allowed" />
+              <p className="text-[11px] text-muted-foreground mt-1">ระบบคำนวณอัตโนมัติ</p>
             </div>
             <div>
               <Label className="text-xs font-semibold">น้ำเสียเข้าระบบ (ลบ.ม.)</Label>
-              <Input type="number" step="0.01" value={form.wastewater_volume} onChange={(e) => setForm({ ...form, wastewater_volume: e.target.value })} className="h-11 rounded-2xl" />
+              <Input type="number" step="0.01" value={form.wastewater_volume} readOnly disabled className="h-11 rounded-2xl bg-muted text-muted-foreground cursor-not-allowed" />
+              <p className="text-[11px] text-muted-foreground mt-1">คำนวณ 80% ของน้ำใช้</p>
             </div>
             <div>
               <Label className="text-xs font-semibold">การระบายน้ำทิ้ง</Label>
