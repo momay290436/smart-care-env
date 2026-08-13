@@ -8,7 +8,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Alert = { level: "warn" | "bad"; text: string };
+type AlertGroup = "potable" | "wastewater" | "lab";
+type Alert = { level: "warn" | "bad"; text: string; group: AlertGroup };
+
+export const DEFAULT_TEMPLATE = [
+  "🚱 แจ้งเตือนคุณภาพน้ำ {date}",
+  "",
+  "{critical_section}",
+  "{warning_section}",
+  "โปรดตรวจสอบและแก้ไขโดยด่วน",
+].join("\n");
+
+const renderTemplate = (tpl: string, vars: Record<string, string>) =>
+  tpl
+    .replace(/\{(\w+)\}/g, (m, key) => (key in vars ? vars[key] : m))
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
 const num = (v: unknown) => {
   const n = Number(v);
@@ -68,6 +83,31 @@ Deno.serve(async (req) => {
     const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
     const alerts: Alert[] = [];
 
+    // ----- skip schedule (งดส่งแจ้งเตือน) -----
+    const { data: skipSetting } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "water_alert_skip_dates")
+      .maybeSingle();
+    let skipDates: string[] = [];
+    try {
+      const parsed = skipSetting?.value ? JSON.parse(skipSetting.value) : [];
+      if (Array.isArray(parsed)) skipDates = parsed.map((d: unknown) => String(d));
+    } catch (_) { /* ignore */ }
+    if (!dryRun && skipDates.includes(today)) {
+      return new Response(JSON.stringify({ sent: false, reason: "skipped_today", date: today, message: "" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: templateSetting } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "water_alert_template")
+      .maybeSingle();
+    const overrideTemplate = typeof body?.template === "string" ? body.template.trim() : "";
+    const template = overrideTemplate || (templateSetting?.value || "").trim() || DEFAULT_TEMPLATE;
+
     const { data: thresholdSetting } = await supabase
       .from("app_settings")
       .select("value")
@@ -92,7 +132,7 @@ Deno.serve(async (req) => {
       const tb = num(r.turbidity_value);
       const entryAlerts = getWaterAlertLevel(cl, ph, tb, thresholds);
       for (const alert of entryAlerts) {
-        alerts.push({ level: alert.level, text: `${point} ${alert.text}` });
+        alerts.push({ level: alert.level, text: `${point} ${alert.text}`, group: "potable" });
       }
     }
 
@@ -109,7 +149,7 @@ Deno.serve(async (req) => {
       const outletPh = num(r.outlet_ph);
       const entryAlerts = getDisinfectantAlertLevel(sourceCl, sourcePh, outletCl, outletPh, thresholds);
       for (const alert of entryAlerts) {
-        alerts.push({ level: alert.level, text: `น้ำประปา (สารเคมีกำจัดเชื้อโรค) ${alert.text}` });
+        alerts.push({ level: alert.level, text: `น้ำประปา (สารเคมีกำจัดเชื้อโรค) ${alert.text}`, group: "potable" });
       }
     }
 
@@ -126,14 +166,14 @@ Deno.serve(async (req) => {
       const sed = num(r.sediment_volume);
       const entryAlerts = getWastewaterAlertLevel(cl, ph, dov, thresholds);
       for (const alert of entryAlerts) {
-        alerts.push({ level: alert.level, text: `ระบบบำบัดน้ำเสีย ${alert.text}` });
+        alerts.push({ level: alert.level, text: `ระบบบำบัดน้ำเสีย ${alert.text}`, group: "wastewater" });
       }
       const sedimentAlert = getSedimentAlertLevel(sed, thresholds);
       if (sedimentAlert) {
-        alerts.push({ level: sedimentAlert.level, text: `ระบบบำบัดน้ำเสีย ${sedimentAlert.text}` });
+        alerts.push({ level: sedimentAlert.level, text: `ระบบบำบัดน้ำเสีย ${sedimentAlert.text}`, group: "wastewater" });
       }
       if (r.treatment_odor) {
-        alerts.push({ level: "warn", text: "ระบบบำบัดน้ำเสีย พบกลิ่นผิดปกติ" });
+        alerts.push({ level: "warn", text: "ระบบบำบัดน้ำเสีย พบกลิ่นผิดปกติ", group: "wastewater" });
       }
     }
 
@@ -146,14 +186,14 @@ Deno.serve(async (req) => {
     for (const r of patho || []) {
       if (r.total_coliform === "found" || r.e_coli === "found") {
         const found = [r.e_coli === "found" ? "E.coli" : null, r.total_coliform === "found" ? "Coliform" : null].filter(Boolean).join(" / ");
-        alerts.push({ level: "bad", text: `ตรวจเชื้อ ${r.sample_point} พบเชื้อ ${found}` });
+        alerts.push({ level: "bad", text: `ตรวจเชื้อ ${r.sample_point} พบเชื้อ ${found}`, group: "lab" });
       } else if (r.status && r.status !== "pass") {
         const cl = num(r.chlorine_value);
-        alerts.push({ level: "warn", text: `ตรวจเชื้อ ${r.sample_point} ไม่ผ่านเกณฑ์${cl !== null ? ` (คลอรีน ${cl} mg/L)` : ""}` });
+        alerts.push({ level: "warn", text: `ตรวจเชื้อ ${r.sample_point} ไม่ผ่านเกณฑ์${cl !== null ? ` (คลอรีน ${cl} mg/L)` : ""}`, group: "lab" });
       }
     }
 
-    if (alerts.length === 0) {
+    if (alerts.length === 0 && !dryRun) {
       return new Response(JSON.stringify({ sent: false, reason: "no_anomaly", date: today, message: "" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -163,21 +203,27 @@ Deno.serve(async (req) => {
     const warn = alerts.filter((a) => a.level === "warn");
     const dateTh = new Date(today).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
 
-    const lines: string[] = [`🚱 แจ้งเตือนคุณภาพน้ำ ${dateTh}`, ""];
-    if (bad.length) {
-      lines.push(`🔴 วิกฤติ!!! แก้ไขทันที`);
-      lines.push(...bad.map((a) => `• ${a.text}`));
-    }
-    if (warn.length) {
-      if (bad.length) lines.push("", "🟡 โปรดเฝ้าระวัง");
-      else lines.push(`🟡 โปรดเฝ้าระวัง`);
-      lines.push(...warn.map((a) => `• ${a.text}`));
-    }
-    lines.push("", "โปรดตรวจสอบและแก้ไขโดยด่วน");
-    const message = lines.join("\n");
+    const bullets = (list: Alert[]) => list.map((a) => `• ${a.text}`).join("\n");
+    const byGroup = (g: AlertGroup) => {
+      const list = alerts.filter((a) => a.group === g);
+      return list.length ? bullets(list) : "ปกติ";
+    };
+    const message = renderTemplate(template, {
+      date: dateTh,
+      critical_section: bad.length ? ["🔴 วิกฤติ!!! แก้ไขทันที", bullets(bad), ""].join("\n") : "",
+      warning_section: warn.length ? ["🟡 โปรดเฝ้าระวัง", bullets(warn), ""].join("\n") : "",
+      critical_list: bad.length ? bullets(bad) : "-",
+      warning_list: warn.length ? bullets(warn) : "-",
+      water_quality_status: byGroup("potable"),
+      wastewater_status: byGroup("wastewater"),
+      lab_results: byGroup("lab"),
+      total_count: String(alerts.length),
+      critical_count: String(bad.length),
+      warning_count: String(warn.length),
+    });
 
     if (dryRun) {
-      return new Response(JSON.stringify({ sent: false, reason: "dry_run", count: alerts.length, message }), {
+      return new Response(JSON.stringify({ sent: false, reason: "dry_run", count: alerts.length, message, skipped_today: skipDates.includes(today) }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

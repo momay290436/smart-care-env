@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import NotificationTemplateSettings from "@/components/NotificationTemplateSettings";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Send } from "lucide-react";
 
@@ -240,6 +241,8 @@ export default function LineNotificationSettings() {
           )}
         </CardContent>
       </Card>
+
+      <NotificationTemplateSettings />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="rounded-3xl max-w-lg w-[95vw] max-h-[88vh] overflow-y-auto">

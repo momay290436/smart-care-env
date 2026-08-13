@@ -40,9 +40,13 @@ import Electricity from "./pages/Electricity"; // ✨ เพิ่มการ�
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2,
-      gcTime: 1000 * 60 * 5,
+      // Session-long cache: data is fetched once per session (or on manual refresh /
+      // full page reload) and reused across navigation — no refetch on tab switch.
+      staleTime: Infinity,
+      gcTime: Infinity,
       refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
       retry: 1,
     },
   },

@@ -139,15 +139,28 @@ export default function WaterManagement() {
   const { data: meterRecords = [] } = useQuery({
     queryKey: ["water-meter-all"],
     queryFn: async () => {
-      const { data } = await supabase.from("water_meter_records").select("*").order("record_date", { ascending: false }).order("record_time", { ascending: false }).limit(200);
+      const { data } = await supabase
+        .from("water_meter_records")
+        .select("id, record_date, record_time, shift, meter_reading, usage_amount, daily_total, recorder_name, recorded_by, notes, created_at")
+        .order("record_date", { ascending: false })
+        .order("record_time", { ascending: false })
+        .limit(200);
       return data || [];
     },
   });
 
   const { data: disinfectantLogs = [] } = useQuery({
     queryKey: ["water-disinfectant-logs"],
+    // Fetch on demand: only when the disinfectant history tab is opened.
+    enabled: meterContentTab === "disinfectant",
     queryFn: async () => {
-      const { data } = await supabase.from("water_quality_logs").select("*").not("disinfectant_name", "is", null).order("check_date", { ascending: false }).order("check_time", { ascending: false }).limit(200);
+      const { data } = await supabase
+        .from("water_quality_logs")
+        .select("id, check_date, check_time, disinfectant_name, source_concentration, source_ph, outlet_concentration, outlet_ph, inspector_name, recorded_by, notes, status, created_at")
+        .not("disinfectant_name", "is", null)
+        .order("check_date", { ascending: false })
+        .order("check_time", { ascending: false })
+        .limit(200);
       return data || [];
     },
   });
