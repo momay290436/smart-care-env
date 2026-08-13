@@ -105,7 +105,8 @@ Deno.serve(async (req) => {
       .select("value")
       .eq("key", "water_alert_template")
       .maybeSingle();
-    const template = (templateSetting?.value || "").trim() || DEFAULT_TEMPLATE;
+    const overrideTemplate = typeof body?.template === "string" ? body.template.trim() : "";
+    const template = overrideTemplate || (templateSetting?.value || "").trim() || DEFAULT_TEMPLATE;
 
     const { data: thresholdSetting } = await supabase
       .from("app_settings")
@@ -192,7 +193,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (alerts.length === 0) {
+    if (alerts.length === 0 && !dryRun) {
       return new Response(JSON.stringify({ sent: false, reason: "no_anomaly", date: today, message: "" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
