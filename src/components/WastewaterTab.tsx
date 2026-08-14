@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import DateRangeFilter from "@/components/DateRangeFilter";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
@@ -262,8 +263,8 @@ export default function WastewaterTab() {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [openInsert, setOpenInsert] = useState(false);
-  const [filterMonth, setFilterMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [showAll, setShowAll] = useState(false);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [editRow, setEditRow] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
 
@@ -281,9 +282,12 @@ export default function WastewaterTab() {
   });
 
   const filtered = useMemo(() => {
-    if (showAll) return logs;
-    return (logs as any[]).filter((l) => (l.check_date || "").startsWith(filterMonth));
-  }, [logs, filterMonth, showAll]);
+    if (!fromDate && !toDate) return logs;
+    return (logs as any[]).filter((l) => {
+      const d = l.check_date || "";
+      return (!fromDate || d >= fromDate) && (!toDate || d <= toDate);
+    });
+  }, [logs, fromDate, toDate]);
 
   const deleteLog = useMutation({
     mutationFn: async (id: string) => {
@@ -368,10 +372,7 @@ export default function WastewaterTab() {
               <FlaskConical className="h-5 w-5 text-emerald-600" /> ประวัติการตรวจระบบบำบัดน้ำเสีย
             </h3>
             <div className="flex items-center gap-2 flex-wrap">
-              <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40 h-10 rounded-2xl bg-slate-50 text-slate-900" />
-              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} className="w-4 h-4" /> ทั้งหมด
-              </label>
+              <DateRangeFilter from={fromDate} to={toDate} onChange={(f, t) => { setFromDate(f); setToDate(t); }} />
               <Button size="sm" variant="outline" className="rounded-2xl h-10 gap-1.5 bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100" onClick={handleExport}>
                 <Download className="h-4 w-4" /> Export Excel
               </Button>
