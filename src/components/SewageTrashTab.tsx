@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import DateRangeFilter from "@/components/DateRangeFilter";
 import { exportToExcel } from "@/lib/exportExcel";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -467,15 +468,9 @@ export function SewageTrashHistory() {
       )}
 
       <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-        <div className="grid grid-cols-2 gap-2 flex-1">
-          <div>
-            <Label className="text-xs text-muted-foreground">ตั้งแต่วันที่</Label>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-10 rounded-2xl mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">ถึงวันที่</Label>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-10 rounded-2xl mt-1" />
-          </div>
+        <div className="flex-1">
+          <Label className="text-xs text-muted-foreground">กรองตามวันที่</Label>
+          <DateRangeFilter from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} className="mt-1" />
         </div>
         <Button size="sm" className="rounded-2xl h-10 bg-slate-950 hover:bg-slate-900 text-white gap-2" onClick={handleExport}>
           <Download className="h-4 w-4" /> Export Excel

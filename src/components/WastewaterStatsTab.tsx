@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import DateRangeFilter from "@/components/DateRangeFilter";
 import { toast } from "sonner";
 import { format, subDays } from "date-fns";
 import { Download, Plus, Trash2, BarChart3, Pencil } from "lucide-react";
@@ -264,8 +265,8 @@ export function WastewaterStatsDialog({ open, onOpenChange }: DialogProps) {
 export default function WastewaterStatsHistory() {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const [filterMonth, setFilterMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [showAll, setShowAll] = useState(false);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [editRow, setEditRow] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
 
@@ -282,9 +283,12 @@ export default function WastewaterStatsHistory() {
   });
 
   const filtered = useMemo(() => {
-    if (showAll) return rows;
-    return (rows as any[]).filter((r) => (r.record_date || "").startsWith(filterMonth));
-  }, [rows, filterMonth, showAll]);
+    if (!fromDate && !toDate) return rows;
+    return (rows as any[]).filter((r) => {
+      const d = r.record_date || "";
+      return (!fromDate || d >= fromDate) && (!toDate || d <= toDate);
+    });
+  }, [rows, fromDate, toDate]);
 
   const totals = useMemo(() => {
     return (filtered as any[]).reduce((acc, r) => ({
@@ -383,10 +387,7 @@ export default function WastewaterStatsHistory() {
             <BarChart3 className="h-5 w-5 text-orange-600" /> ประวัติสถิติบำบัดน้ำเสีย
           </h3>
           <div className="flex items-center gap-2 flex-wrap">
-            <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40 h-10 rounded-2xl bg-slate-50 text-slate-900" />
-            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-              <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} className="w-4 h-4" /> ทั้งหมด
-            </label>
+            <DateRangeFilter from={fromDate} to={toDate} onChange={(f, t) => { setFromDate(f); setToDate(t); }} />
             <Button size="sm" variant="outline" className="rounded-2xl h-10 gap-1.5 bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100" onClick={handleExport}>
               <Download className="h-4 w-4" /> Export Excel
             </Button>
