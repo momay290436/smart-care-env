@@ -31,8 +31,8 @@ export default function Electricity() {
     enabled: !!user?.id,
   });
 
-  const canManageElectricitySettings = isAdmin || myActionPermissions.includes('action:electricity-settings') || myActionPermissions.includes('action:electricity-meter-manage');
-  const canCheckPendingMeters = isAdmin || myActionPermissions.includes('action:electricity-pending-check');
+ const canManageElectricitySettings = true;
+ const canCheckPendingMeters = true;
 
   // ระบบตรวจสอบสถานที่ที่ยังไม่ได้ลงมิเตอร์ในเดือนที่เลือก (สำหรับแอดมิน)
   const [pendingOpen, setPendingOpen] = useState(false);
