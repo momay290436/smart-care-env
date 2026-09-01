@@ -759,6 +759,114 @@ export type Database = {
         }
         Relationships: []
       }
+      generator_checks: {
+        Row: {
+          ats_status: string | null
+          battery_terminal: string | null
+          battery_voltage: number | null
+          check_date: string
+          coolant_level: string | null
+          coolant_temp: number | null
+          created_at: string
+          current_l1: number | null
+          current_l2: number | null
+          current_l3: number | null
+          frequency_hz: number | null
+          fuel_level: string | null
+          hour_meter: number | null
+          id: string
+          leak_status: string | null
+          machine_code: string
+          noload_result: string | null
+          notes: string | null
+          oil_level: string | null
+          oil_pressure: number | null
+          onload_ats: string | null
+          overall_status: string
+          recorder_id: string | null
+          recorder_name: string
+          room_cleanliness: string | null
+          rpm: number | null
+          test_duration_min: number | null
+          test_start_time: string | null
+          test_stop_time: string | null
+          updated_at: string
+          voltage_l1: number | null
+          voltage_l2: number | null
+          voltage_l3: number | null
+        }
+        Insert: {
+          ats_status?: string | null
+          battery_terminal?: string | null
+          battery_voltage?: number | null
+          check_date?: string
+          coolant_level?: string | null
+          coolant_temp?: number | null
+          created_at?: string
+          current_l1?: number | null
+          current_l2?: number | null
+          current_l3?: number | null
+          frequency_hz?: number | null
+          fuel_level?: string | null
+          hour_meter?: number | null
+          id?: string
+          leak_status?: string | null
+          machine_code?: string
+          noload_result?: string | null
+          notes?: string | null
+          oil_level?: string | null
+          oil_pressure?: number | null
+          onload_ats?: string | null
+          overall_status?: string
+          recorder_id?: string | null
+          recorder_name?: string
+          room_cleanliness?: string | null
+          rpm?: number | null
+          test_duration_min?: number | null
+          test_start_time?: string | null
+          test_stop_time?: string | null
+          updated_at?: string
+          voltage_l1?: number | null
+          voltage_l2?: number | null
+          voltage_l3?: number | null
+        }
+        Update: {
+          ats_status?: string | null
+          battery_terminal?: string | null
+          battery_voltage?: number | null
+          check_date?: string
+          coolant_level?: string | null
+          coolant_temp?: number | null
+          created_at?: string
+          current_l1?: number | null
+          current_l2?: number | null
+          current_l3?: number | null
+          frequency_hz?: number | null
+          fuel_level?: string | null
+          hour_meter?: number | null
+          id?: string
+          leak_status?: string | null
+          machine_code?: string
+          noload_result?: string | null
+          notes?: string | null
+          oil_level?: string | null
+          oil_pressure?: number | null
+          onload_ats?: string | null
+          overall_status?: string
+          recorder_id?: string | null
+          recorder_name?: string
+          room_cleanliness?: string | null
+          rpm?: number | null
+          test_duration_min?: number | null
+          test_start_time?: string | null
+          test_stop_time?: string | null
+          updated_at?: string
+          voltage_l1?: number | null
+          voltage_l2?: number | null
+          voltage_l3?: number | null
+        }
+        Relationships: []
+      }
       infectious_waste_records: {
         Row: {
           collection_date: string
@@ -1047,6 +1155,86 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pump_machines: {
+        Row: {
+          created_at: string
+          id: string
+          machine_type: string
+          name: string
+          qr_code_data: string | null
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          machine_type?: string
+          name: string
+          qr_code_data?: string | null
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          machine_type?: string
+          name?: string
+          qr_code_data?: string | null
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      pump_meter_logs: {
+        Row: {
+          created_at: string
+          hours_used: number | null
+          id: string
+          machine_id: string
+          meter_reading: number
+          notes: string | null
+          previous_reading: number | null
+          record_date: string
+          record_time: string
+          recorder_id: string | null
+          recorder_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hours_used?: number | null
+          id?: string
+          machine_id: string
+          meter_reading: number
+          notes?: string | null
+          previous_reading?: number | null
+          record_date?: string
+          record_time?: string
+          recorder_id?: string | null
+          recorder_name?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hours_used?: number | null
+          id?: string
+          machine_id?: string
+          meter_reading?: number
+          notes?: string | null
+          previous_reading?: number | null
+          record_date?: string
+          record_time?: string
+          recorder_id?: string | null
+          recorder_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pump_meter_logs_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "pump_machines"
             referencedColumns: ["id"]
           },
         ]
