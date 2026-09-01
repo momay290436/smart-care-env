@@ -929,6 +929,42 @@ export type Database = {
           },
         ]
       }
+      meter_records: {
+        Row: {
+          created_at: string
+          electricity_before: number | null
+          electricity_latest: number | null
+          id: string
+          location_name: string | null
+          notes: string | null
+          recorded_date: string
+          water_before: number | null
+          water_latest: number | null
+        }
+        Insert: {
+          created_at?: string
+          electricity_before?: number | null
+          electricity_latest?: number | null
+          id?: string
+          location_name?: string | null
+          notes?: string | null
+          recorded_date?: string
+          water_before?: number | null
+          water_latest?: number | null
+        }
+        Update: {
+          created_at?: string
+          electricity_before?: number | null
+          electricity_latest?: number | null
+          id?: string
+          location_name?: string | null
+          notes?: string | null
+          recorded_date?: string
+          water_before?: number | null
+          water_latest?: number | null
+        }
+        Relationships: []
+      }
       notification_recipients: {
         Row: {
           created_at: string
