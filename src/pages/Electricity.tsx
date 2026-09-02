@@ -23,6 +23,37 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
+  const navigate = useNavigate();
+
+  // ประวัติการตรวจเช็คเครื่องปั่นไฟ
+  const { data: generatorChecks = [] } = useQuery({
+    queryKey: ['generator-checks'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('generator_checks')
+        .select('*')
+        .order('check_date', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const deleteGeneratorCheck = async (id: string) => {
+    if (!window.confirm('ยืนยันการลบรายการตรวจเช็คเครื่องปั่นไฟนี้?')) return;
+    const { error } = await supabase.from('generator_checks').delete().eq('id', id);
+    if (error) return toast({ variant: 'destructive', title: 'ลบไม่สำเร็จ', description: error.message });
+    queryClient.invalidateQueries({ queryKey: ['generator-checks'] });
+    toast({ title: 'ลบรายการสำเร็จ' });
+  };
+
+  const genStatusBadge = (s: string) => {
+    if (s === 'ready') return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">พร้อมใช้งาน</span>;
+    if (s === 'warning') return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100">เฝ้าระวัง</span>;
+    return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-100">ไม่พร้อมใช้งาน</span>;
+  };
+
+
 
   const { data: myActionPermissions = [] } = useQuery({
     queryKey: ['electricity-action-permissions', user?.id],
