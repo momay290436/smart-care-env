@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import ElectricityMetersTab from '@/components/ElectricityMetersTab';
-import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp, AlertCircle, Search, Pencil, Trash2, Settings2 } from 'lucide-react';
+import { Camera, X, Plus, FileSpreadsheet, Download, Droplet, Zap, Calendar, TrendingUp, AlertCircle, Search, Pencil, Trash2, Settings2, Cog, Waves } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
 import { filterElectricityHistoryLogs, getElectricityHistoryRoomOptions } from '@/lib/electricityHistory';
+
 
 declare global { interface Window { Html5Qrcode: any; } }
 
@@ -20,6 +23,37 @@ export default function Electricity() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
+  const navigate = useNavigate();
+
+  // ประวัติการตรวจเช็คเครื่องปั่นไฟ
+  const { data: generatorChecks = [] } = useQuery({
+    queryKey: ['generator-checks'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('generator_checks')
+        .select('*')
+        .order('check_date', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const deleteGeneratorCheck = async (id: string) => {
+    if (!window.confirm('ยืนยันการลบรายการตรวจเช็คเครื่องปั่นไฟนี้?')) return;
+    const { error } = await supabase.from('generator_checks').delete().eq('id', id);
+    if (error) return toast({ variant: 'destructive', title: 'ลบไม่สำเร็จ', description: error.message });
+    queryClient.invalidateQueries({ queryKey: ['generator-checks'] });
+    toast({ title: 'ลบรายการสำเร็จ' });
+  };
+
+  const genStatusBadge = (s: string) => {
+    if (s === 'ready') return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">พร้อมใช้งาน</span>;
+    if (s === 'warning') return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100">เฝ้าระวัง</span>;
+    return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-100">ไม่พร้อมใช้งาน</span>;
+  };
+
+
 
   const { data: myActionPermissions = [] } = useQuery({
     queryKey: ['electricity-action-permissions', user?.id],
@@ -695,10 +729,19 @@ export default function Electricity() {
           </CardHeader>
           <CardContent className="space-y-3 pt-3 px-4 pb-4">
             {!isScanning ? (
-              <Button onClick={startScanner} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
-                <Camera className="mr-2 h-4 w-4"/> เปิดกล้องสแกนคิวอาร์
-              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <Button onClick={startScanner} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
+                  <Camera className="mr-2 h-4 w-4"/> สแกนลงบันทึกค่างวดมิเตอร์ไฟฟ้า
+                </Button>
+                <Button onClick={() => navigate('/generator-check')} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
+                  <Cog className="mr-2 h-4 w-4"/> บันทึกการตรวจเช็คเครื่องปั่นไฟ
+                </Button>
+                <Button onClick={() => navigate('/pump-meters')} className="w-full bg-teal-600 hover:bg-teal-700 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
+                  <Waves className="mr-2 h-4 w-4"/> มิเตอร์เครื่องสูบน้ำเสีย/เติมอากาศ
+                </Button>
+              </div>
             ) : (
+
               <div className="relative max-w-[320px] mx-auto aspect-square w-full border-4 border-indigo-500 rounded-2xl overflow-hidden shadow-md bg-black">
                 <div id="reader" className="w-full h-full [&_video]:object-cover [&_video]:w-full [&_video]:h-full"></div>
                 <Button 
@@ -930,7 +973,14 @@ export default function Electricity() {
       </div>
 
       {/* ส่วนแสดงตารางประวัติบันทึกข้อมูล */}
+      <Tabs defaultValue="meter" className="w-full">
+        <TabsList className="w-full grid grid-cols-2 h-auto p-1 bg-slate-100 rounded-xl">
+          <TabsTrigger value="meter" className="text-[11px] sm:text-xs font-bold rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:text-indigo-600">ประวัติการจดบันทึกมิเตอร์</TabsTrigger>
+          <TabsTrigger value="generator" className="text-[11px] sm:text-xs font-bold rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:text-amber-600">ประวัติการตรวจเช็คเครื่องปั่นไฟ</TabsTrigger>
+        </TabsList>
+        <TabsContent value="meter" className="mt-3">
       <Card className="shadow-sm border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+
         <CardHeader className="bg-slate-50 border-b border-slate-100 py-3 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2">
             ประวัติการจดบันทึกย้อนหลัง
@@ -996,6 +1046,70 @@ export default function Electricity() {
           </Table>
         </div>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="generator" className="mt-3">
+          <Card className="shadow-sm border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-slate-100 py-3 px-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2">
+                <Cog className="h-4 w-4 text-amber-500" /> ประวัติการตรวจเช็คเครื่องปั่นไฟ
+              </CardTitle>
+              <span className="text-[11px] text-slate-500 bg-slate-200/60 px-2.5 py-0.5 rounded-full font-medium">
+                ทั้งหมด {generatorChecks.length} รายการ
+              </span>
+            </CardHeader>
+            <div className="overflow-x-auto w-full">
+              <Table>
+                <TableHeader className="bg-slate-50/70">
+                  <TableRow>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">วันที่ตรวจ</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">รหัสเครื่อง</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">Hour Meter</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">น้ำมันเครื่อง</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">น้ำหล่อเย็น</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">แบตเตอรี่ (V)</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">No-Load</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">สถานะรวม</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">ผู้บันทึก</TableHead>
+                    {isAdmin && <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">จัดการ</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {generatorChecks.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={isAdmin ? 10 : 9} className="text-center py-8 text-xs text-slate-400">ยังไม่มีประวัติการตรวจเช็คเครื่องปั่นไฟ</TableCell>
+                    </TableRow>
+                  ) : generatorChecks.map((g: any) => (
+                    <TableRow key={g.id} className="hover:bg-amber-50/30 transition-colors">
+                      <TableCell className="text-xs text-slate-600 py-2.5 whitespace-nowrap">{new Date(g.check_date).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</TableCell>
+                      <TableCell className="text-xs font-semibold text-slate-800 py-2.5">{g.machine_code}</TableCell>
+                      <TableCell className="text-xs text-right text-slate-700 py-2.5">{g.hour_meter ?? '-'}</TableCell>
+                      <TableCell className="text-xs text-slate-600 py-2.5">{g.oil_level || '-'}</TableCell>
+                      <TableCell className="text-xs text-slate-600 py-2.5">{g.coolant_level || '-'}</TableCell>
+                      <TableCell className="text-xs text-slate-600 py-2.5">{g.battery_voltage ?? '-'}</TableCell>
+                      <TableCell className="text-xs text-slate-600 py-2.5 max-w-[220px] truncate">{g.noload_result || '-'}</TableCell>
+                      <TableCell className="py-2.5">{genStatusBadge(g.overall_status)}</TableCell>
+                      <TableCell className="text-xs text-slate-600 py-2.5 whitespace-nowrap">{g.recorder_name}</TableCell>
+                      {isAdmin && (
+                        <TableCell className="py-2.5 text-right whitespace-nowrap">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-amber-600 hover:bg-amber-50 rounded-lg" onClick={() => navigate(`/generator-check?id=${g.id}`)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-rose-600 hover:bg-rose-50 rounded-lg" onClick={() => deleteGeneratorCheck(g.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+
 
       <Dialog open={!!editingLog} onOpenChange={(open) => { if (!open) resetEditLogDialog(); }}>
         <DialogContent className="sm:max-w-lg rounded-2xl">
