@@ -1046,6 +1046,70 @@ export default function Electricity() {
           </Table>
         </div>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="generator" className="mt-3">
+          <Card className="shadow-sm border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-slate-100 py-3 px-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2">
+                <Cog className="h-4 w-4 text-amber-500" /> ประวัติการตรวจเช็คเครื่องปั่นไฟ
+              </CardTitle>
+              <span className="text-[11px] text-slate-500 bg-slate-200/60 px-2.5 py-0.5 rounded-full font-medium">
+                ทั้งหมด {generatorChecks.length} รายการ
+              </span>
+            </CardHeader>
+            <div className="overflow-x-auto w-full">
+              <Table>
+                <TableHeader className="bg-slate-50/70">
+                  <TableRow>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">วันที่ตรวจ</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">รหัสเครื่อง</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">Hour Meter</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">น้ำมันเครื่อง</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">น้ำหล่อเย็น</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">แบตเตอรี่ (V)</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">No-Load</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">สถานะรวม</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 py-3 whitespace-nowrap">ผู้บันทึก</TableHead>
+                    {isAdmin && <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right whitespace-nowrap">จัดการ</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {generatorChecks.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={isAdmin ? 10 : 9} className="text-center py-8 text-xs text-slate-400">ยังไม่มีประวัติการตรวจเช็คเครื่องปั่นไฟ</TableCell>
+                    </TableRow>
+                  ) : generatorChecks.map((g: any) => (
+                    <TableRow key={g.id} className="hover:bg-amber-50/30 transition-colors">
+                      <TableCell className="text-xs text-slate-600 py-2.5 whitespace-nowrap">{new Date(g.check_date).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</TableCell>
+                      <TableCell className="text-xs font-semibold text-slate-800 py-2.5">{g.machine_code}</TableCell>
+                      <TableCell className="text-xs text-right text-slate-700 py-2.5">{g.hour_meter ?? '-'}</TableCell>
+                      <TableCell className="text-xs text-slate-600 py-2.5">{g.oil_level || '-'}</TableCell>
+                      <TableCell className="text-xs text-slate-600 py-2.5">{g.coolant_level || '-'}</TableCell>
+                      <TableCell className="text-xs text-slate-600 py-2.5">{g.battery_voltage ?? '-'}</TableCell>
+                      <TableCell className="text-xs text-slate-600 py-2.5 max-w-[220px] truncate">{g.noload_result || '-'}</TableCell>
+                      <TableCell className="py-2.5">{genStatusBadge(g.overall_status)}</TableCell>
+                      <TableCell className="text-xs text-slate-600 py-2.5 whitespace-nowrap">{g.recorder_name}</TableCell>
+                      {isAdmin && (
+                        <TableCell className="py-2.5 text-right whitespace-nowrap">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-amber-600 hover:bg-amber-50 rounded-lg" onClick={() => navigate(`/generator-check?id=${g.id}`)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-rose-600 hover:bg-rose-50 rounded-lg" onClick={() => deleteGeneratorCheck(g.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+
 
       <Dialog open={!!editingLog} onOpenChange={(open) => { if (!open) resetEditLogDialog(); }}>
         <DialogContent className="sm:max-w-lg rounded-2xl">
