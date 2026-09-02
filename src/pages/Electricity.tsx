@@ -973,7 +973,14 @@ export default function Electricity() {
       </div>
 
       {/* ส่วนแสดงตารางประวัติบันทึกข้อมูล */}
+      <Tabs defaultValue="meter" className="w-full">
+        <TabsList className="w-full grid grid-cols-2 h-auto p-1 bg-slate-100 rounded-xl">
+          <TabsTrigger value="meter" className="text-[11px] sm:text-xs font-bold rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:text-indigo-600">ประวัติการจดบันทึกมิเตอร์</TabsTrigger>
+          <TabsTrigger value="generator" className="text-[11px] sm:text-xs font-bold rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:text-amber-600">ประวัติการตรวจเช็คเครื่องปั่นไฟ</TabsTrigger>
+        </TabsList>
+        <TabsContent value="meter" className="mt-3">
       <Card className="shadow-sm border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+
         <CardHeader className="bg-slate-50 border-b border-slate-100 py-3 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-2">
             ประวัติการจดบันทึกย้อนหลัง
