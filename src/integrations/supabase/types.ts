@@ -867,6 +867,39 @@ export type Database = {
         }
         Relationships: []
       }
+      generator_machines: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          location: string | null
+          name: string
+          qr_code_data: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          location?: string | null
+          name: string
+          qr_code_data?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          location?: string | null
+          name?: string
+          qr_code_data?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       infectious_waste_records: {
         Row: {
           collection_date: string
