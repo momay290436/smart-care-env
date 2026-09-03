@@ -752,6 +752,10 @@ export default function Electricity() {
               </div>
             )}
 
+            <Button onClick={() => navigate('/pump-meters')} variant="outline" className="w-full border-teal-200 bg-teal-50/50 hover:bg-teal-50 text-teal-700 py-2.5 rounded-xl text-xs font-bold">
+              <Waves className="mr-2 h-4 w-4"/> มิเตอร์เครื่องสูบน้ำเสีย / เติมอากาศ
+            </Button>
+
             {/* ส่วนฟอร์มกรอกข้อมูลมิเตอร์ */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/50 p-3 sm:p-4 rounded-xl border border-slate-100">
               
