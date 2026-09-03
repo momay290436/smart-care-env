@@ -35,7 +35,9 @@ import FiveSHub from "./pages/FiveSHub";
 import WaterManagement from "./pages/WaterManagement";
 import WaterMeter from "./pages/WaterMeter";
 import IssueManagement from "./pages/IssueManagement";
-import Electricity from "./pages/Electricity"; // ✨ เพิ่มการเปิดตัวดึงไฟล์ระบบไฟฟ้าเข้ามาร่วมกับกลุ่มเพื่อนๆ ด้านบนสุด
+import Electricity from "./pages/Electricity";
+import GeneratorCheck from "./pages/GeneratorCheck";
+import PumpMeters from "./pages/PumpMeters";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,7 +88,9 @@ const App = () => (
             <Route path="/water" element={<ProtectedRoute><AppLayout><WaterManagement /></AppLayout></ProtectedRoute>} />
             <Route path="/water-meter" element={<ProtectedRoute><AppLayout><WaterMeter /></AppLayout></ProtectedRoute>} />
             <Route path="/issues" element={<ProtectedRoute><AppLayout><IssueManagement /></AppLayout></ProtectedRoute>} />
-            <Route path="/electricity" element={<ProtectedRoute><AppLayout><Electricity /></AppLayout></ProtectedRoute>} /> {/* เปิดเส้นทางเรียกใช้งานตามโครงสร้างไฟล์เดิมของคุณ */}
+            <Route path="/electricity" element={<ProtectedRoute><AppLayout><Electricity /></AppLayout></ProtectedRoute>} />
+            <Route path="/generator-check" element={<ProtectedRoute><AppLayout><GeneratorCheck /></AppLayout></ProtectedRoute>} />
+            <Route path="/pump-meters" element={<ProtectedRoute><AppLayout><PumpMeters /></AppLayout></ProtectedRoute>} />
             <Route path="/fire-info/:id" element={<FireInfoPublic />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

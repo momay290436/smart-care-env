@@ -729,15 +729,12 @@ export default function Electricity() {
           </CardHeader>
           <CardContent className="space-y-3 pt-3 px-4 pb-4">
             {!isScanning ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Button onClick={startScanner} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
                   <Camera className="mr-2 h-4 w-4"/> สแกนลงบันทึกค่างวดมิเตอร์ไฟฟ้า
                 </Button>
                 <Button onClick={() => navigate('/generator-check')} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
                   <Cog className="mr-2 h-4 w-4"/> บันทึกการตรวจเช็คเครื่องปั่นไฟ
-                </Button>
-                <Button onClick={() => navigate('/pump-meters')} className="w-full bg-teal-600 hover:bg-teal-700 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
-                  <Waves className="mr-2 h-4 w-4"/> มิเตอร์เครื่องสูบน้ำเสีย/เติมอากาศ
                 </Button>
               </div>
             ) : (
@@ -754,6 +751,10 @@ export default function Electricity() {
                 </Button>
               </div>
             )}
+
+            <Button onClick={() => navigate('/pump-meters')} variant="outline" className="w-full border-teal-200 bg-teal-50/50 hover:bg-teal-50 text-teal-700 py-2.5 rounded-xl text-xs font-bold">
+              <Waves className="mr-2 h-4 w-4"/> มิเตอร์เครื่องสูบน้ำเสีย / เติมอากาศ
+            </Button>
 
             {/* ส่วนฟอร์มกรอกข้อมูลมิเตอร์ */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/50 p-3 sm:p-4 rounded-xl border border-slate-100">
