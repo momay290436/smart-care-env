@@ -35,7 +35,9 @@ import FiveSHub from "./pages/FiveSHub";
 import WaterManagement from "./pages/WaterManagement";
 import WaterMeter from "./pages/WaterMeter";
 import IssueManagement from "./pages/IssueManagement";
-import Electricity from "./pages/Electricity"; // ✨ เพิ่มการเปิดตัวดึงไฟล์ระบบไฟฟ้าเข้ามาร่วมกับกลุ่มเพื่อนๆ ด้านบนสุด
+import Electricity from "./pages/Electricity";
+import GeneratorCheck from "./pages/GeneratorCheck";
+import PumpMeters from "./pages/PumpMeters";
 
 const queryClient = new QueryClient({
   defaultOptions: {
