@@ -6,6 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 // Pages that all authenticated users can always access
 const ALWAYS_ALLOWED = ["/", "/login"];
 
+// Sub-pages inherit access from their parent module page
+const PARENT_PAGE: Record<string, string> = {
+  "/pump-meters": "/water",
+  "/generator-check": "/electricity",
+  "/water-meter": "/water",
+};
+
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, user, loading, isAdmin, isSimplified } = useAuth();
   const location = useLocation();
@@ -61,6 +68,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   // Check if current path is in allowed pages
   const currentPath = location.pathname;
   if (permissions.includes(currentPath)) return <>{children}</>;
+  const parent = PARENT_PAGE[currentPath];
+  if (parent && permissions.includes(parent)) return <>{children}</>;
 
   // Simplified users get silently redirected to their shortcut hub
   if (isSimplified) return <Navigate to="/" replace />;
