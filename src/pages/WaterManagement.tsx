@@ -683,6 +683,15 @@ export default function WaterManagement() {
                 <p className="text-[11px] text-slate-500 truncate">ปริมาณขยะที่นำออกจากตะแกรงดัก</p>
               </div>
             </button>
+            <button onClick={() => window.location.assign("/pump-meters")} className="w-full text-left rounded-2xl bg-white border border-teal-200 p-3 flex items-center gap-3 shadow-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-95">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-600 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow">
+                <Waves className="h-6 w-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-slate-900 text-sm md:text-base">มิเตอร์เครื่องสูบน้ำเสีย / เติมอากาศ</p>
+                <p className="text-[11px] text-slate-500 truncate">บันทึกชั่วโมงการทำงานรายเครื่อง</p>
+              </div>
+            </button>
           </CardContent>
         </Card>
       </div>
