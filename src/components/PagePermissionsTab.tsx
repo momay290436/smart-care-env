@@ -36,7 +36,9 @@ const ALL_PAGES = [
   { key: "/map-aligner", label: "จัดแผนที่", icon: "📐" },
   { key: "/water", label: "ระบบจัดการน้ำประปา", icon: "💧" },
   { key: "/water-meter", label: "บันทึกมิเตอร์น้ำ", icon: "🔢" },
+  { key: "/pump-meters", label: "บันทึกมิเตอร์เครื่องสูบน้ำเสีย/เติมอากาศ", icon: "⚙️" },
   { key: "/electricity", label: "ระบบจัดการไฟฟ้า", icon: "⚡" },
+  { key: "/generator-check", label: "ตรวจเช็คเครื่องปั๊มไฟ", icon: "🔌" },
   { key: "/admin", label: "จัดการระบบ", icon: "🔑" },
 ];
 
