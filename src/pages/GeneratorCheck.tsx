@@ -297,14 +297,14 @@ export default function GeneratorCheck() {
               { value: "ATS ไม่สลับไฟ", label: "ATS ไม่สลับไฟ" },
             ]} />
           </Field>
-          <div className="grid grid-cols-1 xs:grid-cols-3 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {(["voltage_l1", "voltage_l2", "voltage_l3"] as const).map((k, i) => (
               <Field key={k} label={`แรงดัน L${i + 1} (V)`}>
                 <Input type="number" value={(form as any)[k]} onChange={(e) => set(k, e.target.value)} className="h-11 text-base sm:text-sm" />
               </Field>
             ))}
           </div>
-          <div className="grid grid-cols-1 xs:grid-cols-3 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {(["current_l1", "current_l2", "current_l3"] as const).map((k, i) => (
               <Field key={k} label={`กระแสโหลด L${i + 1} (A)`}>
                 <Input type="number" value={(form as any)[k]} onChange={(e) => set(k, e.target.value)} className="h-11 text-base sm:text-sm" />
