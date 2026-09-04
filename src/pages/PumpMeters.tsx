@@ -236,7 +236,7 @@ export default function PumpMeters() {
   return (
     <div className="space-y-4 pb-24">
       <div className="flex items-center justify-between gap-2">
-        <Button variant="outline" onClick={() => navigate("/electricity")} className="h-10 text-xs sm:text-sm">
+        <Button variant="outline" onClick={() => navigate("/water")} className="h-10 text-xs sm:text-sm">
           <ArrowLeft className="mr-2 h-4 w-4" /> ย้อนกลับ
         </Button>
         <span className="text-[11px] text-slate-500">ผู้บันทึก: <b className="text-slate-700">{profile?.full_name || "-"}</b></span>

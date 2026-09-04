@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Zap, Gauge, CalendarClock, Wrench, PlugZap } from "lucide-react";
 
 const emptyForm = {
-  machine_code: "GEN001",
+  machine_code: "",
   check_date: new Date().toISOString().split("T")[0],
   hour_meter: "",
   oil_level: "ปกติ",
@@ -48,7 +49,7 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
 
 const Pick = ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) => (
   <Select value={value} onValueChange={onChange}>
-    <SelectTrigger className="h-10 text-sm bg-white"><SelectValue /></SelectTrigger>
+    <SelectTrigger className="h-11 text-base sm:text-sm bg-white"><SelectValue /></SelectTrigger>
     <SelectContent className="bg-white z-50">
       {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
     </SelectContent>
@@ -66,6 +67,21 @@ export default function GeneratorCheck() {
   const [saving, setSaving] = useState(false);
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const { data: machines = [] } = useQuery({
+    queryKey: ["generator-machines"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("generator_machines").select("*").order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  useEffect(() => {
+    if (!editId && !form.machine_code && machines.length > 0) {
+      set("machine_code", (machines[0] as any).code);
+    }
+  }, [machines, editId, form.machine_code]);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
@@ -98,7 +114,7 @@ export default function GeneratorCheck() {
     setSaving(true);
     try {
       const payload: any = {
-        machine_code: form.machine_code.trim() || "GEN001",
+        machine_code: form.machine_code.trim(),
         check_date: form.check_date,
         recorder_id: user?.id ?? null,
         recorder_name: profile?.full_name || "ไม่ระบุชื่อ",
@@ -143,7 +159,7 @@ export default function GeneratorCheck() {
   };
 
   return (
-    <div className="space-y-4 pb-24 max-w-4xl mx-auto">
+    <div className="w-full max-w-4xl mx-auto px-1 sm:px-0 space-y-4 pb-28 overflow-x-hidden">
       <div className="flex items-center justify-between gap-2">
         <Button variant="outline" onClick={() => navigate("/electricity")} className="h-10 text-xs sm:text-sm">
           <ArrowLeft className="mr-2 h-4 w-4" /> ย้อนกลับ
@@ -158,14 +174,22 @@ export default function GeneratorCheck() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Field label="รหัสเครื่องจักร">
-            <Input value={form.machine_code} onChange={(e) => set("machine_code", e.target.value)} className="h-10 text-sm" />
+          <Field label="เครื่องปั่นไฟ">
+            {machines.length > 0 ? (
+              <Pick
+                value={form.machine_code}
+                onChange={(v) => set("machine_code", v)}
+                options={machines.map((m: any) => ({ value: m.code, label: `${m.code} — ${m.name}` }))}
+              />
+            ) : (
+              <Input value={form.machine_code} onChange={(e) => set("machine_code", e.target.value)} placeholder="เพิ่มเครื่องในหน้าตั้งค่า" className="h-11 text-sm" />
+            )}
           </Field>
           <Field label="วันที่ตรวจ">
-            <Input type="date" value={form.check_date} onChange={(e) => set("check_date", e.target.value)} className="h-10 text-sm" />
+            <Input type="date" value={form.check_date} onChange={(e) => set("check_date", e.target.value)} className="h-11 text-base sm:text-sm" />
           </Field>
           <Field label="ชั่วโมงการทำงานสะสม (Hour Meter)">
-            <Input type="number" value={form.hour_meter} onChange={(e) => set("hour_meter", e.target.value)} placeholder="ชม." className="h-10 text-sm" />
+            <Input type="number" value={form.hour_meter} onChange={(e) => set("hour_meter", e.target.value)} placeholder="ชม." className="h-11 text-base sm:text-sm" />
           </Field>
         </CardContent>
       </Card>
@@ -187,10 +211,10 @@ export default function GeneratorCheck() {
             ]} />
           </Field>
           <Field label="ระดับน้ำมันเชื้อเพลิง (ลิตร / %)">
-            <Input value={form.fuel_level} onChange={(e) => set("fuel_level", e.target.value)} placeholder="เช่น 120 ลิตร หรือ 80%" className="h-10 text-sm" />
+            <Input value={form.fuel_level} onChange={(e) => set("fuel_level", e.target.value)} placeholder="เช่น 120 ลิตร หรือ 80%" className="h-11 text-base sm:text-sm" />
           </Field>
           <Field label="แรงดันแบตเตอรี่ Standby (V)">
-            <Input type="number" step="0.1" value={form.battery_voltage} onChange={(e) => set("battery_voltage", e.target.value)} className="h-10 text-sm" />
+            <Input type="number" step="0.1" value={form.battery_voltage} onChange={(e) => set("battery_voltage", e.target.value)} className="h-11 text-base sm:text-sm" />
           </Field>
           <Field label="สภาพแวดล้อม / การรั่วซึม">
             <Pick value={form.leak_status} onChange={(v) => set("leak_status", v)} options={[
@@ -224,16 +248,16 @@ export default function GeneratorCheck() {
             </Field>
           </div>
           <Field label="รอบเครื่องยนต์ (RPM)">
-            <Input type="number" value={form.rpm} onChange={(e) => set("rpm", e.target.value)} className="h-10 text-sm" />
+            <Input type="number" value={form.rpm} onChange={(e) => set("rpm", e.target.value)} className="h-11 text-base sm:text-sm" />
           </Field>
           <Field label="ความถี่ไฟฟ้า (Hz)">
-            <Input type="number" step="0.1" value={form.frequency_hz} onChange={(e) => set("frequency_hz", e.target.value)} className="h-10 text-sm" />
+            <Input type="number" step="0.1" value={form.frequency_hz} onChange={(e) => set("frequency_hz", e.target.value)} className="h-11 text-base sm:text-sm" />
           </Field>
           <Field label="เวลาเริ่มทดสอบ">
-            <Input type="time" value={form.test_start_time} onChange={(e) => set("test_start_time", e.target.value)} className="h-10 text-sm" />
+            <Input type="time" value={form.test_start_time} onChange={(e) => set("test_start_time", e.target.value)} className="h-11 text-base sm:text-sm" />
           </Field>
           <Field label="เวลาหยุดทดสอบ">
-            <Input type="time" value={form.test_stop_time} onChange={(e) => set("test_stop_time", e.target.value)} className="h-10 text-sm" />
+            <Input type="time" value={form.test_stop_time} onChange={(e) => set("test_stop_time", e.target.value)} className="h-11 text-base sm:text-sm" />
           </Field>
           <div className="sm:col-span-2 p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-sm font-bold text-emerald-700">
             ระยะเวลาทดสอบ: {duration === null ? "-" : `${duration} นาที`}
@@ -276,23 +300,23 @@ export default function GeneratorCheck() {
           <div className="grid grid-cols-3 gap-2">
             {(["voltage_l1", "voltage_l2", "voltage_l3"] as const).map((k, i) => (
               <Field key={k} label={`แรงดัน L${i + 1} (V)`}>
-                <Input type="number" value={(form as any)[k]} onChange={(e) => set(k, e.target.value)} className="h-10 text-sm" />
+                <Input type="number" value={(form as any)[k]} onChange={(e) => set(k, e.target.value)} className="h-11 text-base sm:text-sm" />
               </Field>
             ))}
           </div>
           <div className="grid grid-cols-3 gap-2">
             {(["current_l1", "current_l2", "current_l3"] as const).map((k, i) => (
               <Field key={k} label={`กระแสโหลด L${i + 1} (A)`}>
-                <Input type="number" value={(form as any)[k]} onChange={(e) => set(k, e.target.value)} className="h-10 text-sm" />
+                <Input type="number" value={(form as any)[k]} onChange={(e) => set(k, e.target.value)} className="h-11 text-base sm:text-sm" />
               </Field>
             ))}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="อุณหภูมิน้ำหล่อเย็นขณะมีโหลด (°C)">
-              <Input type="number" step="0.1" value={form.coolant_temp} onChange={(e) => set("coolant_temp", e.target.value)} className="h-10 text-sm" />
+              <Input type="number" step="0.1" value={form.coolant_temp} onChange={(e) => set("coolant_temp", e.target.value)} className="h-11 text-base sm:text-sm" />
             </Field>
             <Field label="ความดันน้ำมันเครื่อง (PSI/kPa)">
-              <Input type="number" step="0.1" value={form.oil_pressure} onChange={(e) => set("oil_pressure", e.target.value)} className="h-10 text-sm" />
+              <Input type="number" step="0.1" value={form.oil_pressure} onChange={(e) => set("oil_pressure", e.target.value)} className="h-11 text-base sm:text-sm" />
             </Field>
           </div>
         </CardContent>
