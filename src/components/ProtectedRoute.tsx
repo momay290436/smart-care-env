@@ -68,6 +68,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   // Check if current path is in allowed pages
   const currentPath = location.pathname;
   if (permissions.includes(currentPath)) return <>{children}</>;
+  const parent = PARENT_PAGE[currentPath];
+  if (parent && permissions.includes(parent)) return <>{children}</>;
 
   // Simplified users get silently redirected to their shortcut hub
   if (isSimplified) return <Navigate to="/" replace />;
