@@ -6,6 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 // Pages that all authenticated users can always access
 const ALWAYS_ALLOWED = ["/", "/login"];
 
+// Sub-pages inherit access from their parent module page
+const PARENT_PAGE: Record<string, string> = {
+  "/pump-meters": "/water",
+  "/generator-check": "/electricity",
+  "/water-meter": "/water",
+};
+
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, user, loading, isAdmin, isSimplified } = useAuth();
   const location = useLocation();
