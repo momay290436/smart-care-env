@@ -17,6 +17,7 @@ import PagePermissionsTab from "@/components/PagePermissionsTab";
 import LineNotificationSettings from "@/components/LineNotificationSettings";
 import ElectricityMetersTab from "@/components/ElectricityMetersTab";
 import WaterThresholdsTab from "@/components/WaterThresholdsTab";
+import MachinesTab from "@/components/MachinesTab";
 import DeptQrPointsSection from "@/components/DeptQrPointsSection";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import FireQrPrintDialog from "@/components/FireQrPrintDialog";
@@ -748,7 +749,7 @@ export default function AdminPage() {
     <div className="w-full space-y-5">
       <PageHeader title="จัดการระบบ" subtitle="Admin Panel" />
       <Tabs defaultValue="departments" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-9 h-auto rounded-2xl bg-muted/60 shadow-sm p-1 gap-1">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-10 h-auto rounded-2xl bg-muted/60 shadow-sm p-1 gap-1">
           <TabsTrigger value="departments" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">แผนก</TabsTrigger>
           <TabsTrigger value="locations" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ถังดับเพลิง</TabsTrigger>
           <TabsTrigger value="users" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ผู้ใช้</TabsTrigger>
@@ -757,6 +758,7 @@ export default function AdminPage() {
           <TabsTrigger value="issue-areas" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">พื้นที่ปัญหา</TabsTrigger>
           <TabsTrigger value="electricity-meters" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">มิเตอร์ไฟฟ้า</TabsTrigger>
           <TabsTrigger value="water-thresholds" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">เกณฑ์คุณภาพน้ำ</TabsTrigger>
+          <TabsTrigger value="machines" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">เครื่องจักร</TabsTrigger>
           <TabsTrigger value="settings" className="rounded-xl text-xs md:text-sm py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white">ตั้งค่า</TabsTrigger>
         </TabsList>
         <TabsContent value="departments"><DepartmentsTab /></TabsContent>
@@ -767,6 +769,7 @@ export default function AdminPage() {
         <TabsContent value="issue-areas"><IssueAreasTab /></TabsContent>
         <TabsContent value="electricity-meters"><ElectricityMetersTab /></TabsContent>
         <TabsContent value="water-thresholds"><WaterThresholdsTab /></TabsContent>
+        <TabsContent value="machines"><MachinesTab /></TabsContent>
         <TabsContent value="settings"><SettingsTab /></TabsContent>
       </Tabs>
     </div>
