@@ -400,13 +400,14 @@ export default function PumpMeters() {
                 <TableHead className="text-xs font-semibold text-slate-600">เวลา</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-600 whitespace-nowrap">ชื่อเครื่อง</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-600 text-right whitespace-nowrap">เลขมิเตอร์</TableHead>
-                <TableHead className="text-xs font-bold text-teal-600 text-right whitespace-nowrap">ชั่วโมงที่ใช้</TableHead>
+                <TableHead className="text-xs font-bold text-teal-600 text-right whitespace-nowrap">ชั่วโมงการทำงานของเครื่องสูบ</TableHead>
+                <TableHead className="text-xs font-bold text-indigo-600 text-center whitespace-nowrap">ผลรวมชั่วโมงการทำงานแต่ละวัน</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-600 whitespace-nowrap">ผู้บันทึก / หมายเหตุ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredLogs.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-xs text-slate-400">ไม่พบข้อมูลตามเงื่อนไข</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-xs text-slate-400">ไม่พบข้อมูลตามเงื่อนไข</TableCell></TableRow>
               ) : filteredLogs.map((l: any, i: number) => (
                 <TableRow key={l.id} className="hover:bg-slate-50/50">
                   <TableCell className="text-xs text-slate-500">{i + 1}</TableCell>
@@ -415,6 +416,16 @@ export default function PumpMeters() {
                   <TableCell className="text-xs font-semibold text-slate-800 whitespace-nowrap">{l.pump_machines?.name || "-"}</TableCell>
                   <TableCell className="text-xs text-right font-medium text-slate-700">{Number(l.meter_reading).toLocaleString()}</TableCell>
                   <TableCell className="text-xs text-right font-bold text-teal-600 bg-teal-50/30">{l.hours_used === null ? "-" : Number(l.hours_used).toLocaleString()}</TableCell>
+                  {groupInfo[i]?.first && (
+                    <TableCell
+                      rowSpan={groupInfo[i].span}
+                      className="text-center align-middle bg-indigo-50/60 border-l border-r border-indigo-100"
+                    >
+                      <div className="text-sm font-extrabold text-indigo-700 whitespace-nowrap">{groupInfo[i].total.toLocaleString()} ชม.</div>
+                      <div className="text-[10px] text-indigo-500 whitespace-nowrap">รวม {groupInfo[i].count} รอบ</div>
+                    </TableCell>
+                  )}
+
                   <TableCell className="text-xs text-slate-600">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate">{l.recorder_name}{l.notes ? ` — ${l.notes}` : ""}</span>
