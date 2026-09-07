@@ -187,11 +187,49 @@ export default function PumpMeters() {
     toast({ title: "ลบรายการสำเร็จ" });
   };
 
-  const filteredLogs = useMemo(() => logs.filter((l: any) => {
-    if (filterMachine !== "all" && l.machine_id !== filterMachine) return false;
-    if (filterMonth && !String(l.record_date).startsWith(filterMonth)) return false;
-    return true;
-  }), [logs, filterMachine, filterMonth]);
+  const filteredLogs = useMemo(() => {
+    const rows = logs.filter((l: any) => {
+      if (filterMachine !== "all" && l.machine_id !== filterMachine) return false;
+      if (filterMonth && !String(l.record_date).startsWith(filterMonth)) return false;
+      return true;
+    });
+    // เรียง: วันที่ล่าสุดก่อน → รวมกลุ่มตามเครื่อง → เวลาในวันเรียงจากเช้าไปเย็น
+    return [...rows].sort((a: any, b: any) =>
+      String(b.record_date).localeCompare(String(a.record_date)) ||
+      String(a.machine_id).localeCompare(String(b.machine_id)) ||
+      String(a.record_time).localeCompare(String(b.record_time))
+    );
+  }, [logs, filterMachine, filterMonth]);
+
+  // ผลรวมชั่วโมงการทำงานแต่ละวันของแต่ละเครื่อง (รอบเช้า + รอบบ่าย)
+  const dailyTotals = useMemo(() => {
+    const map = new Map<string, { total: number; count: number }>();
+    logs.forEach((l: any) => {
+      const k = `${l.machine_id}|${l.record_date}`;
+      const cur = map.get(k) || { total: 0, count: 0 };
+      cur.total += Number(l.hours_used ?? 0);
+      cur.count += 1;
+      map.set(k, cur);
+    });
+    return map;
+  }, [logs]);
+
+  const groupInfo = useMemo(() => {
+    const spans = new Map<string, number>();
+    filteredLogs.forEach((l: any) => {
+      const k = `${l.machine_id}|${l.record_date}`;
+      spans.set(k, (spans.get(k) || 0) + 1);
+    });
+    const seen = new Set<string>();
+    return filteredLogs.map((l: any) => {
+      const k = `${l.machine_id}|${l.record_date}`;
+      const first = !seen.has(k);
+      seen.add(k);
+      const g = dailyTotals.get(k);
+      return { first, span: spans.get(k) || 1, total: g ? Math.round(g.total * 100) / 100 : 0, count: g?.count || 0 };
+    });
+  }, [filteredLogs, dailyTotals]);
+
 
   const selectedMachine = machines.find((m: any) => m.id === filterMachine);
 
