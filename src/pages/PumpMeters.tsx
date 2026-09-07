@@ -230,6 +230,14 @@ export default function PumpMeters() {
     });
   }, [filteredLogs, dailyTotals]);
 
+  // ผลรวมของวันที่กำลังบันทึก (รอบก่อนหน้าในวันเดียวกัน + รอบนี้)
+  const formDayTotal = useMemo(() => {
+    const others = logs
+      .filter((l: any) => l.machine_id === machineId && l.record_date === recordDate && l.id !== editId)
+      .reduce((s: number, l: any) => s + Number(l.hours_used ?? 0), 0);
+    return Math.round((others + (hoursUsed ?? 0)) * 100) / 100;
+  }, [logs, machineId, recordDate, editId, hoursUsed]);
+
 
   const selectedMachine = machines.find((m: any) => m.id === filterMachine);
 
