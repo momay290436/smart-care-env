@@ -483,9 +483,26 @@ export default function PumpMeters() {
                 <Input type="number" value={meterReading} onChange={(e) => setMeterReading(e.target.value)} className="h-10 text-sm font-bold" />
               </div>
             </div>
-            <div className="p-3 rounded-xl bg-teal-50 border border-teal-100 text-sm font-bold text-teal-700">
-              ชั่วโมงการทำงานที่ใช้: {hoursUsed === null ? "-" : `${hoursUsed.toLocaleString()} ชม.`}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-teal-700">ชั่วโมงการทำงานที่ใช้ (ชม.)</label>
+              <Input
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                value={hoursInput}
+                onChange={(e) => { setHoursTouched(true); setHoursInput(e.target.value); }}
+                placeholder="กรอกจำนวนชั่วโมงการทำงาน"
+                className="h-11 text-base font-bold text-teal-700"
+              />
+              <p className="text-[10px] text-slate-500">
+                ระบบคำนวณให้อัตโนมัติจากผลต่างมิเตอร์ ({autoHours === null ? "-" : `${autoHours.toLocaleString()} ชม.`}) แก้ไขได้ตามจริง
+              </p>
             </div>
+            <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100 text-sm font-bold text-indigo-700 flex items-center justify-between gap-2">
+              <span>ผลรวมชั่วโมงการทำงานของวันนี้</span>
+              <span>{formDayTotal.toLocaleString()} ชม.</span>
+            </div>
+
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-500">หมายเหตุ</label>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="text-sm" />
