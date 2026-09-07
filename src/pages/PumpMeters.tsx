@@ -292,11 +292,13 @@ export default function PumpMeters() {
       <h3>ตาราง${name} ประจำเดือน ${THAI_MONTHS[m - 1]} ${beYear(y)}</h3>
       <table>
         <thead><tr>
-          <th style="width:8%">ลำดับ</th><th style="width:14%">วันที่</th><th style="width:10%">เวลา</th>
-          <th style="width:18%">เลขมิเตอร์</th><th style="width:16%">ชั่วโมงที่ใช้</th>
-          <th style="width:16%">ผู้บันทึก</th><th>หมายเหตุ</th>
+          <th style="width:7%">ลำดับ</th><th style="width:13%">วันที่</th><th style="width:9%">เวลา</th>
+          <th style="width:15%">เลขมิเตอร์</th><th style="width:16%">ชั่วโมงการทำงานของเครื่องสูบ</th>
+          <th style="width:16%">ผลรวมชั่วโมงการทำงานแต่ละวัน</th>
+          <th style="width:14%">ผู้บันทึก</th><th>หมายเหตุ</th>
         </tr></thead>
-        <tbody>${body || `<tr><td colspan="7">ไม่มีข้อมูล</td></tr>`}</tbody>
+        <tbody>${body || `<tr><td colspan="8">ไม่มีข้อมูล</td></tr>`}</tbody>
+
       </table>
     </body></html>`;
 
