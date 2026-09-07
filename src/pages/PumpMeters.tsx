@@ -237,16 +237,37 @@ export default function PumpMeters() {
     const [y, m] = filterMonth.split("-").map(Number);
     const name = selectedMachine?.name || "ทุกเครื่อง";
     const type = selectedMachine?.machine_type || "เครื่องสูบน้ำเสีย / เครื่องเติมอากาศ";
-    const rows = [...filteredLogs].sort((a: any, b: any) => `${a.record_date}${a.record_time}`.localeCompare(`${b.record_date}${b.record_time}`));
-    const body = rows.map((r: any, i: number) => `<tr>
+    const rows = [...filteredLogs].sort((a: any, b: any) =>
+      String(a.record_date).localeCompare(String(b.record_date)) ||
+      String(a.machine_id).localeCompare(String(b.machine_id)) ||
+      String(a.record_time).localeCompare(String(b.record_time))
+    );
+    const seenPdf = new Set<string>();
+    const spanPdf = new Map<string, number>();
+    rows.forEach((r: any) => {
+      const k = `${r.machine_id}|${r.record_date}`;
+      spanPdf.set(k, (spanPdf.get(k) || 0) + 1);
+    });
+    const body = rows.map((r: any, i: number) => {
+      const k = `${r.machine_id}|${r.record_date}`;
+      const first = !seenPdf.has(k);
+      seenPdf.add(k);
+      const g = dailyTotals.get(k);
+      const totalCell = first
+        ? `<td rowspan="${spanPdf.get(k) || 1}"><b>${g ? (Math.round(g.total * 100) / 100).toLocaleString() : "-"}</b></td>`
+        : "";
+      return `<tr>
       <td>${i + 1}</td>
       <td>${new Date(r.record_date).toLocaleDateString("th-TH", { dateStyle: "short" })}</td>
       <td>${String(r.record_time).slice(0, 5)}</td>
       <td>${Number(r.meter_reading).toLocaleString()}</td>
       <td>${r.hours_used === null || r.hours_used === undefined ? "-" : Number(r.hours_used).toLocaleString()}</td>
+      ${totalCell}
       <td>${r.recorder_name || "-"}</td>
       <td>${r.notes || ""}</td>
-    </tr>`).join("");
+    </tr>`;
+    }).join("");
+
 
     const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานมิเตอร์ ${name}</title>
     <style>
