@@ -75,10 +75,20 @@ export default function PumpMeters() {
     return prev ? Number(prev.meter_reading) : null;
   }, [logs, machineId, editId]);
 
-  const hoursUsed = useMemo(() => {
+  const autoHours = useMemo(() => {
     if (meterReading === "" || lastReading === null) return null;
     return Math.round((Number(meterReading) - lastReading) * 100) / 100;
   }, [meterReading, lastReading]);
+
+  // ชั่วโมงการทำงานที่เจ้าหน้าที่กรอกเอง (เติมอัตโนมัติจากผลต่างมิเตอร์)
+  const [hoursInput, setHoursInput] = useState("");
+  const [hoursTouched, setHoursTouched] = useState(false);
+  useEffect(() => {
+    if (!hoursTouched) setHoursInput(autoHours === null ? "" : String(autoHours));
+  }, [autoHours, hoursTouched]);
+
+  const hoursUsed = hoursInput === "" ? autoHours : Number(hoursInput);
+
 
   // ---------- QR scanner ----------
   useEffect(() => {
