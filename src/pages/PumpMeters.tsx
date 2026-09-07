@@ -130,6 +130,8 @@ export default function PumpMeters() {
     setRecordTime(nowTime());
     setMeterReading("");
     setNotes("");
+    setHoursTouched(false);
+    setHoursInput("");
     setOpenForm(true);
   };
 
@@ -140,8 +142,11 @@ export default function PumpMeters() {
     setRecordTime(String(log.record_time).slice(0, 5));
     setMeterReading(String(log.meter_reading));
     setNotes(log.notes || "");
+    setHoursTouched(true);
+    setHoursInput(log.hours_used === null || log.hours_used === undefined ? "" : String(log.hours_used));
     setOpenForm(true);
   };
+
 
   const handleSave = async () => {
     if (!machineId || meterReading === "") {
