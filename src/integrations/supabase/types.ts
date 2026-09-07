@@ -280,6 +280,77 @@ export type Database = {
         }
         Relationships: []
       }
+      duty_assignments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          duty_date: string
+          id: string
+          notes: string | null
+          shift_type: string
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          duty_date: string
+          id?: string
+          notes?: string | null
+          shift_type: string
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          duty_date?: string
+          id?: string
+          notes?: string | null
+          shift_type?: string
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duty_assignments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "duty_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      duty_staff: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          is_active: boolean
+          phone: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       electricity_logs: {
         Row: {
           created_at: string
