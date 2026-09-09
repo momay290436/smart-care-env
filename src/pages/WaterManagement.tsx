@@ -25,6 +25,7 @@ import PageHeader from "@/components/PageHeader";
 import { SewageTrashDialog, SewageTrashHistory } from "@/components/SewageTrashTab";
 import WaterMaintenanceTab from "@/components/WaterMaintenanceTab";
 import WaterSystemTab from "@/components/WaterSystemTab";
+import DutyRosterTab from "@/components/DutyRosterTab";
 import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
 import WastewaterTab, { WastewaterInsertDialog } from "@/components/WastewaterTab";
 import WastewaterStatsHistory, { WastewaterStatsDialog } from "@/components/WastewaterStatsTab";
@@ -847,7 +848,10 @@ export default function WaterManagement() {
         </TabsList>
 
         <TabsContent value="system" className="mt-4">
-          <WaterSystemTab />
+          <div className="space-y-6">
+            <WaterSystemTab />
+            <DutyRosterTab />
+          </div>
         </TabsContent>
 
         <TabsContent value="emergency" className="mt-4">
