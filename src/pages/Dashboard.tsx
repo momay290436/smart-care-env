@@ -301,7 +301,7 @@ export default function Dashboard() {
         wasteLogsData: wasteLogsData || [],
         infectiousRecords: infRecs || [],
       });
-      if (combinedData.length === 0) return { byType: [], byDay: [], total: 0, allTypes: [] };
+      if (combinedData.length === 0) return { byType: [], byDay: [], total: 0, infectiousTotal: 0, allTypes: [] };
       
       const typeMap: Record<string, number> = {}; let total = 0;
       combinedData.forEach((r) => {
@@ -320,7 +320,13 @@ export default function Dashboard() {
       });
       const allTypes = Object.keys(typeMap);
       const byDay = Object.entries(dayMap).map(([date, types]) => { const row: any = { date }; allTypes.forEach(t => { row[t] = Number((types[t] || 0).toFixed(2)); }); return row; });
-      return { byType, byDay, total: Number(total.toFixed(2)), allTypes };
+      return {
+        byType,
+        byDay,
+        total: Number(total.toFixed(2)),
+        infectiousTotal: Number((typeMap.infectious || 0).toFixed(2)),
+        allTypes,
+      };
     },
   });
 
@@ -459,7 +465,7 @@ export default function Dashboard() {
         <MetricPanel label="งานซ่อมทั้งหมด" value={repairStats?.total ?? 0} sub={`รอดำเนินการ ${repairStats?.pending ?? 0} | เสร็จแล้ว ${repairStats?.completed ?? 0}`} note={`อัตราสำเร็จ ${completionRate}%`} icon={Wrench} accent="sky" onClick={() => setDrilldown("repair")} />
         <MetricPanel label="คะแนน 5ส เฉลี่ย" value={avgScore ? `${avgScore}%` : "-"} sub={`${auditByDept?.length ?? 0} แผนก`} note={avgScore && avgScore >= 70 ? "ผ่านเกณฑ์" : "ต่ำกว่าเกณฑ์"} icon={CheckCircle} accent="teal" onClick={() => setDrilldown("5s")} />
         <MetricPanel label="ถังดับเพลิง" value={fireChecks ? `${fireChecks.rate}%` : "-"} sub={`ปกติ ${fireChecks?.ok ?? 0}/${fireChecks?.total ?? 0}`} note={fireChecks && fireChecks.rate >= 80 ? "สภาพดี" : "ต้องตรวจสอบ"} icon={Flame} accent="red" onClick={() => setDrilldown("fire")} />
-        <MetricPanel label="น้ำหนักขยะ" value={wasteData ? `${wasteData.total} กก.` : "-"} sub={`ช่วง ${filterLabel[wasteFilter]}`} note={`${wasteData?.byType?.length ?? 0} ประเภทขยะ`} icon={Trash2} accent="rose" onClick={() => setDrilldown("waste")} />
+        <MetricPanel label="น้ำหนักขยะติดเชื้อ" value={wasteData ? `${wasteData.infectiousTotal} กก.` : "-"} sub={`ช่วง ${filterLabel[wasteFilter]}`} note={`รวมทุกประเภท ${wasteData?.total ?? 0} กก.`} icon={Trash2} accent="rose" onClick={() => setDrilldown("waste")} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
