@@ -88,9 +88,17 @@ export default function ElectricityMetersTab() {
     setOpen(true);
   };
 
-  const filtered = meters.filter((m: any) =>
-    !search.trim() || (m.meter_name || "").toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const filtered = meters.filter((m: any) => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) return true;
+    const residents: Resident[] = Array.isArray(m.residents) ? m.residents : [];
+    return [
+      m.meter_name,
+      m.location_code,
+      m.serial_number,
+      ...residents.map((resident) => resident.name),
+    ].some((value) => String(value || "").toLowerCase().includes(keyword));
+  });
 
   const residentLabel = (m: any) => {
     const rs: Resident[] = Array.isArray(m.residents) ? m.residents : [];
@@ -104,7 +112,7 @@ export default function ElectricityMetersTab() {
         จัดการสถานที่ติดตั้งมิเตอร์ไฟฟ้า พร้อมชื่อ-สกุลเจ้าหน้าที่ที่พักในแต่ละห้อง และจำนวนยูนิตที่ได้รับการลดหย่อน
       </p>
       <div className="flex gap-2">
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาสถานที่" className="flex-1 h-12 rounded-2xl" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาห้องหรือชื่อผู้พัก" className="flex-1 h-12 rounded-2xl" />
         <Button className="h-12 rounded-2xl gap-1.5 px-5" onClick={() => { setForm({ ...emptyForm }); setOpen(true); }}>
           <Plus className="h-4 w-4" /> เพิ่ม
         </Button>
