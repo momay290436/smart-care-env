@@ -29,14 +29,18 @@ describe("buildInfectiousWasteAggregateSyncPlan", () => {
 });
 
 describe("mergeInfectiousWasteRecordsWithLogs", () => {
-  it("does not add a duplicate infectious entry when the same day already has a summary row", () => {
+  it("uses infectious waste records as the source of truth over legacy summary rows", () => {
     const merged = mergeInfectiousWasteRecordsWithLogs({
-      wasteLogsData: [{ waste_type: "infectious", weight: 7.5, created_at: "2026-07-15T08:00:00.000Z" }],
+      wasteLogsData: [
+        { waste_type: "infectious", weight: 7.5, created_at: "2026-07-15T08:00:00.000Z" },
+        { waste_type: "general", weight: 2, created_at: "2026-07-15T09:00:00.000Z" },
+      ],
       infectiousRecords: [{ collection_date: "2026-07-15", sharp_waste_kg: 3, non_sharp_waste_kg: 4.5 }],
     });
 
-    expect(merged).toHaveLength(1);
-    expect(merged[0]).toMatchObject({ waste_type: "infectious", weight: 7.5, created_at: "2026-07-15T08:00:00.000Z" });
+    expect(merged).toHaveLength(2);
+    expect(merged).toContainEqual({ waste_type: "general", weight: 2, created_at: "2026-07-15T09:00:00.000Z" });
+    expect(merged).toContainEqual({ waste_type: "infectious", weight: 7.5, created_at: "2026-07-15T08:00:00" });
   });
 
   it("aggregates multiple infectious records for the same day into one entry", () => {

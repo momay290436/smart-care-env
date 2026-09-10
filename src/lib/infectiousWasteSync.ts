@@ -18,13 +18,6 @@ export function mergeInfectiousWasteRecordsWithLogs({
   wasteLogsData,
   infectiousRecords,
 }: MergeInfectiousWasteRecordsWithLogsParams) {
-  const existingInfectiousDays = new Set(
-    (wasteLogsData || [])
-      .filter((l) => (l.waste_type || "").toString().toLowerCase().includes("infect") || l.waste_type === "infectious")
-      .map((l) => (l.created_at || "").substring(0, 10))
-      .filter(Boolean)
-  );
-
   const aggregatedByDay: Record<string, number> = {};
   (infectiousRecords || []).forEach((r) => {
     const weight = Number(r.sharp_waste_kg || 0) + Number(r.non_sharp_waste_kg || 0);
@@ -34,10 +27,14 @@ export function mergeInfectiousWasteRecordsWithLogs({
   });
 
   const extraInf = Object.entries(aggregatedByDay)
-    .filter(([day]) => !existingInfectiousDays.has(day))
     .map(([day, weight]) => ({ waste_type: "infectious", weight: Number(weight.toFixed(2)), created_at: `${day}T08:00:00` }));
 
-  return [...(wasteLogsData || []), ...extraInf];
+  const nonInfectiousLogs = (wasteLogsData || []).filter((log) => {
+    const wasteType = (log.waste_type || "").toString().trim().toLowerCase();
+    return !wasteType.includes("infect") && wasteType !== "ขยะติดเชื้อ";
+  });
+
+  return [...nonInfectiousLogs, ...extraInf];
 }
 
 function formatCollectionDay(collectionDate: Date) {
