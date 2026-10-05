@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import CreatorCredit from "@/components/CreatorCredit";
 export default function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -20,7 +21,8 @@ export default function Login() {
     setSubmitting(true);
     try {
       await signIn(email, password);
-      navigate("/");
+      const from = (location.state as { from?: unknown } | null)?.from;
+      navigate(typeof from === "string" && from.startsWith("/") && !from.startsWith("//") ? from : "/", { replace: true });
     } catch (error: any) {
       toast.error(error.message || "เกิดข้อผิดพลาด");
     } finally {
