@@ -12,6 +12,7 @@ import { Plus, Trash2, Download, Waves, Wind, Zap } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 
 const PUMP_TYPES = ["เครื่องสูบน้ำเสีย", "เครื่องเติมอากาศ", "เครื่องควบคุม/เติมอากาศ"];
+const QR_EXPORT_SIZE = 1024;
 
 function downloadQr(elementId: string, filename: string) {
   const canvas = document.getElementById(elementId) as HTMLCanvasElement | null;
@@ -103,7 +104,8 @@ function PumpMachinesSection() {
         <Card key={m.id} className="rounded-2xl border-0 shadow-card">
           <CardContent className="p-3 flex items-center gap-3">
             <div className="bg-white p-1.5 rounded-xl border">
-              <QRCodeCanvas id={`qr-pump-${m.id}`} value={qrValue(m)} size={64} includeMargin />
+              <QRCodeCanvas value={qrValue(m)} size={64} includeMargin level="H" />
+              <QRCodeCanvas id={`qr-pump-${m.id}`} value={qrValue(m)} size={QR_EXPORT_SIZE} includeMargin level="H" className="hidden" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-800 truncate">{m.name}</p>
@@ -209,7 +211,8 @@ function GeneratorMachinesSection() {
         <Card key={m.id} className="rounded-2xl border-0 shadow-card">
           <CardContent className="p-3 flex items-center gap-3">
             <div className="bg-white p-1.5 rounded-xl border">
-              <QRCodeCanvas id={`qr-gen-${m.id}`} value={qrValue(m)} size={64} includeMargin />
+              <QRCodeCanvas value={qrValue(m)} size={64} includeMargin level="H" />
+              <QRCodeCanvas id={`qr-gen-${m.id}`} value={qrValue(m)} size={QR_EXPORT_SIZE} includeMargin level="H" className="hidden" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-800 truncate">{m.code} · {m.name}</p>
