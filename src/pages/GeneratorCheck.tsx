@@ -60,6 +60,7 @@ export default function GeneratorCheck() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const editId = params.get("id");
+  const linkedCode = params.get("code");
   const { profile, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -78,10 +79,12 @@ export default function GeneratorCheck() {
   });
 
   useEffect(() => {
-    if (!editId && !form.machine_code && machines.length > 0) {
-      set("machine_code", (machines[0] as any).code);
+    if (!editId && machines.length > 0) {
+      const selected = machines.find((m) => m.code === linkedCode);
+      if (selected && form.machine_code !== selected.code) set("machine_code", selected.code);
+      else if (!selected && !form.machine_code) set("machine_code", machines[0].code);
     }
-  }, [machines, editId, form.machine_code]);
+  }, [machines, editId, linkedCode]);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
