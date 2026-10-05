@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,8 +20,23 @@ const today = () => new Date().toISOString().split("T")[0];
 const nowTime = () => new Date().toTimeString().slice(0, 5);
 const beYear = (y: number) => y + 543;
 
+function findPumpByQr(machines: Array<{ id: string; name: string; qr_code_data: string | null }>, text: string) {
+  const value = text.trim();
+  let idFromLink: string | null = null;
+  try {
+    const url = new URL(value);
+    if (url.pathname.replace(/\/$/, "") === "/pump-meters") idFromLink = url.searchParams.get("machine");
+  } catch {
+    // Older QR codes may contain a machine ID, name, or stored value instead of a URL.
+  }
+  return machines.find((m) => m.id === idFromLink || m.qr_code_data === value || m.name === value || m.id === value);
+}
+
 export default function PumpMeters() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const linkedMachine = searchParams.get("machine");
+  const openedLink = useRef<string | null>(null);
   const { profile, user, isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -42,7 +57,7 @@ export default function PumpMeters() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const { data: machines = [] } = useQuery({
+  const { data: machines = [], isSuccess: machinesLoaded } = useQuery({
     queryKey: ["pump-machines"],
     queryFn: async () => {
       const { data, error } = await supabase.from("pump_machines").select("*").order("sort_order");
@@ -89,38 +104,53 @@ export default function PumpMeters() {
 
   const hoursUsed = hoursInput === "" ? autoHours : Number(hoursInput);
 
+  useEffect(() => {
+    if (!machinesLoaded || !linkedMachine || openedLink.current === linkedMachine) return;
+    openedLink.current = linkedMachine;
+    const found = machines.find((m) => m.id === linkedMachine);
+    if (found) openNew(found.id);
+    else toast({ variant: "destructive", title: "ไม่พบเครื่องที่ตรงกับคิวอาร์นี้" });
+  }, [linkedMachine, machines, machinesLoaded]);
 
   // ---------- QR scanner ----------
   useEffect(() => {
     if (!isScanning) return;
     let scanner: any;
-    const load = async () => {
-      if (!window.Html5Qrcode) {
-        await new Promise<void>((res, rej) => {
-          const s = document.createElement("script");
-          s.src = "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js";
-          s.onload = () => res(); s.onerror = () => rej();
-          document.body.appendChild(s);
-        });
+    let cancelled = false;
+    let handled = false;
+    const onScan = (text: string) => {
+      if (cancelled || handled) return;
+      const found = findPumpByQr(machines, text);
+      if (found) {
+        handled = true;
+        openNew(found.id);
+        setIsScanning(false);
+      } else {
+        handled = true;
+        toast({ variant: "destructive", title: "ไม่พบเครื่องที่ตรงกับคิวอาร์นี้" });
+        setIsScanning(false);
       }
-      scanner = new window.Html5Qrcode("pump-reader");
-      await scanner.start({ facingMode: { exact: "environment" } }, { fps: 10, qrbox: 250 }, (text: string) => {
-        const found = machines.find((m: any) => m.qr_code_data === text || m.name === text || m.id === text);
-        if (found) {
-          openNew(found.id);
-          setIsScanning(false);
-        } else {
-          toast({ variant: "destructive", title: "ไม่พบเครื่องที่ตรงกับคิวอาร์นี้" });
+    };
+    const load = async () => {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        if (cancelled) return;
+        scanner = new Html5Qrcode("pump-reader");
+        try {
+          await scanner.start({ facingMode: { exact: "environment" } }, { fps: 10, qrbox: 250 }, onScan, () => {});
+        } catch {
+          if (!cancelled) await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScan, () => {});
         }
-      }, () => {}).catch(async () => {
-        await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text: string) => {
-          const found = machines.find((m: any) => m.qr_code_data === text || m.name === text || m.id === text);
-          if (found) { openNew(found.id); setIsScanning(false); }
-        }, () => {});
-      });
+        if (cancelled) await scanner.stop().catch(() => {});
+      } catch {
+        if (!cancelled) {
+          toast({ variant: "destructive", title: "เปิดกล้องไม่สำเร็จ กรุณาตรวจสอบสิทธิ์การใช้กล้อง" });
+          setIsScanning(false);
+        }
+      }
     };
     load();
-    return () => { if (scanner?.stop) scanner.stop().catch(() => {}); };
+    return () => { cancelled = true; if (scanner?.isScanning) scanner.stop().catch(() => {}); };
   }, [isScanning, machines]);
 
   const openNew = (id: string) => {

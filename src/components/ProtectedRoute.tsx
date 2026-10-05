@@ -41,7 +41,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     );
   }
 
-  if (!session) return <Navigate to="/login" replace />;
+  if (!session) return <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
 
   // Admin always has access to everything
   if (isAdmin) return <>{children}</>;
