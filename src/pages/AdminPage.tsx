@@ -559,6 +559,9 @@ function FireLocationsTab() {
                 </div>
               </div>
               <div className="flex gap-1.5">
+                <Button variant="outline" size="sm" className="rounded-2xl text-xs" onClick={() => setEditLoc({ ...l })}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
                 <Button variant="outline" size="sm" className="rounded-2xl text-xs" onClick={() => setShowQr(showQr === l.id ? null : l.id)}>QR</Button>
                 <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => setDeleteLocId(l.id)}>
                   <Trash2 className="h-4 w-4" />
@@ -582,6 +585,68 @@ function FireLocationsTab() {
           </CardContent>
         </Card>
       ))}
+      <Dialog open={!!editLoc} onOpenChange={(o) => { if (!o) setEditLoc(null); }}>
+        <DialogContent className="rounded-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>แก้ไขถังดับเพลิง</DialogTitle></DialogHeader>
+          {editLoc && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-semibold">ชื่อตำแหน่ง</Label>
+                <Input value={editLoc.name || ""} onChange={(e) => setEditLoc({ ...editLoc, name: e.target.value })} className="h-11 rounded-2xl" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm font-semibold">อาคาร</Label>
+                  <Input value={editLoc.building || ""} onChange={(e) => setEditLoc({ ...editLoc, building: e.target.value })} className="rounded-2xl" />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold">ชั้น</Label>
+                  <Input value={editLoc.floor || ""} onChange={(e) => setEditLoc({ ...editLoc, floor: e.target.value })} className="rounded-2xl" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm font-semibold">สีถัง</Label>
+                  <Select value={editLoc.color || ""} onValueChange={(v) => setEditLoc({ ...editLoc, color: v })}>
+                    <SelectTrigger className="rounded-2xl"><SelectValue placeholder="สีถัง" /></SelectTrigger>
+                    <SelectContent className="rounded-2xl">{colorOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold">ขนาด</Label>
+                  <Select value={editLoc.size || ""} onValueChange={(v) => setEditLoc({ ...editLoc, size: v })}>
+                    <SelectTrigger className="rounded-2xl"><SelectValue placeholder="ขนาด" /></SelectTrigger>
+                    <SelectContent className="rounded-2xl">{sizeOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-semibold">ชนิดถังดับเพลิง</Label>
+                <Select
+                  value={editLoc.extinguisher_type || ""}
+                  onValueChange={(v) => setEditLoc({ ...editLoc, extinguisher_type: v, fuel_type: fuelTypeMap[v] || editLoc.fuel_type })}
+                >
+                  <SelectTrigger className="rounded-2xl"><SelectValue placeholder="ชนิดถังดับเพลิง" /></SelectTrigger>
+                  <SelectContent className="rounded-2xl">{typeOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              {editLoc.fuel_type && (
+                <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">ประเภทเชื้อเพลิง (กำหนดอัตโนมัติ)</p>
+                  <p className="text-sm text-amber-900">{editLoc.fuel_type}</p>
+                </div>
+              )}
+              <div>
+                <Label className="text-sm font-semibold">ปีที่ผลิต</Label>
+                <Input value={editLoc.manufacture_year || ""} onChange={(e) => setEditLoc({ ...editLoc, manufacture_year: e.target.value })} placeholder="เช่น 2565" className="rounded-2xl" />
+              </div>
+              <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => updateLoc.mutate(editLoc)} disabled={!editLoc.name || updateLoc.isPending}>
+                {updateLoc.isPending ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         open={!!deleteLocId}
         onOpenChange={(o) => !o && setDeleteLocId(null)}
