@@ -449,6 +449,13 @@ function FireLocationsTab() {
     }
   };
 
+  const filteredLocations = (locations || []).filter((l: any) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [l.name, l.building, l.floor, l.color, l.size, l.extinguisher_type]
+      .some((v: any) => (v || "").toLowerCase().includes(q));
+  });
+
   const downloadSelectedQRs = async () => {
     if (selectedIds.size === 0) { toast.info("กรุณาเลือกรายการก่อน"); return; }
     const selected = (locations || []).filter((l: any) => selectedIds.has(l.id));
@@ -530,7 +537,8 @@ function FireLocationsTab() {
           <Plus className="h-4 w-4" /> เพิ่มตำแหน่ง + สร้าง QR Code
         </Button>
       </div>
-      {locations?.map((l: any) => (
+      <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 ค้นหาถังดับเพลิง (ชื่อ / อาคาร / ชั้น / ชนิด)..." className="h-11 rounded-2xl" />
+      {filteredLocations.map((l: any) => (
         <Card key={l.id} className="shadow-card border-0 rounded-2xl">
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
