@@ -350,6 +350,8 @@ function FireLocationsTab() {
   const [extType, setExtType] = useState("");
   const [fuelType, setFuelType] = useState("");
   const [manufactureYear, setManufactureYear] = useState("");
+  const [search, setSearch] = useState("");
+  const [editLoc, setEditLoc] = useState<any | null>(null);
 
   const colorOptions = ["สีเขียว", "สีแดง", "สีบอร์น"];
   const sizeOptions = ["5 ปอนด์", "10 ปอนด์", "15 ปอนด์", "20 ปอนด์"];
@@ -403,6 +405,28 @@ function FireLocationsTab() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const updateLoc = useMutation({
+    mutationFn: async (loc: any) => {
+      const { error } = await supabase.from("fire_extinguisher_locations").update({
+        name: loc.name,
+        building: loc.building || null,
+        floor: loc.floor || null,
+        color: loc.color || null,
+        size: loc.size || null,
+        extinguisher_type: loc.extinguisher_type || null,
+        fuel_type: loc.fuel_type || null,
+        manufacture_year: loc.manufacture_year || null,
+      }).eq("id", loc.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("บันทึกการแก้ไขสำเร็จ");
+      setEditLoc(null);
+      queryClient.invalidateQueries({ queryKey: ["fire-locations"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const [showQr, setShowQr] = useState<string | null>(null);
   const [deleteLocId, setDeleteLocId] = useState<string | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
@@ -424,6 +448,13 @@ function FireLocationsTab() {
       setSelectedIds(new Set((locations || []).map((l: any) => l.id)));
     }
   };
+
+  const filteredLocations = (locations || []).filter((l: any) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [l.name, l.building, l.floor, l.color, l.size, l.extinguisher_type]
+      .some((v: any) => (v || "").toLowerCase().includes(q));
+  });
 
   const downloadSelectedQRs = async () => {
     if (selectedIds.size === 0) { toast.info("กรุณาเลือกรายการก่อน"); return; }
@@ -506,7 +537,8 @@ function FireLocationsTab() {
           <Plus className="h-4 w-4" /> เพิ่มตำแหน่ง + สร้าง QR Code
         </Button>
       </div>
-      {locations?.map((l: any) => (
+      <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 ค้นหาถังดับเพลิง (ชื่อ / อาคาร / ชั้น / ชนิด)..." className="h-11 rounded-2xl" />
+      {filteredLocations.map((l: any) => (
         <Card key={l.id} className="shadow-card border-0 rounded-2xl">
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
@@ -527,6 +559,9 @@ function FireLocationsTab() {
                 </div>
               </div>
               <div className="flex gap-1.5">
+                <Button variant="outline" size="sm" className="rounded-2xl text-xs" onClick={() => setEditLoc({ ...l })}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
                 <Button variant="outline" size="sm" className="rounded-2xl text-xs" onClick={() => setShowQr(showQr === l.id ? null : l.id)}>QR</Button>
                 <Button variant="ghost" size="sm" className="text-destructive rounded-2xl" onClick={() => setDeleteLocId(l.id)}>
                   <Trash2 className="h-4 w-4" />
@@ -550,6 +585,68 @@ function FireLocationsTab() {
           </CardContent>
         </Card>
       ))}
+      <Dialog open={!!editLoc} onOpenChange={(o) => { if (!o) setEditLoc(null); }}>
+        <DialogContent className="rounded-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>แก้ไขถังดับเพลิง</DialogTitle></DialogHeader>
+          {editLoc && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-semibold">ชื่อตำแหน่ง</Label>
+                <Input value={editLoc.name || ""} onChange={(e) => setEditLoc({ ...editLoc, name: e.target.value })} className="h-11 rounded-2xl" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm font-semibold">อาคาร</Label>
+                  <Input value={editLoc.building || ""} onChange={(e) => setEditLoc({ ...editLoc, building: e.target.value })} className="rounded-2xl" />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold">ชั้น</Label>
+                  <Input value={editLoc.floor || ""} onChange={(e) => setEditLoc({ ...editLoc, floor: e.target.value })} className="rounded-2xl" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm font-semibold">สีถัง</Label>
+                  <Select value={editLoc.color || ""} onValueChange={(v) => setEditLoc({ ...editLoc, color: v })}>
+                    <SelectTrigger className="rounded-2xl"><SelectValue placeholder="สีถัง" /></SelectTrigger>
+                    <SelectContent className="rounded-2xl">{colorOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold">ขนาด</Label>
+                  <Select value={editLoc.size || ""} onValueChange={(v) => setEditLoc({ ...editLoc, size: v })}>
+                    <SelectTrigger className="rounded-2xl"><SelectValue placeholder="ขนาด" /></SelectTrigger>
+                    <SelectContent className="rounded-2xl">{sizeOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-semibold">ชนิดถังดับเพลิง</Label>
+                <Select
+                  value={editLoc.extinguisher_type || ""}
+                  onValueChange={(v) => setEditLoc({ ...editLoc, extinguisher_type: v, fuel_type: fuelTypeMap[v] || editLoc.fuel_type })}
+                >
+                  <SelectTrigger className="rounded-2xl"><SelectValue placeholder="ชนิดถังดับเพลิง" /></SelectTrigger>
+                  <SelectContent className="rounded-2xl">{typeOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              {editLoc.fuel_type && (
+                <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">ประเภทเชื้อเพลิง (กำหนดอัตโนมัติ)</p>
+                  <p className="text-sm text-amber-900">{editLoc.fuel_type}</p>
+                </div>
+              )}
+              <div>
+                <Label className="text-sm font-semibold">ปีที่ผลิต</Label>
+                <Input value={editLoc.manufacture_year || ""} onChange={(e) => setEditLoc({ ...editLoc, manufacture_year: e.target.value })} placeholder="เช่น 2565" className="rounded-2xl" />
+              </div>
+              <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => updateLoc.mutate(editLoc)} disabled={!editLoc.name || updateLoc.isPending}>
+                {updateLoc.isPending ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         open={!!deleteLocId}
         onOpenChange={(o) => !o && setDeleteLocId(null)}
