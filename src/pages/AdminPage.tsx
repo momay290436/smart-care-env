@@ -350,6 +350,8 @@ function FireLocationsTab() {
   const [extType, setExtType] = useState("");
   const [fuelType, setFuelType] = useState("");
   const [manufactureYear, setManufactureYear] = useState("");
+  const [search, setSearch] = useState("");
+  const [editLoc, setEditLoc] = useState<any | null>(null);
 
   const colorOptions = ["สีเขียว", "สีแดง", "สีบอร์น"];
   const sizeOptions = ["5 ปอนด์", "10 ปอนด์", "15 ปอนด์", "20 ปอนด์"];
@@ -400,6 +402,28 @@ function FireLocationsTab() {
   const deleteLoc = useMutation({
     mutationFn: async (id: string) => { const { error } = await supabase.from("fire_extinguisher_locations").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { toast.success("ลบสำเร็จ"); queryClient.invalidateQueries({ queryKey: ["fire-locations"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateLoc = useMutation({
+    mutationFn: async (loc: any) => {
+      const { error } = await supabase.from("fire_extinguisher_locations").update({
+        name: loc.name,
+        building: loc.building || null,
+        floor: loc.floor || null,
+        color: loc.color || null,
+        size: loc.size || null,
+        extinguisher_type: loc.extinguisher_type || null,
+        fuel_type: loc.fuel_type || null,
+        manufacture_year: loc.manufacture_year || null,
+      }).eq("id", loc.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("บันทึกการแก้ไขสำเร็จ");
+      setEditLoc(null);
+      queryClient.invalidateQueries({ queryKey: ["fire-locations"] });
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
