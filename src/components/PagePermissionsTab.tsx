@@ -55,6 +55,9 @@ const ACTION_GROUPS: { group: string; items: { key: string; label: string; icon:
       { key: "action:water-pathogen-record", label: "บันทึกผลตรวจเชื้อจุลินทรีย์", icon: "🦠" },
       { key: "action:wastewater-daily-record", label: "ตรวจระบบบำบัดน้ำเสียประจำวัน", icon: "♻️" },
       { key: "action:wastewater-stats-record", label: "บันทึกสถิติระบบบำบัดน้ำเสีย", icon: "📈" },
+      { key: "action:sewage-trash-record", label: "บันทึกขยะตะแกรงดักบ่อสูบน้ำเสีย", icon: "🧺" },
+      { key: "action:pump-meter-record", label: "บันทึกมิเตอร์เครื่องสูบน้ำเสีย/เติมอากาศ", icon: "⚙️" },
+      { key: "action:duty-roster-manage", label: "จัดการตารางเวรเจ้าหน้าที่", icon: "📅" },
     ],
   },
   {
@@ -74,6 +77,8 @@ const ACTION_GROUPS: { group: string; items: { key: string; label: string; icon:
       { key: "action:electricity-meter-manage", label: "เพิ่ม/จัดการสถานที่ติดตั้งมิเตอร์", icon: "🏢" },
       { key: "action:electricity-pending-check", label: "ตรวจสถานที่ค้างลงมิเตอร์", icon: "🔍" },
       { key: "action:electricity-export", label: "ส่งออกรายงานค่าไฟ", icon: "📄" },
+      { key: "action:generator-check-record", label: "บันทึกตรวจเช็คเครื่องปั๊มไฟ", icon: "🔌" },
+      { key: "action:machines-manage", label: "เพิ่ม/ลบเครื่องจักร และสร้าง QR ประจำเครื่อง", icon: "🏭" },
     ],
   },
   {
