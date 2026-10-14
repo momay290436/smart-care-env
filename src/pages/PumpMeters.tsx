@@ -20,6 +20,23 @@ const today = () => new Date().toISOString().split("T")[0];
 const nowTime = () => new Date().toTimeString().slice(0, 5);
 const beYear = (y: number) => y + 543;
 
+const logTs = (l: any) => new Date(`${l.record_date}T${String(l.record_time).slice(0, 8).padEnd(8, ":00")}`).getTime();
+
+// สัดส่วนเวลาทำงานจริงตามรอบการทำงานของเครื่อง
+function workRatio(name?: string | null, type?: string | null) {
+  const n = `${name || ""} ${type || ""}`;
+  if ((name || "").includes("ดูดตะกอน")) return 15 / 60; // ทำงาน 15 นาที พัก 45 นาที
+  if (n.includes("เติมอากาศ") || n.includes("บ่อพัก")) return 0.5; // ทำงาน 1 ชม. พัก 1 ชม.
+  return 1;
+}
+
+const fmtMinutes = (m?: number) => {
+  if (m === undefined || m === null || isNaN(m)) return "-";
+  const h = Math.floor(m / 60);
+  const mm = Math.round(m % 60);
+  return `${h.toLocaleString()} ชม. ${mm} นาที`;
+};
+
 function findPumpByQr(machines: Array<{ id: string; name: string; qr_code_data: string | null }>, text: string) {
   const value = text.trim();
   let idFromLink: string | null = null;
