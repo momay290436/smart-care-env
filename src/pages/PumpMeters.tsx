@@ -20,6 +20,23 @@ const today = () => new Date().toISOString().split("T")[0];
 const nowTime = () => new Date().toTimeString().slice(0, 5);
 const beYear = (y: number) => y + 543;
 
+const logTs = (l: any) => new Date(`${l.record_date}T${String(l.record_time).slice(0, 8).padEnd(8, ":00")}`).getTime();
+
+// สัดส่วนเวลาทำงานจริงตามรอบการทำงานของเครื่อง
+function workRatio(name?: string | null, type?: string | null) {
+  const n = `${name || ""} ${type || ""}`;
+  if ((name || "").includes("ดูดตะกอน")) return 15 / 60; // ทำงาน 15 นาที พัก 45 นาที
+  if (n.includes("เติมอากาศ") || n.includes("บ่อพัก")) return 0.5; // ทำงาน 1 ชม. พัก 1 ชม.
+  return 1;
+}
+
+const fmtMinutes = (m?: number) => {
+  if (m === undefined || m === null || isNaN(m)) return "-";
+  const h = Math.floor(m / 60);
+  const mm = Math.round(m % 60);
+  return `${h.toLocaleString()} ชม. ${mm} นาที`;
+};
+
 function findPumpByQr(machines: Array<{ id: string; name: string; qr_code_data: string | null }>, text: string) {
   const value = text.trim();
   let idFromLink: string | null = null;
@@ -231,18 +248,40 @@ export default function PumpMeters() {
     );
   }, [logs, filterMachine, filterMonth]);
 
-  // ผลรวมชั่วโมงการทำงานแต่ละวันของแต่ละเครื่อง (รอบเช้า + รอบบ่าย)
+  // ชั่วโมงการทำงาน (นาที) = (เวลาบันทึกครั้งนี้ - ครั้งก่อนหน้าของเครื่องเดียวกัน) × สัดส่วนการทำงานของเครื่อง
+  const workMinutes = useMemo(() => {
+    const map = new Map<string, number>();
+    const byMachine = new Map<string, any[]>();
+    logs.forEach((l: any) => {
+      const arr = byMachine.get(l.machine_id) || [];
+      arr.push(l);
+      byMachine.set(l.machine_id, arr);
+    });
+    byMachine.forEach((arr) => {
+      const sorted = [...arr].sort((a, b) => logTs(a) - logTs(b));
+      for (let i = 1; i < sorted.length; i++) {
+        const elapsed = (logTs(sorted[i]) - logTs(sorted[i - 1])) / 60000;
+        if (elapsed <= 0) continue;
+        const ratio = workRatio(sorted[i].pump_machines?.name, sorted[i].pump_machines?.machine_type);
+        map.set(sorted[i].id, Math.round(elapsed * ratio));
+      }
+    });
+    return map;
+  }, [logs]);
+
+  // ผลรวมชั่วโมงการทำงานแต่ละวันของแต่ละเครื่อง (1 รอบ = ค่านั้น, 2 รอบ = รวมกัน)
   const dailyTotals = useMemo(() => {
-    const map = new Map<string, { total: number; count: number }>();
+    const map = new Map<string, { total: number; count: number; hasValue: boolean }>();
     logs.forEach((l: any) => {
       const k = `${l.machine_id}|${l.record_date}`;
-      const cur = map.get(k) || { total: 0, count: 0 };
-      cur.total += Number(l.hours_used ?? 0);
+      const cur = map.get(k) || { total: 0, count: 0, hasValue: false };
+      const w = workMinutes.get(l.id);
+      if (w !== undefined) { cur.total += w; cur.hasValue = true; }
       cur.count += 1;
       map.set(k, cur);
     });
     return map;
-  }, [logs]);
+  }, [logs, workMinutes]);
 
   const groupInfo = useMemo(() => {
     const spans = new Map<string, number>();
@@ -256,7 +295,7 @@ export default function PumpMeters() {
       const first = !seen.has(k);
       seen.add(k);
       const g = dailyTotals.get(k);
-      return { first, span: spans.get(k) || 1, total: g ? Math.round(g.total * 100) / 100 : 0, count: g?.count || 0 };
+      return { first, span: spans.get(k) || 1, total: g?.total || 0, hasValue: !!g?.hasValue, count: g?.count || 0 };
     });
   }, [filteredLogs, dailyTotals]);
 
@@ -292,14 +331,14 @@ export default function PumpMeters() {
       seenPdf.add(k);
       const g = dailyTotals.get(k);
       const totalCell = first
-        ? `<td rowspan="${spanPdf.get(k) || 1}"><b>${g ? (Math.round(g.total * 100) / 100).toLocaleString() : "-"}</b></td>`
+        ? `<td rowspan="${spanPdf.get(k) || 1}"><b>${g && g.hasValue ? fmtMinutes(g.total) : "-"}</b></td>`
         : "";
       return `<tr>
       <td>${i + 1}</td>
       <td>${new Date(r.record_date).toLocaleDateString("th-TH", { dateStyle: "short" })}</td>
       <td>${String(r.record_time).slice(0, 5)}</td>
       <td>${Number(r.meter_reading).toLocaleString()}</td>
-      <td>${r.hours_used === null || r.hours_used === undefined ? "-" : Number(r.hours_used).toLocaleString()}</td>
+      <td>${fmtMinutes(workMinutes.get(r.id))}</td>
       ${totalCell}
       <td>${r.recorder_name || "-"}</td>
       <td>${r.notes || ""}</td>
@@ -364,8 +403,10 @@ export default function PumpMeters() {
         </CardHeader>
         <CardContent className="p-4 space-y-3">
           {!isScanning ? (
-            <Button onClick={() => setIsScanning(true)} className="w-full bg-teal-600 hover:bg-teal-700 text-white py-4 rounded-xl text-xs sm:text-sm font-bold">
-              <Camera className="mr-2 h-4 w-4" /> สแกนคิวอาร์เครื่องเพื่อบันทึกมิเตอร์
+            <Button onClick={() => setIsScanning(true)} className="w-full h-auto min-h-[140px] sm:min-h-[160px] bg-teal-600 hover:bg-teal-700 text-white rounded-2xl shadow-lg flex flex-col items-center justify-center gap-3 py-6">
+              <Camera className="!h-14 !w-14" />
+              <span className="text-lg sm:text-2xl font-extrabold">สแกนคิวอาร์เครื่องเพื่อบันทึกมิเตอร์</span>
+              <span className="text-xs sm:text-sm font-normal opacity-90">สแกนคิวอาร์ที่ติดอยู่กับเครื่องเพื่อระบุเครื่องให้ถูกต้อง</span>
             </Button>
           ) : (
             <div className="relative max-w-[320px] mx-auto aspect-square w-full border-4 border-teal-500 rounded-2xl overflow-hidden bg-black">
@@ -375,39 +416,7 @@ export default function PumpMeters() {
               </Button>
             </div>
           )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {machines.map((m: any) => {
-              const done = doneToday.has(m.id);
-              const isAerator = String(m.machine_type).includes("เติมอากาศ");
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => openNew(m.id)}
-                  className="text-left p-3 rounded-2xl border bg-white hover:shadow-md transition-all active:scale-[0.98] border-slate-200"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={`p-2 rounded-xl ${isAerator ? "bg-sky-50 text-sky-600" : "bg-teal-50 text-teal-600"}`}>
-                      {isAerator ? <Wind className="h-4 w-4" /> : <Waves className="h-4 w-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800 truncate">{m.name}</p>
-                      <p className="text-[10px] text-slate-500 truncate">{m.machine_type}</p>
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    {done ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        <CheckCircle2 className="h-3 w-3" /> บันทึกวันนี้แล้ว
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100">ยังไม่บันทึกวันนี้</span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <p className="text-xs text-center text-slate-500">บันทึกวันนี้แล้ว {machines.filter((m: any) => doneToday.has(m.id)).length} / {machines.length} เครื่อง</p>
         </CardContent>
       </Card>
 
@@ -453,13 +462,13 @@ export default function PumpMeters() {
                   <TableCell className="text-xs text-slate-600">{String(l.record_time).slice(0, 5)}</TableCell>
                   <TableCell className="text-xs font-semibold text-slate-800 whitespace-nowrap">{l.pump_machines?.name || "-"}</TableCell>
                   <TableCell className="text-xs text-right font-medium text-slate-700">{Number(l.meter_reading).toLocaleString()}</TableCell>
-                  <TableCell className="text-xs text-right font-bold text-teal-600 bg-teal-50/30">{l.hours_used === null ? "-" : Number(l.hours_used).toLocaleString()}</TableCell>
+                  <TableCell className="text-xs text-right font-bold text-teal-600 bg-teal-50/30 whitespace-nowrap">{fmtMinutes(workMinutes.get(l.id))}</TableCell>
                   {groupInfo[i]?.first && (
                     <TableCell
                       rowSpan={groupInfo[i].span}
                       className="text-center align-middle bg-indigo-50/60 border-l border-r border-indigo-100"
                     >
-                      <div className="text-sm font-extrabold text-indigo-700 whitespace-nowrap">{groupInfo[i].total.toLocaleString()} ชม.</div>
+                      <div className="text-sm font-extrabold text-indigo-700 whitespace-nowrap">{groupInfo[i].hasValue ? fmtMinutes(groupInfo[i].total) : "-"}</div>
                       <div className="text-[10px] text-indigo-500 whitespace-nowrap">รวม {groupInfo[i].count} รอบ</div>
                     </TableCell>
                   )}
