@@ -22,11 +22,16 @@ const beYear = (y: number) => y + 543;
 
 const logTs = (l: any) => new Date(`${l.record_date}T${String(l.record_time).slice(0, 8).padEnd(8, ":00")}`).getTime();
 
+function requiresManualHours(name?: string | null, type?: string | null) {
+  const identity = `${name || ""} ${type || ""}`;
+  return identity.includes("เครื่องสูบน้ำเสีย") || identity.includes("บ่อพัก");
+}
+
 // สัดส่วนเวลาทำงานจริงตามรอบการทำงานของเครื่อง
 function workRatio(name?: string | null, type?: string | null) {
   const n = `${name || ""} ${type || ""}`;
-  if ((name || "").includes("ดูดตะกอน")) return 15 / 60; // ทำงาน 15 นาที พัก 45 นาที
-  if (n.includes("เติมอากาศ") || n.includes("บ่อพัก")) return 0.5; // ทำงาน 1 ชม. พัก 1 ชม.
+  if (n.includes("ดูดตะกอนย้อนกลับ")) return 15 / 60; // ทำงาน 15 นาที พัก 45 นาที
+  if (n.includes("เติมอากาศ")) return 0.5; // ทำงาน 1 ชม. พัก 1 ชม.
   return 1;
 }
 
@@ -113,14 +118,18 @@ export default function PumpMeters() {
     return Math.round((Number(meterReading) - lastReading) * 100) / 100;
   }, [meterReading, lastReading]);
 
-  // ชั่วโมงการทำงานที่เจ้าหน้าที่กรอกเอง (เติมอัตโนมัติจากผลต่างมิเตอร์)
+  const formMachine = machines.find((m: any) => m.id === machineId);
+  const manualHoursRequired = requiresManualHours(formMachine?.name, formMachine?.machine_type);
+
+  // ชั่วโมงเครื่องสูบน้ำเสียและบ่อพักให้เจ้าหน้าที่กรอกเอง
   const [hoursInput, setHoursInput] = useState("");
   const [hoursTouched, setHoursTouched] = useState(false);
   useEffect(() => {
-    if (!hoursTouched) setHoursInput(autoHours === null ? "" : String(autoHours));
-  }, [autoHours, hoursTouched]);
+    if (hoursTouched) return;
+    setHoursInput(manualHoursRequired || autoHours === null ? "" : String(autoHours));
+  }, [autoHours, hoursTouched, manualHoursRequired]);
 
-  const hoursUsed = hoursInput === "" ? autoHours : Number(hoursInput);
+  const hoursUsed = hoursInput === "" ? (manualHoursRequired ? null : autoHours) : Number(hoursInput);
 
   useEffect(() => {
     if (!machinesLoaded || !linkedMachine || openedLink.current === linkedMachine) return;
@@ -202,6 +211,9 @@ export default function PumpMeters() {
     if (!machineId || meterReading === "") {
       return toast({ variant: "destructive", title: "กรุณาเลือกเครื่องและระบุเลขมิเตอร์" });
     }
+    if (manualHoursRequired && (hoursInput === "" || !Number.isFinite(Number(hoursInput)) || Number(hoursInput) < 0)) {
+      return toast({ variant: "destructive", title: "กรุณาระบุชั่วโมงการทำงานของเครื่องสูบ" });
+    }
     setSaving(true);
     try {
       const payload: any = {
@@ -251,7 +263,7 @@ export default function PumpMeters() {
     );
   }, [logs, filterMachine, filterMonth]);
 
-  // ชั่วโมงการทำงาน (นาที) = (เวลาบันทึกครั้งนี้ - ครั้งก่อนหน้าของเครื่องเดียวกัน) × สัดส่วนการทำงานของเครื่อง
+  // ชั่วโมงเครื่องที่ต้องกรอกเองอ่านจากรายการ ส่วนเครื่องชนิดอื่นคำนวณจากช่วงเวลาระหว่างรายการ
   const workMinutes = useMemo(() => {
     const map = new Map<string, number>();
     const byMachine = new Map<string, any[]>();
@@ -262,12 +274,21 @@ export default function PumpMeters() {
     });
     byMachine.forEach((arr) => {
       const sorted = [...arr].sort((a, b) => logTs(a) - logTs(b));
-      for (let i = 1; i < sorted.length; i++) {
+      sorted.forEach((log, i) => {
+        const name = log.pump_machines?.name;
+        const type = log.pump_machines?.machine_type;
+        if (requiresManualHours(name, type) || i === 0) {
+          const hours = log.hours_used;
+          if (hours !== null && hours !== undefined && hours !== "" && Number.isFinite(Number(hours))) {
+            map.set(log.id, Math.round(Number(hours) * 60));
+          }
+          return;
+        }
         const elapsed = (logTs(sorted[i]) - logTs(sorted[i - 1])) / 60000;
-        if (elapsed <= 0) continue;
-        const ratio = workRatio(sorted[i].pump_machines?.name, sorted[i].pump_machines?.machine_type);
-        map.set(sorted[i].id, Math.round(elapsed * ratio));
-      }
+        if (elapsed <= 0) return;
+        const ratio = workRatio(name, type);
+        map.set(log.id, Math.round(elapsed * ratio));
+      });
     });
     return map;
   }, [logs]);
@@ -506,7 +527,7 @@ export default function PumpMeters() {
           <div className="space-y-3 pt-1">
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-500">เครื่องจักร</label>
-              <Select value={machineId} onValueChange={setMachineId}>
+              <Select value={machineId} onValueChange={(id) => { setMachineId(id); setHoursTouched(false); setHoursInput(""); }}>
                 <SelectTrigger className="h-10 text-sm bg-white"><SelectValue placeholder="เลือกเครื่อง" /></SelectTrigger>
                 <SelectContent className="bg-white z-50">
                   {machines.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -534,18 +555,23 @@ export default function PumpMeters() {
               </div>
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-teal-700">ชั่วโมงการทำงานที่ใช้ (ชม.)</label>
+              <label className="text-[11px] font-bold text-teal-700">
+                {manualHoursRequired ? "ชั่วโมงการทำงานจริง (ชม.) *" : "ชั่วโมงการทำงานที่ใช้ (ชม.)"}
+              </label>
               <Input
                 type="number"
                 step="0.01"
+                min="0"
                 inputMode="decimal"
                 value={hoursInput}
                 onChange={(e) => { setHoursTouched(true); setHoursInput(e.target.value); }}
-                placeholder="กรอกจำนวนชั่วโมงการทำงาน"
+                placeholder={manualHoursRequired ? "กรอกชั่วโมงที่เครื่องทำงานจริง" : "กรอกจำนวนชั่วโมงการทำงาน"}
                 className="h-11 text-base font-bold text-teal-700"
               />
               <p className="text-[10px] text-slate-500">
-                ระบบคำนวณให้อัตโนมัติจากผลต่างมิเตอร์ ({autoHours === null ? "-" : `${autoHours.toLocaleString()} ชม.`}) แก้ไขได้ตามจริง
+                {manualHoursRequired
+                  ? "กรอกชั่วโมงการทำงานจริงของเครื่องสูบ"
+                  : `ระบบคำนวณให้อัตโนมัติจากผลต่างมิเตอร์ (${autoHours === null ? "-" : `${autoHours.toLocaleString()} ชม.`}) แก้ไขได้ตามจริง`}
               </p>
             </div>
             {isAdmin && (
