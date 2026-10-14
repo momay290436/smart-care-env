@@ -67,6 +67,7 @@ export default function PumpMeters() {
   const [meterReading, setMeterReading] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [recorderName, setRecorderName] = useState("");
 
   const [filterMachine, setFilterMachine] = useState("all");
   const [filterMonth, setFilterMonth] = useState(() => {
