@@ -67,6 +67,7 @@ export default function PumpMeters() {
   const [meterReading, setMeterReading] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [recorderName, setRecorderName] = useState("");
 
   const [filterMachine, setFilterMachine] = useState("all");
   const [filterMonth, setFilterMonth] = useState(() => {
@@ -179,6 +180,7 @@ export default function PumpMeters() {
     setNotes("");
     setHoursTouched(false);
     setHoursInput("");
+    setRecorderName(profile?.full_name || "");
     setOpenForm(true);
   };
 
@@ -191,6 +193,7 @@ export default function PumpMeters() {
     setNotes(log.notes || "");
     setHoursTouched(true);
     setHoursInput(log.hours_used === null || log.hours_used === undefined ? "" : String(log.hours_used));
+    setRecorderName(log.recorder_name || profile?.full_name || "");
     setOpenForm(true);
   };
 
@@ -209,7 +212,7 @@ export default function PumpMeters() {
         previous_reading: lastReading,
         hours_used: hoursUsed,
         recorder_id: user?.id ?? null,
-        recorder_name: profile?.full_name || "ไม่ระบุชื่อ",
+        recorder_name: isAdmin && recorderName.trim() ? recorderName.trim() : (profile?.full_name || "ไม่ระบุชื่อ"),
         notes: notes || null,
       };
       const { error } = editId
@@ -545,6 +548,17 @@ export default function PumpMeters() {
                 ระบบคำนวณให้อัตโนมัติจากผลต่างมิเตอร์ ({autoHours === null ? "-" : `${autoHours.toLocaleString()} ชม.`}) แก้ไขได้ตามจริง
               </p>
             </div>
+            {isAdmin && (
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-500">ผู้บันทึก (แอดมินแก้ไขได้)</label>
+                <Input
+                  value={recorderName}
+                  onChange={(e) => setRecorderName(e.target.value)}
+                  placeholder={profile?.full_name || "ชื่อ-สกุลผู้บันทึก"}
+                  className="h-10 text-sm"
+                />
+              </div>
+            )}
             <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100 text-sm font-bold text-indigo-700 flex items-center justify-between gap-2">
               <span>ผลรวมชั่วโมงการทำงานของวันนี้</span>
               <span>{formDayTotal.toLocaleString()} ชม.</span>
