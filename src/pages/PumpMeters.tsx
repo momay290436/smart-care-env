@@ -499,7 +499,7 @@ export default function PumpMeters() {
       </Card>
 
       <Dialog open={openForm} onOpenChange={setOpenForm}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="sm:max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base">{editId ? "แก้ไขบันทึกมิเตอร์" : "บันทึกมิเตอร์ชั่วโมงทำงาน"}</DialogTitle>
           </DialogHeader>
