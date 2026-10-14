@@ -180,6 +180,7 @@ export default function PumpMeters() {
     setNotes("");
     setHoursTouched(false);
     setHoursInput("");
+    setRecorderName(profile?.full_name || "");
     setOpenForm(true);
   };
 
@@ -192,6 +193,7 @@ export default function PumpMeters() {
     setNotes(log.notes || "");
     setHoursTouched(true);
     setHoursInput(log.hours_used === null || log.hours_used === undefined ? "" : String(log.hours_used));
+    setRecorderName(log.recorder_name || profile?.full_name || "");
     setOpenForm(true);
   };
 
