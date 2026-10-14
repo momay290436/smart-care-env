@@ -212,7 +212,7 @@ export default function PumpMeters() {
         previous_reading: lastReading,
         hours_used: hoursUsed,
         recorder_id: user?.id ?? null,
-        recorder_name: profile?.full_name || "ไม่ระบุชื่อ",
+        recorder_name: isAdmin && recorderName.trim() ? recorderName.trim() : (profile?.full_name || "ไม่ระบุชื่อ"),
         notes: notes || null,
       };
       const { error } = editId
