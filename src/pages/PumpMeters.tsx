@@ -427,11 +427,23 @@ export default function PumpMeters() {
         </CardHeader>
         <CardContent className="p-4 space-y-3">
           {!isScanning ? (
-            <Button onClick={() => setIsScanning(true)} className="w-full h-auto min-h-[140px] sm:min-h-[160px] bg-teal-600 hover:bg-teal-700 text-white rounded-2xl shadow-lg flex flex-col items-center justify-center gap-3 py-6">
-              <Camera className="!h-14 !w-14" />
-              <span className="text-lg sm:text-2xl font-extrabold">สแกนคิวอาร์เครื่องเพื่อบันทึกมิเตอร์</span>
-              <span className="text-xs sm:text-sm font-normal opacity-90">สแกนคิวอาร์ที่ติดอยู่กับเครื่องเพื่อระบุเครื่องให้ถูกต้อง</span>
-            </Button>
+            <div className={isAdmin ? "grid gap-3 sm:grid-cols-2" : undefined}>
+              <Button onClick={() => setIsScanning(true)} className="w-full h-auto min-h-[140px] sm:min-h-[160px] bg-teal-600 hover:bg-teal-700 text-white rounded-2xl shadow-lg flex flex-col items-center justify-center gap-3 py-6">
+                <Camera className="!h-14 !w-14" />
+                <span className="text-lg sm:text-2xl font-extrabold">สแกนคิวอาร์เครื่องเพื่อบันทึกมิเตอร์</span>
+                <span className="text-xs sm:text-sm font-normal opacity-90">สแกนคิวอาร์ที่ติดอยู่กับเครื่องเพื่อระบุเครื่องให้ถูกต้อง</span>
+              </Button>
+              {isAdmin && (
+                <Select onValueChange={openNew}>
+                  <SelectTrigger className="h-full min-h-[140px] sm:min-h-[160px] justify-center border-2 border-dashed border-teal-300 bg-teal-50 text-center text-base font-bold text-teal-800 hover:bg-teal-100">
+                    <SelectValue placeholder="เลือกเครื่องเพื่อบันทึกมิเตอร์" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white z-50">
+                    {machines.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           ) : (
             <div className="relative max-w-[320px] mx-auto aspect-square w-full border-4 border-teal-500 rounded-2xl overflow-hidden bg-black">
               <div id="pump-reader" className="w-full h-full [&_video]:object-cover [&_video]:w-full [&_video]:h-full" />
