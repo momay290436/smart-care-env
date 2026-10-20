@@ -22,7 +22,7 @@ const beYear = (y: number) => y + 543;
 
 const logTs = (l: any) => new Date(`${l.record_date}T${String(l.record_time).slice(0, 8).padEnd(8, ":00")}`).getTime();
 
-function requiresManualHours(name?: string | null, type?: string | null) {
+function isWastewaterOrSumpPump(name?: string | null, type?: string | null) {
   const identity = `${name || ""} ${type || ""}`;
   return identity.includes("เครื่องสูบน้ำเสีย") || identity.includes("บ่อพัก");
 }
@@ -41,6 +41,16 @@ const fmtMinutes = (m?: number) => {
   const mm = Math.round(m % 60);
   return `${h.toLocaleString()} ชม. ${mm} นาที`;
 };
+
+const fmtPumpHours = (m?: number) => {
+  if (m === undefined || m === null || isNaN(m)) return "-";
+  return `${(m / 60).toFixed(2)} ชม.`;
+};
+
+const formatWorkDuration = (log: any, minutes?: number) =>
+  isWastewaterOrSumpPump(log.pump_machines?.name, log.pump_machines?.machine_type)
+    ? fmtPumpHours(minutes)
+    : fmtMinutes(minutes);
 
 function findPumpByQr(machines: Array<{ id: string; name: string; qr_code_data: string | null }>, text: string) {
   const value = text.trim();
@@ -107,11 +117,12 @@ export default function PumpMeters() {
 
   const lastReading = useMemo(() => {
     if (!machineId) return null;
+    const recordTimestamp = new Date(`${recordDate}T${recordTime}:00`).getTime();
     const prev = logs
-      .filter((l: any) => l.machine_id === machineId && l.id !== editId)
-      .sort((a: any, b: any) => `${b.record_date}${b.record_time}`.localeCompare(`${a.record_date}${a.record_time}`))[0];
+      .filter((l: any) => l.machine_id === machineId && l.id !== editId && (!editId || logTs(l) < recordTimestamp))
+      .sort((a: any, b: any) => logTs(b) - logTs(a))[0];
     return prev ? Number(prev.meter_reading) : null;
-  }, [logs, machineId, editId]);
+  }, [logs, machineId, editId, recordDate, recordTime]);
 
   const autoHours = useMemo(() => {
     if (meterReading === "" || lastReading === null) return null;
@@ -119,17 +130,17 @@ export default function PumpMeters() {
   }, [meterReading, lastReading]);
 
   const formMachine = machines.find((m: any) => m.id === machineId);
-  const manualHoursRequired = requiresManualHours(formMachine?.name, formMachine?.machine_type);
+  const meterDifferenceHours = isWastewaterOrSumpPump(formMachine?.name, formMachine?.machine_type);
 
   // ชั่วโมงเครื่องสูบน้ำเสียและบ่อพักให้เจ้าหน้าที่กรอกเอง
   const [hoursInput, setHoursInput] = useState("");
   const [hoursTouched, setHoursTouched] = useState(false);
   useEffect(() => {
     if (hoursTouched) return;
-    setHoursInput(manualHoursRequired || autoHours === null ? "" : String(autoHours));
-  }, [autoHours, hoursTouched, manualHoursRequired]);
+    setHoursInput(autoHours === null ? "" : String(autoHours));
+  }, [autoHours, hoursTouched]);
 
-  const hoursUsed = hoursInput === "" ? (manualHoursRequired ? null : autoHours) : Number(hoursInput);
+  const hoursUsed = hoursInput === "" ? autoHours : Number(hoursInput);
 
   useEffect(() => {
     if (!machinesLoaded || !linkedMachine || openedLink.current === linkedMachine) return;
@@ -194,14 +205,25 @@ export default function PumpMeters() {
   };
 
   const openEdit = (log: any) => {
+    const machine = machines.find((m: any) => m.id === log.machine_id);
+    const usesMeterDifference = isWastewaterOrSumpPump(machine?.name, machine?.machine_type);
+    const previousLog = logs
+      .filter((entry: any) => entry.machine_id === log.machine_id && entry.id !== log.id && logTs(entry) < logTs(log))
+      .sort((a: any, b: any) => logTs(b) - logTs(a))[0];
+    const previousReading = previousLog?.meter_reading ?? log.previous_reading;
+    const calculatedHours = previousReading === null || previousReading === undefined
+      ? null
+      : Number(log.meter_reading) - Number(previousReading);
     setEditId(log.id);
     setMachineId(log.machine_id);
     setRecordDate(log.record_date);
     setRecordTime(String(log.record_time).slice(0, 5));
     setMeterReading(String(log.meter_reading));
     setNotes(log.notes || "");
-    setHoursTouched(true);
-    setHoursInput(log.hours_used === null || log.hours_used === undefined ? "" : String(log.hours_used));
+    setHoursTouched(!usesMeterDifference);
+    setHoursInput(usesMeterDifference
+      ? calculatedHours === null ? "" : String(Math.round(calculatedHours * 100) / 100)
+      : log.hours_used === null || log.hours_used === undefined ? "" : String(log.hours_used));
     setRecorderName(log.recorder_name || profile?.full_name || "");
     setOpenForm(true);
   };
@@ -210,9 +232,6 @@ export default function PumpMeters() {
   const handleSave = async () => {
     if (!machineId || meterReading === "") {
       return toast({ variant: "destructive", title: "กรุณาเลือกเครื่องและระบุเลขมิเตอร์" });
-    }
-    if (manualHoursRequired && (hoursInput === "" || !Number.isFinite(Number(hoursInput)) || Number(hoursInput) < 0)) {
-      return toast({ variant: "destructive", title: "กรุณาระบุชั่วโมงการทำงานของเครื่องสูบ" });
     }
     setSaving(true);
     try {
@@ -277,7 +296,16 @@ export default function PumpMeters() {
       sorted.forEach((log, i) => {
         const name = log.pump_machines?.name;
         const type = log.pump_machines?.machine_type;
-        if (requiresManualHours(name, type) || i === 0) {
+        if (isWastewaterOrSumpPump(name, type)) {
+          const currentReading = Number(log.meter_reading);
+          const previousReading = i > 0 ? Number(sorted[i - 1].meter_reading) : Number(log.previous_reading);
+          const hasPreviousReading = i > 0 || (log.previous_reading !== null && log.previous_reading !== undefined && log.previous_reading !== "");
+          if (hasPreviousReading && Number.isFinite(currentReading) && Number.isFinite(previousReading)) {
+            map.set(log.id, (currentReading - previousReading) * 60);
+          }
+          return;
+        }
+        if (i === 0) {
           const hours = log.hours_used;
           if (hours !== null && hours !== undefined && hours !== "" && Number.isFinite(Number(hours))) {
             map.set(log.id, Math.round(Number(hours) * 60));
@@ -355,14 +383,14 @@ export default function PumpMeters() {
       seenPdf.add(k);
       const g = dailyTotals.get(k);
       const totalCell = first
-        ? `<td rowspan="${spanPdf.get(k) || 1}"><b>${g && g.hasValue ? fmtMinutes(g.total) : "-"}</b></td>`
+        ? `<td rowspan="${spanPdf.get(k) || 1}"><b>${g && g.hasValue ? formatWorkDuration(r, g.total) : "-"}</b></td>`
         : "";
       return `<tr>
       <td>${i + 1}</td>
       <td>${new Date(r.record_date).toLocaleDateString("th-TH", { dateStyle: "short" })}</td>
       <td>${String(r.record_time).slice(0, 5)}</td>
       <td>${Number(r.meter_reading).toLocaleString()}</td>
-      <td>${fmtMinutes(workMinutes.get(r.id))}</td>
+      <td>${formatWorkDuration(r, workMinutes.get(r.id))}</td>
       ${totalCell}
       <td>${r.recorder_name || "-"}</td>
       <td>${r.notes || ""}</td>
@@ -498,13 +526,13 @@ export default function PumpMeters() {
                   <TableCell className="text-xs text-slate-600">{String(l.record_time).slice(0, 5)}</TableCell>
                   <TableCell className="text-xs font-semibold text-slate-800 whitespace-nowrap">{l.pump_machines?.name || "-"}</TableCell>
                   <TableCell className="text-xs text-right font-medium text-slate-700">{Number(l.meter_reading).toLocaleString()}</TableCell>
-                  <TableCell className="text-xs text-right font-bold text-teal-600 bg-teal-50/30 whitespace-nowrap">{fmtMinutes(workMinutes.get(l.id))}</TableCell>
+                  <TableCell className="text-xs text-right font-bold text-teal-600 bg-teal-50/30 whitespace-nowrap">{formatWorkDuration(l, workMinutes.get(l.id))}</TableCell>
                   {groupInfo[i]?.first && (
                     <TableCell
                       rowSpan={groupInfo[i].span}
                       className="text-center align-middle bg-indigo-50/60 border-l border-r border-indigo-100"
                     >
-                      <div className="text-sm font-extrabold text-indigo-700 whitespace-nowrap">{groupInfo[i].hasValue ? fmtMinutes(groupInfo[i].total) : "-"}</div>
+                      <div className="text-sm font-extrabold text-indigo-700 whitespace-nowrap">{groupInfo[i].hasValue ? formatWorkDuration(l, groupInfo[i].total) : "-"}</div>
                       <div className="text-[10px] text-indigo-500 whitespace-nowrap">รวม {groupInfo[i].count} รอบ</div>
                     </TableCell>
                   )}
@@ -568,7 +596,7 @@ export default function PumpMeters() {
             </div>
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-teal-700">
-                {manualHoursRequired ? "ชั่วโมงการทำงานจริง (ชม.) *" : "ชั่วโมงการทำงานที่ใช้ (ชม.)"}
+                {meterDifferenceHours ? "ชั่วโมงการทำงาน (คำนวณจากมิเตอร์)" : "ชั่วโมงการทำงานที่ใช้ (ชม.)"}
               </label>
               <Input
                 type="number"
@@ -577,12 +605,13 @@ export default function PumpMeters() {
                 inputMode="decimal"
                 value={hoursInput}
                 onChange={(e) => { setHoursTouched(true); setHoursInput(e.target.value); }}
-                placeholder={manualHoursRequired ? "กรอกชั่วโมงที่เครื่องทำงานจริง" : "กรอกจำนวนชั่วโมงการทำงาน"}
+                readOnly={meterDifferenceHours}
+                placeholder={meterDifferenceHours ? "รอเลขมิเตอร์ครั้งก่อน" : "กรอกจำนวนชั่วโมงการทำงาน"}
                 className="h-11 text-base font-bold text-teal-700"
               />
               <p className="text-[10px] text-slate-500">
-                {manualHoursRequired
-                  ? "กรอกชั่วโมงการทำงานจริงของเครื่องสูบ"
+                {meterDifferenceHours
+                  ? `เลขมิเตอร์ปัจจุบัน - ครั้งก่อน (${autoHours === null ? "-" : `${autoHours.toLocaleString()} ชม.`})`
                   : `ระบบคำนวณให้อัตโนมัติจากผลต่างมิเตอร์ (${autoHours === null ? "-" : `${autoHours.toLocaleString()} ชม.`}) แก้ไขได้ตามจริง`}
               </p>
             </div>
