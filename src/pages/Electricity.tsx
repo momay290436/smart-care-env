@@ -729,7 +729,7 @@ export default function Electricity() {
           </CardHeader>
           <CardContent className="space-y-3 pt-3 px-4 pb-4">
             {!isScanning ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button onClick={startScanner} className="w-full text-left rounded-2xl bg-white border-2 border-indigo-200 p-3 flex items-center gap-3 shadow-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-95">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-500 flex items-center justify-center flex-shrink-0 shadow">
                     <Camera className="h-6 w-6 text-white"/>
