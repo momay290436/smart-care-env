@@ -598,13 +598,13 @@ export default function Electricity() {
           <p className="text-xs text-slate-500 mt-0.5">บันทึก ติดตาม และคัดแยกรายงานสถิติการใช้งานไฟฟ้า</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2 items-center">
-          <Button onClick={exportExcel} variant="outline" className="w-full sm:w-auto text-xs sm:text-sm h-10 border-slate-200 text-slate-700 font-medium order-2 sm:order-1">
+          <Button onClick={exportExcel} variant="outline" className="w-full sm:w-auto text-sm font-semibold h-12 rounded-2xl border-2 border-slate-200 text-slate-700 bg-white hover:bg-slate-50 order-2 sm:order-1">
             <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600"/> Export รายงาน
           </Button>
           {canManageElectricitySettings && (
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-slate-200 text-slate-700 bg-white shadow-sm" title="ตั้งค่าเมตริกมิเตอร์ไฟฟ้า">
+                <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-2 border-slate-200 text-slate-700 bg-white shadow-sm" title="ตั้งค่าเมตริกมิเตอร์ไฟฟ้า">
                   <Settings2 className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
@@ -620,14 +620,14 @@ export default function Electricity() {
             <Button
               onClick={() => { setPendingOpen(true); setPendingResult(null); }}
               variant="outline"
-              className="w-full sm:w-auto text-xs sm:text-sm h-10 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 font-medium order-2"
+              className="w-full sm:w-auto text-sm font-semibold h-12 rounded-2xl border-2 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 order-2"
             >
               <AlertCircle className="mr-2 h-4 w-4"/> ตรวจสถานที่ค้างลงมิเตอร์
             </Button>
           )}
           <Dialog onOpenChange={(open) => { if(!open) { setGeneratedQrUrl(''); setNewMeter({name:'', code:'', serial:'', qr_url:''}); } }}>
             <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto text-xs sm:text-sm h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm order-1 sm:order-2">
+              <Button className="w-full sm:w-auto text-sm font-bold h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm order-1 sm:order-2">
                 <Plus className="mr-2 h-4 w-4" /> เพิ่มสถานที่ติดตั้ง
               </Button>
             </DialogTrigger>
@@ -730,12 +730,24 @@ export default function Electricity() {
           <CardContent className="space-y-3 pt-3 px-4 pb-4">
             {!isScanning ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Button onClick={startScanner} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
-                  <Camera className="mr-2 h-4 w-4"/> สแกนลงบันทึกค่างวดมิเตอร์ไฟฟ้า
-                </Button>
-                <Button onClick={() => navigate('/generator-check')} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-4 sm:py-5 rounded-xl text-xs sm:text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
-                  <Cog className="mr-2 h-4 w-4"/> บันทึกการตรวจเช็คเครื่องปั่นไฟ
-                </Button>
+                <button onClick={startScanner} className="w-full text-left rounded-2xl bg-white border-2 border-indigo-200 p-3 flex items-center gap-3 shadow-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-95">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-500 flex items-center justify-center flex-shrink-0 shadow">
+                    <Camera className="h-6 w-6 text-white"/>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 text-sm md:text-base">สแกนลงบันทึกค่างวดมิเตอร์ไฟฟ้า</p>
+                    <p className="text-[11px] text-slate-500 truncate">เปิดกล้องสแกนคิวอาร์ประจำมิเตอร์</p>
+                  </div>
+                </button>
+                <button onClick={() => navigate('/generator-check')} className="w-full text-left rounded-2xl bg-white border-2 border-amber-200 p-3 flex items-center gap-3 shadow-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-95">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center flex-shrink-0 shadow">
+                    <Cog className="h-6 w-6 text-white"/>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 text-sm md:text-base">บันทึกการตรวจเช็คเครื่องปั่นไฟ</p>
+                    <p className="text-[11px] text-slate-500 truncate">บันทึกผลตรวจเครื่องปั่นไฟประจำวัน</p>
+                  </div>
+                </button>
               </div>
             ) : (
 
@@ -821,7 +833,7 @@ export default function Electricity() {
               )}
             </div>
 
-            <Button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-xs sm:text-sm shadow-sm active:scale-[0.98] transition-all">ยืนยันและบันทึกข้อมูล</Button>
+            <Button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-2xl text-sm shadow-sm active:scale-[0.98] transition-all">ยืนยันและบันทึกข้อมูล</Button>
           </CardContent>
         </Card>
       </div>
