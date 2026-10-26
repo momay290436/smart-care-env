@@ -1,0 +1,2 @@
+ALTER TABLE public.water_meter_records ADD COLUMN IF NOT EXISTS usage_details text;
+COMMENT ON COLUMN public.water_meter_records.usage_details IS 'รายละเอียดการใช้น้ำเพิ่มเติม (optional, กรอกเฉพาะวันที่มีกิจกรรมใช้น้ำมากกว่าปกติ)';

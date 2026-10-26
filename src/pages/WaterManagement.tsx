@@ -142,7 +142,7 @@ export default function WaterManagement() {
     queryFn: async () => {
       const { data } = await supabase
         .from("water_meter_records")
-        .select("id, record_date, record_time, shift, meter_reading, usage_amount, daily_total, recorder_name, recorded_by, notes, created_at")
+        .select("id, record_date, record_time, shift, meter_reading, usage_amount, daily_total, recorder_name, recorded_by, notes, usage_details, created_at")
         .order("record_date", { ascending: false })
         .order("record_time", { ascending: false })
         .limit(200);
@@ -306,7 +306,7 @@ export default function WaterManagement() {
     }
 
     const wb = XLSX.utils.book_new();
-    const headers = ["วันที่", "เวลา", "มิเตอร์น้ำออก", "จำนวนน้ำที่ใช้ไป", "ผลรวมรายวัน", "ผู้บันทึก", "หมายเหตุ"];
+    const headers = ["วันที่", "เวลา", "มิเตอร์น้ำออก", "จำนวนน้ำที่ใช้ไป", "ผลรวมรายวัน", "ผู้บันทึก", "หมายเหตุ", "รายละเอียดการใช้น้ำเพิ่มเติม"];
     const rows: any[][] = [headers];
     const merges: XLSX.Range[] = [];
     let rowIdx = 1;
@@ -325,6 +325,7 @@ export default function WaterManagement() {
           dailyTotal > 0 ? dailyTotal : "",
           r.recorder_name || "-",
           r.notes || "-",
+          r.usage_details || "-",
         ]);
         rowIdx++;
       });
@@ -341,7 +342,7 @@ export default function WaterManagement() {
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!merges"] = merges;
-    ws["!cols"] = [{ wch: 12 }, { wch: 8 }, { wch: 16 }, { wch: 18 }, { wch: 15 }, { wch: 16 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 12 }, { wch: 8 }, { wch: 16 }, { wch: 18 }, { wch: 15 }, { wch: 16 }, { wch: 20 }, { wch: 28 }];
     
     // Set header style
     for (let i = 0; i < headers.length; i++) {
@@ -498,6 +499,7 @@ export default function WaterManagement() {
         ...meterNotes.filter((note) => note !== "อื่นๆ(ระบุ)"),
         meterNotes.includes("อื่นๆ(ระบุ)") && meterNotesOther ? `อื่นๆ: ${meterNotesOther}` : null,
       ].filter(Boolean).join(", ") : null,
+      usage_details: meterUsageDetails.trim() || null,
       });
       if (error) throw error;
       if (shift === "afternoon" && dailyTotal !== null) {
@@ -511,6 +513,7 @@ export default function WaterManagement() {
       queryClient.invalidateQueries({ queryKey: ["water-meter-recent"] });
       setShowMeterDialog(false);
       setMeterReading("");
+      setMeterUsageDetails("");
       setMeterNotes([]);
       setMeterNotesOther("");
       setMeterCustomDateTime("");
@@ -526,6 +529,7 @@ export default function WaterManagement() {
         meter_reading: Number(editMeterForm.meter_reading) || editingMeterRecord.meter_reading,
         usage_amount: Number(editMeterForm.usage_amount) || editingMeterRecord.usage_amount,
         notes: editMeterForm.notes || editingMeterRecord.notes,
+        usage_details: editMeterForm.usage_details.trim() || editingMeterRecord.usage_details || null,
       }).eq("id", editingMeterRecord.id);
       if (error) throw error;
     },
@@ -1078,6 +1082,7 @@ export default function WaterManagement() {
                           <th className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">รวมต่อวัน</th>
                           <th className="whitespace-nowrap px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">ผู้บันทึก</th>
                           <th className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">หมายเหตุ</th>
+                          <th className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">รายละเอียดการใช้น้ำเพิ่มเติม</th>
                           <th className="whitespace-nowrap px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">การจัดการ</th>
                         </tr>
                       </thead>
@@ -1102,12 +1107,13 @@ export default function WaterManagement() {
                                 <td className="px-4 py-3 text-right text-xs text-cyan-700 font-bold">{r.daily_total != null ? Number(r.daily_total).toLocaleString() : "-"}</td>
                                 <td className="px-4 py-3 text-center text-xs text-slate-600">{r.recorder_name || "-"}</td>
                                 <td className="px-4 py-3 text-xs text-slate-600">{r.notes || "-"}</td>
+                                <td className="px-4 py-3 text-xs text-slate-600">{r.usage_details || "-"}</td>
                                 <td className="px-4 py-3 text-center text-xs">
                                   {isAdmin ? (
                                     <div className="flex gap-1 justify-center">
                                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-blue-100 text-blue-600" onClick={() => {
                                         setEditingMeterRecord(r);
-                                        setEditMeterForm({ meter_reading: String(r.meter_reading), usage_amount: String(r.usage_amount || ""), notes: r.notes || "" });
+                                        setEditMeterForm({ meter_reading: String(r.meter_reading), usage_amount: String(r.usage_amount || ""), notes: r.notes || "", usage_details: r.usage_details || "" });
                                         setShowEditMeterDialog(true);
                                       }}>
                                         <Edit className="h-4 w-4" />
@@ -1127,7 +1133,7 @@ export default function WaterManagement() {
                           );
                         })}
                         {filteredMeterRecords.length === 0 && (
-                          <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">ยังไม่มีข้อมูล</td></tr>
+                          <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">ยังไม่มีข้อมูล</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -1490,6 +1496,10 @@ export default function WaterManagement() {
               <div>
                 <Label className="font-semibold">หมายเหตุ</Label>
                 <Textarea value={editMeterForm.notes} onChange={(e) => setEditMeterForm({ ...editMeterForm, notes: e.target.value })} placeholder="หมายเหตุเพิ่มเติม..." rows={3} className="rounded-2xl" />
+              </div>
+              <div>
+                <Label className="font-semibold">รายละเอียดการใช้น้ำเพิ่มเติม</Label>
+                <Textarea value={editMeterForm.usage_details} onChange={(e) => setEditMeterForm({ ...editMeterForm, usage_details: e.target.value })} placeholder="รายละเอียดการใช้น้ำเพิ่มเติม (ไม่บังคับกรอก)..." rows={2} className="rounded-2xl" />
               </div>
               <Button className="w-full h-12 rounded-2xl text-base font-bold" onClick={() => updateMeterRecord.mutate()} disabled={updateMeterRecord.isPending}>
                 {updateMeterRecord.isPending ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
