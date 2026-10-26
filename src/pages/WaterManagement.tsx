@@ -70,9 +70,10 @@ export default function WaterManagement() {
   const [selectedQualityLog, setSelectedQualityLog] = useState<any>(null);
   const [editingMeterRecord, setEditingMeterRecord] = useState<any>(null);
   const [editingDisinfectantLog, setEditingDisinfectantLog] = useState<any>(null);
-  const [editMeterForm, setEditMeterForm] = useState({ meter_reading: "", usage_amount: "", notes: "" });
+  const [editMeterForm, setEditMeterForm] = useState({ meter_reading: "", usage_amount: "", notes: "", usage_details: "" });
   const [editDisinfectantForm, setEditDisinfectantForm] = useState({ source_concentration: "", source_ph: "", outlet_concentration: "", outlet_ph: "", notes: "" });
   const [meterReading, setMeterReading] = useState("");
+  const [meterUsageDetails, setMeterUsageDetails] = useState("");
   const [meterNotes, setMeterNotes] = useState<string[]>([]);
   const [meterNotesOther, setMeterNotesOther] = useState("");
   const [meterCustomDateTime, setMeterCustomDateTime] = useState("");
