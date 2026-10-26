@@ -2207,6 +2207,7 @@ export type Database = {
           recorder_name: string
           shift: string
           usage_amount: number
+          usage_details: string | null
         }
         Insert: {
           created_at?: string
@@ -2220,6 +2221,7 @@ export type Database = {
           recorder_name?: string
           shift?: string
           usage_amount?: number
+          usage_details?: string | null
         }
         Update: {
           created_at?: string
@@ -2233,6 +2235,7 @@ export type Database = {
           recorder_name?: string
           shift?: string
           usage_amount?: number
+          usage_details?: string | null
         }
         Relationships: []
       }
