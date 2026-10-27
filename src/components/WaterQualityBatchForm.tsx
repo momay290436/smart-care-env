@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { format, startOfDay } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { Plus, Download, Pencil, CalendarIcon } from "lucide-react";
+import { Plus, Download, Pencil, CalendarIcon, Trash2 } from "lucide-react";
 import ExcelJS from "exceljs";
 
 const WATER_TYPES = [
@@ -276,6 +276,18 @@ export default function WaterQualityBatchForm() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const deleteBatch = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("water_quality_batches").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("ลบผลตรวจสำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["water-quality-batches"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const updateTestDate = useMutation({
     mutationFn: async () => {
       if (!selectedBatch || !testDateDraft) throw new Error("กรุณาเลือกวันที่");
@@ -429,9 +441,17 @@ export default function WaterQualityBatchForm() {
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="rounded-full text-[10px]">{getSheetName(batch.water_type)}</Badge>
                 {isAdmin && (
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={(e) => { e.stopPropagation(); startEdit(batch); }}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
+                  <>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" title="แก้ไขผลตรวจ" aria-label="แก้ไขผลตรวจ" onClick={(e) => { e.stopPropagation(); startEdit(batch); }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700" title="ลบผลตรวจ" aria-label="ลบผลตรวจ" disabled={deleteBatch.isPending} onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`ยืนยันลบผลตรวจ${getSheetName(batch.water_type)} รอบ ${batch.report_period}?`)) deleteBatch.mutate(batch.id);
+                    }}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
               </div>
             </CardContent>
