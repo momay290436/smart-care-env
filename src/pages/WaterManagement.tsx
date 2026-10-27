@@ -138,6 +138,18 @@ export default function WaterManagement() {
     },
   });
 
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const { data: todayDuty = [] } = useQuery({
+    queryKey: ["duty-assignments-today", todayStr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("duty_assignments")
+        .select("shift_type, duty_staff(full_name, phone)")
+        .eq("duty_date", todayStr);
+      return data || [];
+    },
+  });
+
   const { data: meterRecords = [] } = useQuery({
     queryKey: ["water-meter-all"],
     queryFn: async () => {
