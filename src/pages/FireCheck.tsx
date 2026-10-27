@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
-import { Html5QrcodeScanner } from "html5-qrcode";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { Html5Qrcode } from "html5-qrcode";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { th } from "date-fns/locale";
@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, Download, Trash2, Flame, ShieldAlert, CheckCircle, RefreshCw, AlertTriangle, XCircle } from "lucide-react";
+import { Check, ChevronsUpDown, Download, Trash2, Flame, ShieldAlert, CheckCircle, RefreshCw, AlertTriangle, XCircle, QrCode } from "lucide-react";
 import { Wrench } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import { createAutoIssue, getIssueSeverity, hasFireCheckAnomaly } from "@/lib/createAutoIssue";
@@ -43,24 +43,62 @@ const inspectionItems: { key: keyof InspectionDetails; group: string; label: str
   { key: "tamper_seal_ok", group: "อุปกรณ์นิรภัย", label: "ซีลตะกั่ว/พลาสติก (Tamper Seal)", desc: "รัดสลักไว้ ไม่มีรอยขาด" },
 ];
 
-function QrScannerSection({ onResult }: { onResult: (data: string) => void }) {
-  const [showScanner, setShowScanner] = useState(true);
+function QrScannerDialog({ open, onOpenChange, onResult }: { open: boolean; onOpenChange: (open: boolean) => void; onResult: (data: string) => boolean }) {
+  const onResultRef = useRef(onResult);
+  const onOpenChangeRef = useRef(onOpenChange);
+  onResultRef.current = onResult;
+  onOpenChangeRef.current = onOpenChange;
+
   useEffect(() => {
-    if (!showScanner) return;
-    const scanner = new Html5QrcodeScanner("qr-reader-fire", { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true, facingMode: "environment" } as any, false);
-    scanner.render(
-      (text) => { onResult(text); scanner.clear(); setShowScanner(false); },
-      () => {}
-    );
-    return () => { try { scanner.clear(); } catch {} };
-  }, [showScanner]);
+    if (!open) return;
+    let cancelled = false;
+    let started = false;
+    let lastDecodedText = "";
+    const scanner = new Html5Qrcode("qr-reader-fire");
+
+    const startScanner = async () => {
+      try {
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (text) => {
+            if (cancelled || text === lastDecodedText) return;
+            lastDecodedText = text;
+            if (!onResultRef.current(text)) return;
+            cancelled = true;
+            onOpenChangeRef.current(false);
+          },
+          () => {},
+        );
+        started = true;
+        if (cancelled) {
+          await scanner.stop();
+          scanner.clear();
+        }
+      } catch {
+        if (!cancelled) {
+          toast.error("เปิดกล้องหลังไม่สำเร็จ กรุณาอนุญาตการใช้กล้องแล้วลองอีกครั้ง");
+          onOpenChangeRef.current(false);
+        }
+      }
+    };
+
+    void startScanner();
+    return () => {
+      cancelled = true;
+      if (started && scanner.isScanning) {
+        void scanner.stop().then(() => scanner.clear()).catch(() => {});
+      }
+    };
+  }, [open]);
+
   return (
-    <>
-      <Button variant="default" className="w-full h-16 rounded-2xl text-lg font-bold gap-2 shadow-lg" onClick={() => setShowScanner(!showScanner)}>
-        📷 {showScanner ? "ปิดกล้อง" : "เปิดกล้องสแกน QR Code"}
-      </Button>
-      {showScanner && <div id="qr-reader-fire" className="w-full rounded-2xl overflow-hidden" />}
-    </>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg rounded-2xl">
+        <DialogHeader><DialogTitle>สแกน QR Code ถังดับเพลิง</DialogTitle></DialogHeader>
+        <div id="qr-reader-fire" className="w-full overflow-hidden rounded-xl" />
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -68,6 +106,7 @@ export default function FireCheck() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [locationId, setLocationId] = useState("");
   const [locationOpen, setLocationOpen] = useState(false);
   const [selectedCheck, setSelectedCheck] = useState<any>(null);
@@ -301,10 +340,25 @@ export default function FireCheck() {
           }), "fire-check", "ตรวจถังดับเพลิง");
           toast.success("ส่งออก Excel สำเร็จ");
         }}>Excel</Button>
-        <Button size="sm" className="rounded-2xl h-9" onClick={() => setShowForm(!showForm)}>
-          {showForm ? "ซ่อน" : "+ สแกน QR ตรวจ"}
+        <Button size="sm" className="rounded-2xl h-10 gap-1.5 border border-white/30 bg-gradient-to-r from-blue-600 to-cyan-500 font-bold text-white shadow-md hover:brightness-110" onClick={() => {
+          if (!showForm) setShowForm(true);
+          if (showForm && locationId) setShowForm(false);
+          else setScannerOpen(true);
+        }}>
+          <QrCode className="h-4 w-4" /> {showForm && locationId ? "ซ่อน" : showForm ? "สแกน QR อีกครั้ง" : "+ สแกน QR ตรวจ"}
         </Button>
       </PageHeader>
+
+      <QrScannerDialog open={scannerOpen} onOpenChange={setScannerOpen} onResult={(data) => {
+        const loc = locations?.find((l) => l.id === data || l.qr_code_data === data);
+        if (!loc) {
+          toast.error("ไม่พบถังดับเพลิงในระบบ");
+          return false;
+        }
+        setLocationId(loc.id);
+        toast.success(`เลือกตำแหน่ง: ${loc.name}`);
+        return true;
+      }} />
 
       <div className="grid gap-3 md:grid-cols-3">
         <Card className="shadow-card rounded-3xl border border-border/50">
@@ -473,21 +527,12 @@ export default function FireCheck() {
 
       {showForm && (
         <div className="space-y-4 animate-slide-up">
-          {/* QR Scanner for location */}
+          {/* Fire extinguisher location */}
           <Card className="border border-border/50 shadow-elevated rounded-2xl">
             <CardContent className="pt-5 space-y-3">
-              <Label className="font-bold text-base">สแกน QR Code ถังดับเพลิง</Label>
+              <Label className="font-bold text-base">ตำแหน่งถังดับเพลิง</Label>
               {!locationId ? (
                 <>
-                  <QrScannerSection onResult={(data) => {
-                    const loc = locations?.find((l) => l.id === data || l.qr_code_data === data);
-                    if (loc) { setLocationId(loc.id); toast.success(`เลือกตำแหน่ง: ${loc.name}`); }
-                    else toast.error("ไม่พบถังดับเพลิงในระบบ");
-                  }} />
-                  <div className="relative my-2">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/50" /></div>
-                    <div className="relative flex justify-center"><span className="bg-card px-3 text-xs text-muted-foreground">หรือค้นหาด้วยตนเอง</span></div>
-                  </div>
                   <Popover open={locationOpen} onOpenChange={setLocationOpen}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-12 rounded-2xl">
