@@ -557,7 +557,7 @@ export default function WaterManagement() {
       queryClient.invalidateQueries({ queryKey: ["water-meter-all"] });
       setShowEditMeterDialog(false);
       setEditingMeterRecord(null);
-      setEditMeterForm({ meter_reading: "", usage_amount: "", notes: "" });
+      setEditMeterForm({ meter_reading: "", usage_amount: "", notes: "", usage_details: "" });
     },
     onError: (e: any) => toast.error(e.message),
   });
