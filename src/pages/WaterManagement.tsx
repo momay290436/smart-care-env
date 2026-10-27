@@ -754,6 +754,40 @@ export default function WaterManagement() {
                 </div>
               </CardContent>
             </Card>
+            <Card className="bg-white rounded-3xl shadow-xl border-0 border-l-4 border-l-indigo-600">
+              <CardContent className="p-5 md:p-6 h-full">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-indigo-600 to-blue-500 rounded-2xl flex items-center justify-center shadow flex-shrink-0">
+                    <Users className="h-6 w-6 md:h-7 md:w-7 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-xs md:text-sm text-slate-500 font-semibold uppercase tracking-wider">เวรเจ้าหน้าที่วันนี้</p>
+                    <p className="text-sm md:text-base font-black text-slate-900">{format(new Date(), "d MMM yyyy", { locale: th })}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {DUTY_SHIFTS.map((s) => {
+                    const a = (todayDuty as any[]).find((d) => d.shift_type === s.key);
+                    const name = a?.duty_staff?.full_name;
+                    const phone = a?.duty_staff?.phone;
+                    return (
+                      <div key={s.key} className={cn("flex items-center gap-2 rounded-xl px-3 py-2", s.soft)}>
+                        <s.icon className="h-4 w-4 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] opacity-80 leading-tight">{s.label}</p>
+                          <p className="text-sm font-bold truncate leading-tight">{name || "ยังไม่กำหนด"}</p>
+                        </div>
+                        {phone && (
+                          <a href={`tel:${phone}`} className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:underline">
+                            <Phone className="h-3.5 w-3.5" /> {phone}
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
             <Card className={cn(
               "rounded-3xl shadow-xl border-0 border-l-4 transition-all",
               emergencyStart ? "bg-gradient-to-br from-red-50 via-orange-50 to-white border-l-red-600 animate-pulse-subtle" : "bg-white border-l-red-500"
