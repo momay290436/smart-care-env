@@ -208,11 +208,11 @@ export function SewageTrashDialog({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-sm font-semibold">วันที่</Label>
-                <Input type="date" value={form.record_date} onChange={(e) => setForm({ ...form, record_date: e.target.value })} className="h-11 rounded-2xl mt-1" />
+                <Input type="date" value={form.record_date} onChange={(e) => setForm({ ...form, record_date: e.target.value })} disabled={!isAdmin} className="h-11 rounded-2xl mt-1" />
               </div>
               <div>
                 <Label className="text-sm font-semibold">เวลา</Label>
-                <Input type="time" value={form.record_time} onChange={(e) => setForm({ ...form, record_time: e.target.value, round: roundFromTime(e.target.value) })} className="h-11 rounded-2xl mt-1" />
+                <Input type="time" value={form.record_time} onChange={(e) => setForm({ ...form, record_time: e.target.value, round: roundFromTime(e.target.value) })} disabled={!isAdmin} className="h-11 rounded-2xl mt-1" />
               </div>
             </div>
 

@@ -119,11 +119,11 @@ export function WastewaterInsertDialog({ open, onOpenChange }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-semibold">วันที่ตรวจ *</Label>
-              <Input type="date" value={form.check_date} onChange={(e) => setForm({ ...form, check_date: e.target.value })} className="h-11 rounded-2xl" />
+              <Input type="date" value={form.check_date} onChange={(e) => setForm({ ...form, check_date: e.target.value })} disabled={!isAdmin} className="h-11 rounded-2xl" />
             </div>
             <div>
               <Label className="text-xs font-semibold">เวลา *</Label>
-              <Input type="time" value={form.check_time} onChange={(e) => setForm({ ...form, check_time: e.target.value })} className="h-11 rounded-2xl" />
+              <Input type="time" value={form.check_time} onChange={(e) => setForm({ ...form, check_time: e.target.value })} disabled={!isAdmin} className="h-11 rounded-2xl" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

@@ -168,7 +168,7 @@ export function WastewaterStatsDialog({ open, onOpenChange }: DialogProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs font-semibold">วัน/เดือน/ปี *</Label>
-              <Input type="date" value={form.record_date} onChange={(e) => setForm({ ...form, record_date: e.target.value })} className="h-11 rounded-2xl" />
+              <Input type="date" value={form.record_date} onChange={(e) => setForm({ ...form, record_date: e.target.value })} disabled={!isAdmin} className="h-11 rounded-2xl" />
             </div>
             <div>
               <Label className="text-xs font-semibold">ปริมาณใช้ไฟฟ้า (หน่วย)</Label>
