@@ -1333,6 +1333,16 @@ export default function WaterManagement() {
                 <p className="mt-2 text-xs text-slate-500">ระบุเพิ่มเติม: {meterNotesOther}</p>
               )}
             </div>
+            <div>
+              <Label className="font-semibold">รายละเอียดการใช้น้ำเพิ่มเติม</Label>
+              <Textarea
+                value={meterUsageDetails}
+                onChange={(e) => setMeterUsageDetails(e.target.value)}
+                placeholder="เช่น วันนี้มีการล้างอาคาร / ใช้น้ำปริมาณมากเป็นพิเศษ (ไม่บังคับกรอก)"
+                rows={2}
+                className="rounded-2xl"
+              />
+            </div>
             <p className="text-xs text-muted-foreground">💡 ระบบจะคำนวณ "จำนวนน้ำที่ใช้ไป" อัตโนมัติจากเลขมิเตอร์ครั้งก่อนหน้า</p>
             {isAdmin && (
               <div className="space-y-3 rounded-2xl bg-blue-50/50 p-4 border border-blue-100">
