@@ -29,8 +29,14 @@ import DutyRosterTab from "@/components/DutyRosterTab";
 import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
 import WastewaterTab, { WastewaterInsertDialog } from "@/components/WastewaterTab";
 import WastewaterStatsHistory, { WastewaterStatsDialog } from "@/components/WastewaterStatsTab";
-import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon, Eye, Edit, Trash2, Check, X, FlaskConical, Leaf, ClipboardList } from "lucide-react";
+import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon, Eye, Edit, Trash2, Check, X, FlaskConical, Leaf, ClipboardList, Moon, Users, Phone } from "lucide-react";
 import { BarChart3, Waves } from "lucide-react";
+
+const DUTY_SHIFTS = [
+  { key: "water_morning", label: "เวรประปา (เช้า)", icon: Droplets, color: "bg-blue-600", soft: "bg-blue-50 text-blue-900" },
+  { key: "wastewater_morning", label: "เวรบ่อบำบัด (เช้า)", icon: Waves, color: "bg-emerald-600", soft: "bg-emerald-50 text-emerald-900" },
+  { key: "night_both", label: "เวรดึก (ประปา + บ่อบำบัด)", icon: Moon, color: "bg-indigo-600", soft: "bg-indigo-50 text-indigo-900" },
+];
 import * as XLSX from "xlsx";
 
 const CHECK_POINTS = ["อาคาร OPD", "อาคาร IPD ชาย", "อาคาร IPD หญิง", "อาคารอำนวยการ", "ห้องผ่าตัด", "ห้องปฏิบัติการ", "โรงครัว"];
@@ -134,6 +140,18 @@ export default function WaterManagement() {
     queryKey: ["water-quality-logs"],
     queryFn: async () => {
       const { data } = await supabase.from("water_quality_logs").select("*").is("disinfectant_name", null).order("created_at", { ascending: false }).limit(100);
+      return data || [];
+    },
+  });
+
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const { data: todayDuty = [] } = useQuery({
+    queryKey: ["duty-assignments-today", todayStr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("duty_assignments")
+        .select("shift_type, duty_staff(full_name, phone)")
+        .eq("duty_date", todayStr);
       return data || [];
     },
   });
@@ -539,7 +557,7 @@ export default function WaterManagement() {
       queryClient.invalidateQueries({ queryKey: ["water-meter-all"] });
       setShowEditMeterDialog(false);
       setEditingMeterRecord(null);
-      setEditMeterForm({ meter_reading: "", usage_amount: "", notes: "" });
+      setEditMeterForm({ meter_reading: "", usage_amount: "", notes: "", usage_details: "" });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -720,7 +738,7 @@ export default function WaterManagement() {
         const ss = remaining % 60;
         const fmt = (n: number) => n.toString().padStart(2, "0");
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <Card className="bg-gradient-to-br from-blue-50 via-cyan-50 to-white rounded-3xl shadow-xl border-0 border-l-4 border-l-blue-600">
               <CardContent className="p-5 md:p-6 flex items-center gap-5">
                 <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
@@ -733,6 +751,40 @@ export default function WaterManagement() {
                   {avgDaily > 0 && (
                     <p className="text-xs text-slate-500 mt-2">ใช้น้ำเฉลี่ย {avgDaily.toFixed(1)} ลบ.ม./วัน · รองรับได้ ~{(totalSeconds / 3600).toFixed(1)} ชม.</p>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-white rounded-3xl shadow-xl border-0 border-l-4 border-l-indigo-600">
+              <CardContent className="p-5 md:p-6 h-full">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-indigo-600 to-blue-500 rounded-2xl flex items-center justify-center shadow flex-shrink-0">
+                    <Users className="h-6 w-6 md:h-7 md:w-7 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-xs md:text-sm text-slate-500 font-semibold uppercase tracking-wider">เวรเจ้าหน้าที่วันนี้</p>
+                    <p className="text-sm md:text-base font-black text-slate-900">{format(new Date(), "d MMM yyyy", { locale: th })}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {DUTY_SHIFTS.map((s) => {
+                    const a = (todayDuty as any[]).find((d) => d.shift_type === s.key);
+                    const name = a?.duty_staff?.full_name;
+                    const phone = a?.duty_staff?.phone;
+                    return (
+                      <div key={s.key} className={cn("flex items-center gap-2 rounded-xl px-3 py-2", s.soft)}>
+                        <s.icon className="h-4 w-4 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] opacity-80 leading-tight">{s.label}</p>
+                          <p className="text-sm font-bold truncate leading-tight">{name || "ยังไม่กำหนด"}</p>
+                        </div>
+                        {phone && (
+                          <a href={`tel:${phone}`} className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:underline">
+                            <Phone className="h-3.5 w-3.5" /> {phone}
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
