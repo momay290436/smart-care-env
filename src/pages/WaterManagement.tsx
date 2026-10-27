@@ -29,8 +29,14 @@ import DutyRosterTab from "@/components/DutyRosterTab";
 import WaterQualityBatchForm from "@/components/WaterQualityBatchForm";
 import WastewaterTab, { WastewaterInsertDialog } from "@/components/WastewaterTab";
 import WastewaterStatsHistory, { WastewaterStatsDialog } from "@/components/WastewaterStatsTab";
-import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon, Eye, Edit, Trash2, Check, X, FlaskConical, Leaf, ClipboardList } from "lucide-react";
+import { Droplets, Gauge, AlertTriangle, Plus, Wrench, Download, Settings, CalendarIcon, Eye, Edit, Trash2, Check, X, FlaskConical, Leaf, ClipboardList, Moon, Users, Phone } from "lucide-react";
 import { BarChart3, Waves } from "lucide-react";
+
+const DUTY_SHIFTS = [
+  { key: "water_morning", label: "เวรประปา (เช้า)", icon: Droplets, color: "bg-blue-600", soft: "bg-blue-50 text-blue-900" },
+  { key: "wastewater_morning", label: "เวรบ่อบำบัด (เช้า)", icon: Waves, color: "bg-emerald-600", soft: "bg-emerald-50 text-emerald-900" },
+  { key: "night_both", label: "เวรดึก (ประปา + บ่อบำบัด)", icon: Moon, color: "bg-indigo-600", soft: "bg-indigo-50 text-indigo-900" },
+];
 import * as XLSX from "xlsx";
 
 const CHECK_POINTS = ["อาคาร OPD", "อาคาร IPD ชาย", "อาคาร IPD หญิง", "อาคารอำนวยการ", "ห้องผ่าตัด", "ห้องปฏิบัติการ", "โรงครัว"];
