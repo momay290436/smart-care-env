@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { calculatePumpHours } from "@/lib/pumpMeterCalculation";
 import { ArrowLeft, Camera, X, Waves, Wind, Printer, Save, Pencil, Trash2, CheckCircle2 } from "lucide-react";
 
 declare global { interface Window { Html5Qrcode: any } }
@@ -126,19 +127,27 @@ export default function PumpMeters() {
 
   const autoHours = useMemo(() => {
     if (meterReading === "" || lastReading === null) return null;
-    return Math.round((Number(meterReading) - lastReading) * 100) / 100;
+    return calculatePumpHours(Number(meterReading), lastReading);
   }, [meterReading, lastReading]);
 
   const formMachine = machines.find((m: any) => m.id === machineId);
   const meterDifferenceHours = isWastewaterOrSumpPump(formMachine?.name, formMachine?.machine_type);
 
-  // ชั่วโมงเครื่องสูบน้ำเสียและบ่อพักให้เจ้าหน้าที่กรอกเอง
   const [hoursInput, setHoursInput] = useState("");
   const [hoursTouched, setHoursTouched] = useState(false);
+  const [meterError, setMeterError] = useState("");
   useEffect(() => {
     if (hoursTouched) return;
-    setHoursInput(autoHours === null ? "" : String(autoHours));
+    setHoursInput(autoHours === null ? "" : autoHours.toFixed(2));
   }, [autoHours, hoursTouched]);
+
+  useEffect(() => {
+    if (!meterDifferenceHours || meterReading === "" || lastReading === null) {
+      setMeterError("");
+      return;
+    }
+    setMeterError(Number(meterReading) < lastReading ? "เลขมิเตอร์ล่าสุดต้องไม่น้อยกว่าเลขมิเตอร์ก่อนหน้า" : "");
+  }, [meterDifferenceHours, meterReading, lastReading]);
 
   const hoursUsed = hoursInput === "" ? autoHours : Number(hoursInput);
 
@@ -200,6 +209,7 @@ export default function PumpMeters() {
     setNotes("");
     setHoursTouched(false);
     setHoursInput("");
+    setMeterError("");
     setRecorderName(profile?.full_name || "");
     setOpenForm(true);
   };
@@ -213,7 +223,7 @@ export default function PumpMeters() {
     const previousReading = previousLog?.meter_reading ?? log.previous_reading;
     const calculatedHours = previousReading === null || previousReading === undefined
       ? null
-      : Number(log.meter_reading) - Number(previousReading);
+      : calculatePumpHours(Number(log.meter_reading), Number(previousReading));
     setEditId(log.id);
     setMachineId(log.machine_id);
     setRecordDate(log.record_date);
@@ -222,8 +232,11 @@ export default function PumpMeters() {
     setNotes(log.notes || "");
     setHoursTouched(!usesMeterDifference);
     setHoursInput(usesMeterDifference
-      ? calculatedHours === null ? "" : String(Math.round(calculatedHours * 100) / 100)
+      ? calculatedHours === null ? "" : calculatedHours.toFixed(2)
       : log.hours_used === null || log.hours_used === undefined ? "" : String(log.hours_used));
+    setMeterError(usesMeterDifference && previousReading !== null && previousReading !== undefined && Number(log.meter_reading) < Number(previousReading)
+      ? "เลขมิเตอร์ล่าสุดต้องไม่น้อยกว่าเลขมิเตอร์ก่อนหน้า"
+      : "");
     setRecorderName(log.recorder_name || profile?.full_name || "");
     setOpenForm(true);
   };
@@ -232,6 +245,10 @@ export default function PumpMeters() {
   const handleSave = async () => {
     if (!machineId || meterReading === "") {
       return toast({ variant: "destructive", title: "กรุณาเลือกเครื่องและระบุเลขมิเตอร์" });
+    }
+    if (meterDifferenceHours && meterError) {
+      setHoursInput("0.00");
+      return toast({ variant: "destructive", title: meterError, description: "ชั่วโมงการทำงานถูกกำหนดเป็น 0.00 ชม." });
     }
     setSaving(true);
     try {
@@ -301,7 +318,8 @@ export default function PumpMeters() {
           const previousReading = i > 0 ? Number(sorted[i - 1].meter_reading) : Number(log.previous_reading);
           const hasPreviousReading = i > 0 || (log.previous_reading !== null && log.previous_reading !== undefined && log.previous_reading !== "");
           if (hasPreviousReading && Number.isFinite(currentReading) && Number.isFinite(previousReading)) {
-            map.set(log.id, (currentReading - previousReading) * 60);
+            const hours = calculatePumpHours(currentReading, previousReading);
+            if (hours !== null) map.set(log.id, hours * 60);
           }
           return;
         }
@@ -355,9 +373,12 @@ export default function PumpMeters() {
   const formDayTotal = useMemo(() => {
     const others = logs
       .filter((l: any) => l.machine_id === machineId && l.record_date === recordDate && l.id !== editId)
-      .reduce((s: number, l: any) => s + Number(l.hours_used ?? 0), 0);
+      .reduce((s: number, l: any) => {
+        const isPump = isWastewaterOrSumpPump(l.pump_machines?.name, l.pump_machines?.machine_type);
+        return s + (isPump ? Number(workMinutes.get(l.id) ?? 0) / 60 : Number(l.hours_used ?? 0));
+      }, 0);
     return Math.round((others + (hoursUsed ?? 0)) * 100) / 100;
-  }, [logs, machineId, recordDate, editId, hoursUsed]);
+  }, [logs, machineId, recordDate, editId, hoursUsed, workMinutes]);
 
 
   const selectedMachine = machines.find((m: any) => m.id === filterMachine);
@@ -611,10 +632,11 @@ export default function PumpMeters() {
               />
               <p className="text-[10px] text-slate-500">
                 {meterDifferenceHours
-                  ? `เลขมิเตอร์ปัจจุบัน - ครั้งก่อน (${autoHours === null ? "-" : `${autoHours.toLocaleString()} ชม.`})`
+                  ? `หน่วยที่ใช้ / 2.2 kW (${autoHours === null ? "-" : `${autoHours.toFixed(2)} ชม.`})`
                   : `ระบบคำนวณให้อัตโนมัติจากผลต่างมิเตอร์ (${autoHours === null ? "-" : `${autoHours.toLocaleString()} ชม.`}) แก้ไขได้ตามจริง`}
               </p>
             </div>
+            {meterError && <p className="text-xs font-semibold text-rose-600">{meterError} ระบบตั้งชั่วโมงการทำงานเป็น 0.00 ชม.</p>}
             {isAdmin && (
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-slate-500">ผู้บันทึก (แอดมินแก้ไขได้)</label>
