@@ -52,12 +52,27 @@ function QrScannerDialog({ open, onOpenChange, onResult }: { open: boolean; onOp
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    let scanner: Html5Qrcode | null = null;
     let started = false;
     let lastDecodedText = "";
-    const scanner = new Html5Qrcode("qr-reader-fire");
 
     const startScanner = async () => {
+      // รอให้ element ถูก render ขึ้นจริงก่อน (Dialog บางครั้ง mount ช้ากว่า effect)
+      let el: HTMLElement | null = null;
+      for (let i = 0; i < 50 && !cancelled; i++) {
+        el = document.getElementById("qr-reader-fire");
+        if (el) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      if (cancelled || !el) {
+        if (!cancelled) {
+          toast.error("เปิดกล้องหลังไม่สำเร็จ กรุณาลองอีกครั้ง");
+          onOpenChangeRef.current(false);
+        }
+        return;
+      }
       try {
+        scanner = new Html5Qrcode("qr-reader-fire");
         await scanner.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
@@ -86,8 +101,8 @@ function QrScannerDialog({ open, onOpenChange, onResult }: { open: boolean; onOp
     void startScanner();
     return () => {
       cancelled = true;
-      if (started && scanner.isScanning) {
-        void scanner.stop().then(() => scanner.clear()).catch(() => {});
+      if (started && scanner?.isScanning) {
+        void scanner.stop().then(() => scanner?.clear()).catch(() => {});
       }
     };
   }, [open]);
